@@ -1,0 +1,1402 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solicitud de Movimiento de Talento</title>
+<meta name="description" content="Formulario institucional para solicitar movimientos de talento a Business Partners.">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#00195A">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https:; base-uri 'none'; form-action 'none'; object-src 'none'">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300195A'/%3E%3Ctext x='32' y='43' font-family='Arial' font-weight='800' font-size='30' text-anchor='middle' fill='white'%3Eu%3C/text%3E%3Crect x='14' y='50' width='36' height='4' rx='2' fill='%23F3BE00'/%3E%3C/svg%3E">
+<style>
+:root{
+  /* Paleta institucional USIL (tomada de usil.edu.pe). Cambia solo estas variables para re-tematizar. */
+  --navy:#00195A; --royal:#012187; --green:#0036DC; --green2:#1E50DC; --accent:#F3BE00;
+  --bg:#F3F6FD; --card:#fff; --border:#D9E1F5; --muted:#5B6A8F; --text:#14224A; --warn:#b7791f; --danger:#c23030;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+header{background:linear-gradient(100deg,var(--navy),var(--royal));color:#fff;position:sticky;top:0;z-index:20;border-bottom:4px solid var(--accent)}
+.hwrap{max-width:1100px;margin:auto;padding:14px 20px 10px;position:relative}
+.userchip{position:absolute;right:20px;top:14px;display:flex;gap:10px;align-items:center;font-size:12.5px;color:#C9D6F5}
+.userchip button{padding:6px 11px;font-size:12px;background:#ffffff1f;color:#fff}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 90px}
+button:hover:not(:disabled){filter:brightness(1.1)}
+header h1{margin:0;font-size:21px}
+header p{margin:2px 0 8px;color:#C9D6F5;font-size:13px}
+.pbar{height:6px;background:#ffffff33;border-radius:9px;overflow:hidden}
+#barfill{height:100%;width:0;background:#F3BE00;transition:width .25s}
+#barTxt{color:#C9D6F5;font-size:12px;margin-top:4px}
+.wrap{max-width:1100px;margin:auto;padding:18px 20px 110px}
+#stepper{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+#stepper button{background:#fff;color:var(--muted);border:1px solid var(--border);padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center}
+#stepper button b{display:inline-flex;width:22px;height:22px;border-radius:50%;background:#E8EDFB;align-items:center;justify-content:center;font-size:12px}
+#stepper button.on{border-color:var(--green);color:var(--green);box-shadow:0 0 0 2px #BCCBFF}
+#stepper button.on b{background:var(--green);color:#fff}
+#stepper button.ok b{background:#012187;color:#fff}
+#stepper button:disabled{opacity:.45}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:16px;box-shadow:0 2px 10px #00195A0A}
+.panel>h2{margin:0 0 4px;font-size:20px}
+.panel>.muted{margin:0 0 16px}
+h3{font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--green);margin:22px 0 10px;padding-bottom:6px;border-bottom:2px solid #E3EAFF}
+h3:first-of-type{margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.grid2 .q:has(textarea){grid-column:1/-1}
+label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.q>label::after{content:" *";color:var(--danger)}
+input,select,textarea{width:100%;padding:10px 11px;border:1px solid #BAC6E6;border-radius:9px;font:inherit;background:#fff;color:var(--text)}
+input[readonly]{background:#EEF1FA;color:var(--muted)}
+textarea{min-height:92px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid #BCCBFF;border-color:var(--green2)}
+.q.invalid input,.q.invalid select,.q.invalid textarea{border-color:var(--danger);background:#fff8f8}
+.err{color:var(--danger);font-size:12px;font-weight:600;min-height:0}
+.q:not(.invalid) .err{display:none}
+.help,.cnt,.muted{color:var(--muted);font-size:12.5px}
+.cnt{text-align:right}
+.q.opt>label::after{content:" (opcional)";color:var(--muted);font-weight:400}
+.numbered{counter-reset:q}
+.numbered .q{counter-increment:q}
+.numbered .q>label::before{content:counter(q) ". ";color:var(--green)}
+button{border:0;border-radius:9px;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer;background:var(--green);color:#fff}
+button.secondary{background:#E8EDFB;color:#1A2F6B}
+button.danger{background:#a83838}
+button:disabled{opacity:.5;cursor:not-allowed}
+.inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hidden{display:none!important}
+.step{display:none}.step.on{display:block}
+.approval-card{border:1px solid var(--border);border-radius:12px;padding:14px;background:#FAFBFF;margin-bottom:12px}
+.alert{padding:11px 13px;border-radius:10px;margin-bottom:14px;background:#fdecec;border-left:4px solid var(--danger);font-weight:600}
+.notice{padding:11px 13px;border-radius:10px;margin-top:10px;background:#EAF0FF;border-left:4px solid #0036DC}
+.badge{display:inline-block;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:800;background:#E8EDFB}
+.ok{background:#e3f6ed;color:#116445}.warn{background:#fff3d9;color:#815a00}.bad{background:#fde8e8;color:#8d2828}
+.scorebox{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:center}
+.scorecircle{width:140px;height:140px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;border:13px solid #dce8e4;margin:auto}
+.scorecircle strong{font-size:38px;line-height:1}.scorecircle span{font-size:12px;color:var(--muted)}
+.result-block{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:#FAFBFF}
+.result-block h4{margin:0 0 6px}
+.list{margin:6px 0 0;padding-left:20px}
+dl.sum{display:grid;grid-template-columns:200px 1fr;gap:6px 14px;margin:0;font-size:14px}
+dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
+.actions{position:fixed;left:0;right:0;bottom:0;background:rgba(244,247,250,.95);backdrop-filter:blur(8px);border-top:1px solid var(--border);z-index:15}
+.actions .in{max-width:1100px;margin:auto;padding:12px 20px;display:flex;gap:10px;justify-content:space-between}
+.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}th{background:#EEF2FD;white-space:nowrap}
+.linkbtn{background:none;color:var(--green);padding:0;text-decoration:underline}.linkdanger{background:none;color:var(--danger);padding:0;text-decoration:underline}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;z-index:30;font-size:14px}
+.check{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-weight:600}.check input{width:auto;margin-top:3px}
+#login{position:fixed;inset:0;z-index:100;display:grid;grid-template-columns:1.1fr 1fr;background:var(--bg)}
+#login .brand{background:radial-gradient(1100px 600px at 10% 110%,#1E50DC55,transparent 60%),linear-gradient(150deg,var(--navy),var(--royal) 70%,#0036DC);color:#fff;padding:56px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+#login .brand::after{content:"";position:absolute;right:-120px;top:-120px;width:360px;height:360px;border-radius:50%;border:56px solid #ffffff12}
+#login .wm{font-size:44px;font-weight:800;letter-spacing:-1px;line-height:1}#login .wm i{font-style:normal;color:var(--accent)}
+#login .wm small{display:block;font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#C9D6F5;margin-top:8px}
+#login h2{font-size:34px;line-height:1.15;margin:0 0 14px;max-width:460px}
+#login .brand p{color:#C9D6F5;max-width:430px;margin:0 0 22px}
+#login ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:14px}
+#login li::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:10px}
+#login .side{display:flex;align-items:center;justify-content:center;padding:32px}
+#login form{width:100%;max-width:390px;background:#fff;border:1px solid var(--border);border-radius:18px;padding:34px 30px;box-shadow:0 18px 50px #00195A1F}
+#login form h3{margin:0 0 4px;font-size:22px;color:var(--navy);text-transform:none;letter-spacing:0;border:0;padding:0}
+#login form .sub{color:var(--muted);font-size:13.5px;margin:0 0 22px}
+#login .f{margin-bottom:16px}
+#login .lerr{color:var(--danger);font-size:12.5px;font-weight:600;min-height:18px;margin:-6px 0 10px}
+#login button[type=submit]{width:100%;padding:13px;font-size:15px;background:linear-gradient(100deg,var(--green),var(--green2))}
+#login .fine{margin-top:16px;font-size:11.5px;color:var(--muted);text-align:center}
+@media(max-width:860px){#login{grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:auto}#login .brand{padding:22px 24px;gap:12px}#login .wm{font-size:34px}#login h2{font-size:19px;margin:0}#login ul,#login .brand p,#login .brand>div:last-child{display:none}#login .side{padding:20px 16px}.userchip{position:static;margin-top:6px}}
+@media print{header,.actions,#stepper,#login,#toast{display:none!important}.step{display:block!important}}
+@media(max-width:720px){.wrap{padding:12px 12px 110px}.panel{padding:16px}.scorebox{grid-template-columns:1fr}dl.sum{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}#stepper button span{display:none}}
+</style>
+</head>
+<body>
+<div id="login" class="hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+  <div class="brand">
+    <div class="wm">us<i>i</i>l<small>Business Partners · Talento</small></div>
+    <div>
+      <h2 id="loginTitle">Solicitudes de movimiento de talento, claras y completas.</h2>
+      <p>Un solo formulario guiado para que tu solicitud llegue al Comité con el sustento que necesita.</p>
+      <ul><li>Preguntas ordenadas según el tipo de movimiento</li><li>Resumen ejecutivo generado con tus respuestas</li><li>Índice de preparación antes de enviar</li></ul>
+    </div>
+    <div style="font-size:12px;color:#C9D6F5">Universidad San Ignacio de Loyola</div>
+  </div>
+  <div class="side">
+    <form id="loginForm" novalidate>
+      <h3>Bienvenido</h3>
+      <p class="sub">Ingresa con tu correo institucional para continuar.</p>
+      <div class="f"><label for="lgName">Nombre y apellido</label><input id="lgName" autocomplete="name" placeholder="Ej. Mariana Torres"></div>
+      <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="email" autocomplete="email" placeholder="usuario@usil.edu.pe"></div>
+      <div class="lerr" id="lgErr" role="alert"></div>
+      <button type="submit">Ingresar</button>
+      <p class="fine">Acceso solo para colaboradores USIL. Tu información se usa únicamente para registrar la solicitud.</p>
+    </form>
+  </div>
+</div>
+<header><div class="hwrap">
+  <div class="userchip hidden" id="userChip"><span id="userName"></span><button type="button" id="logoutBtn">Cerrar sesión</button></div>
+  <h1>Solicitud de Movimiento de Talento</h1>
+  <p>Responde todas las preguntas con hechos concretos: el resumen que verá el Comité se arma con tus respuestas. <span id="modeTag"></span></p>
+  <div class="pbar"><div id="barfill"></div></div><div id="barTxt"></div>
+</div></header>
+
+<main class="wrap">
+  <nav id="stepper" aria-label="Pasos de la solicitud"></nav>
+  <div id="errSummary" class="alert hidden" role="alert"></div>
+
+  <form id="form" novalidate onsubmit="return false">
+    <section class="panel step" data-step="0">
+      <h2>1 · Datos de la solicitud</h2>
+      <p class="muted">Todos los campos son obligatorios.</p>
+      <h3>Solicitud</h3><div class="grid" id="g0a"></div>
+      <h3>Líder solicitante</h3><div class="grid" id="g0b"></div>
+      <h3>Colaborador</h3>
+      <div class="grid" id="g0c"></div>
+    </section>
+
+    <section class="panel step" data-step="1">
+      <h2>2 · Levantamiento metodológico</h2>
+      <p class="muted" id="specificIntro"></p>
+      <div id="specificQuestions" class="numbered"></div>
+    </section>
+
+    <section class="panel step" data-step="2">
+      <h2>3 · Aprobaciones previas</h2>
+      <p class="muted">Si ya existe una aprobación, regístrala completa: nivel, aprobador, fecha y evidencia.</p>
+      <div class="grid" id="g2"></div>
+      <div id="approvalsWrap" class="hidden" style="margin-top:16px">
+        <div id="approvals"></div>
+        <button type="button" class="secondary" id="addApproval">+ Agregar otra aprobación</button>
+      </div>
+    </section>
+
+    <section class="panel step" data-step="3">
+      <h2>4 · Presupuesto</h2>
+      <p class="muted">El monto es obligatorio cuando el caso cuenta con presupuesto.</p>
+      <div class="grid" id="g3"></div>
+    </section>
+
+    <section class="panel step" data-step="4">
+      <h2>5 · Prioridad y necesidad del negocio</h2>
+      <div class="grid" id="g4"></div>
+      <div id="g4b" style="margin-top:16px"></div>
+    </section>
+
+    <section class="panel step" data-step="5">
+      <h2>6 · Sustento ejecutivo para Comité</h2>
+      <p class="muted">Se genera con tus respuestas. Léelo y edítalo si hace falta: es el texto que se eleva al Comité.</p>
+      <div class="inline" style="margin-bottom:12px"><button id="generateExecutive" type="button">Regenerar sustento desde mis respuestas</button></div>
+      <div id="g5"></div>
+    </section>
+
+    <section class="panel step" data-step="6">
+      <h2>7 · Revisión y envío</h2>
+      <p class="muted">El índice mide qué tan completa está la información; no aprueba ni rechaza el movimiento.</p>
+      <div id="reviewBox"></div>
+      <div class="q"><label class="check"><input type="checkbox" id="confirmo"> Confirmo que la información es veraz y que cuenta con el respaldo indicado.</label><div class="err"></div></div>
+    </section>
+  </form>
+
+  <section id="done" class="panel hidden"></section>
+
+  <section id="bpPanel" class="panel hidden" style="margin-top:28px">
+    <h2>Panel BP / administrador</h2>
+    <p class="muted">Visible solo para correos con rol BP. La base maestra y los casos viven en este navegador.</p>
+    <h3>Base maestra</h3>
+    <div class="grid">
+      <div><label for="masterFile">Maestro BPs (.xlsx / .xls)</label><input id="masterFile" type="file" accept=".xlsx,.xls"></div>
+      <div><label for="masterStatus">Base activa</label><input id="masterStatus" readonly value="Sin base cargada"></div>
+    </div>
+    <div class="inline" style="margin-top:10px"><button id="loadMaster" type="button">Cargar / actualizar base</button><span id="masterDetail" class="muted"></span></div>
+    <h3>Casos recibidos</h3>
+    <div class="inline" style="justify-content:space-between;margin-bottom:10px">
+      <div><b id="historyTitle"></b> <input id="histPeriod" type="month" style="width:auto;margin-left:8px"></div>
+      <button id="exportAll" type="button">Exportar casos del periodo</button>
+    </div>
+    <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Código</th><th>Nombre</th><th>Líder</th><th>Movimiento</th><th>Score</th><th>Acciones</th></tr></thead><tbody id="historyRows"></tbody></table></div>
+    <h3>Administración</h3>
+    <button id="resetSystem" type="button" class="danger">Reiniciar sistema</button>
+  </section>
+</main>
+
+<div class="actions" id="actionsBar"><div class="in">
+  <button type="button" class="secondary" id="prevBtn">← Anterior</button>
+  <button type="button" id="nextBtn">Siguiente →</button>
+</div></div>
+<footer id="foot"></footer>
+<div id="toast" class="hidden" role="status" aria-live="polite"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+// Configuración de despliegue. endpoint: URL que recibe el JSON de la solicitud (Power Automate, Apps Script, API propia).
+// Si está vacío, la solicitud se guarda en este navegador y se ofrece la descarga del archivo.
+const APP_VERSION="2.0.0";
+const CONFIG = {
+  endpoint:"",                         // URL del receptor (Apps Script «aplicación web» de Code.gs). Vacío = guardado local + descarga.
+  token:"",                            // Misma clave que CONFIG.TOKEN de Code.gs.
+  bpEmails:["msalazar@usil.edu.pe","mhiga@usil.edu.pe","lreyes@usil.edu.pe","cmunozse@usil.edu.pe","creyess@usil.edu.pe"],   // BP de Talento y Cultura + su Subgerente (ven el panel de casos, maestro y exportación).
+  allowedDomains:["usil.edu.pe"],      // Dominios de correo que pueden ingresar.
+  soporte:"",                          // Correo de soporte que se muestra al pie.
+    sessionMinutes:60                    // Cierre de sesión por inactividad.
+};
+let BP_MODE=false, SESSION=null;
+const SESSION_KEY="bp_session_v1";
+const draftKey=()=>"bp_draft_v2:"+(SESSION?SESSION.email:"anon");
+const XLSX_SRC={url:"https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",sri:"sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"};
+
+const MASTER_KEY="bp_master_subset_v1", MASTER_META_KEY="bp_master_meta_v1", HISTORY_KEY="bp_history_v1";
+const MOVS=["Promoción","Encargatura","Reemplazo","Puesto nuevo","Incremento salarial","Movimiento lateral","Movimiento horizontal","Reestructuración de área","Revalorización de puesto","Convenio / caso especial","Otro"];
+const DEPARTAMENTOS=["DIRECCION GENERAL DE SEDES DESCENTRALIZADAS", "DIRECCION GENERAL DEL CSIR", "ESCUELA DE POSGRADO", "GERENCIA DE ADMINISTRACION Y SEGURIDAD", "GERENCIA DE PROYECTOS - SEDE PERU", "GERENCIA DE TALENTO Y CULTURA", "GERENCIA GENERAL", "GERENCIA LEGAL", "GERENCIA SENIOR DE FINANZAS", "PRESIDENCIA EJECUTIVA", "RECTORADO", "VICEPRESIDENCIA DE ASUNTOS CORPORATIVOS", "VICEPRESIDENCIA DE COMUNICACIONES E INNOVACION DIG", "VICEPRESIDENCIA SENIOR", "VICERRECTORADO ACADEMICO", "VICERRECTORADO DE INVESTIGACION"];   // Maestro 05-10-2026; define el BP que recibe la solicitud
+const NOCODE=["Puesto nuevo","Reestructuración de área"];   // sin matrícula individual
+const SN=["Sí","No"], SNP=["Sí","No","Parcialmente"], SNC=["Sí","No","Por confirmar"], SNS=["Sí","No","No se sabe"];
+
+// Preguntas agrupadas por bloque (situación → cambio → sustento → resultado → impacto).
+// Tupla: [id, etiqueta, tipo, opciones|ayuda, ayuda]. Un bloque con when:[id,valor] solo aparece si ese campo tiene ese valor.
+const SETS = {
+"Promoción":[
+ {t:"Cambio propuesto",q:[
+  ["puestoPropuesto","¿A qué puesto se propone promover?","text"],
+  ["desdeCuando","¿Desde cuándo realiza o realizará estas funciones?","date"],
+  ["posicionExiste","¿Existe la posición en la estructura?","select",SNC],
+  ["mayorDecision","¿Tendrá mayor nivel de decisión?","select",SNP],
+  ["personasCargo","¿Tendrá personas a cargo? ¿Cuántas?","text"]]},
+ {t:"Qué cambió en el rol",q:[
+  ["queCambioPromo","¿Qué cambió en el rol para que hoy se plantee una promoción?","textarea","Describe el cambio principal en alcance, responsabilidad o complejidad."],
+  ["nuevasResponsabilidades","¿Qué mayor responsabilidad asumirá o ya viene asumiendo?","textarea","Ej.: liderar equipo, manejar presupuesto, tomar decisiones, responder por resultados."],
+  ["mayorAlcance","¿Cómo aumentó el alcance del puesto?","textarea","Ej.: más procesos, clientes, presupuesto, sedes o responsabilidad transversal."],
+  ["funcionesNuevas","¿Qué actividades nuevas realizará?","textarea","Ej.: seguimiento de indicadores, coordinación de reuniones, validación de reportes."]]},
+ {t:"Sustento de la promoción",q:[
+  ["porQuePromocion","¿Por qué este cambio corresponde a una promoción y no solo a un incremento salarial?","textarea"]]},
+ {t:"Resultado esperado e impacto",q:[
+  ["resultadoEsperadoPromo","¿Qué se logrará al formalizar la promoción?","textarea","Describe el beneficio concreto para el área, el equipo o el negocio."],
+  ["impactoNoPromocion","¿Qué ocurriría si la promoción no se formaliza?","textarea"]]}],
+"Encargatura":[
+ {t:"Tipo y motivo",q:[
+  ["tipoEncargatura","Tipo de encargatura","select",["Nueva encargatura","Renovación de encargatura","Cambio de encargatura"]],
+  ["motivoEncargo","¿Qué situación genera la necesidad de la encargatura?","select",["Vacaciones","Licencia","Vacante","Cese","Proyecto","Otro"]],
+  ["puestoEncargado","¿Qué posición requiere cobertura?","text"],
+  ["aQuienReemplaza","¿A quién reemplaza o qué vacancia cubre?","text"]]},
+ {t:"Vigencia",q:[
+  ["fechaInicioEnc","Fecha de inicio","date"],
+  ["fechaFinEnc","Fecha estimada de fin","date"],
+  ["yaEmpezo","¿La encargatura ya empezó?","select",SN]]},
+ {t:"Condiciones de la renovación",when:["tipoEncargatura","Renovación de encargatura"],q:[
+  ["fechaPrimerConvenio","Fecha del primer convenio","date"],
+  ["fechaTerminoActual","Fecha de término actual","date"],
+  ["periodoRenovacion","¿Por cuánto tiempo se desea renovar?","text","Ej.: 3 meses"],
+  ["mismasFuncionesRen","¿Se mantienen las mismas funciones?","select",SNP],
+  ["cambiaMontoRen","¿Cambió el monto de la asignación?","select",SNC],
+  ["resultadosRen","¿Qué resultados o evidencias muestran que la encargatura ha funcionado durante el periodo anterior?","textarea","Ej.: se mantuvo el cumplimiento de metas, no hubo interrupciones operativas y el equipo tuvo continuidad de liderazgo."]]},
+ {t:"Condiciones del cambio",when:["tipoEncargatura","Cambio de encargatura"],q:[
+  ["puestoEncargaturaAnterior","Posición encargada anterior","text"],
+  ["cambiaAsignacionEnc","¿Cambia la asignación económica?","select",SNC],
+  ["motivoCambioEnc","¿Por qué cambia la encargatura a una nueva posición?","textarea"]]},
+ {t:"Funciones durante la encargatura",q:[
+  ["mantieneFunciones","¿Mantendrá sus funciones actuales?","select",SNP],
+  ["equipoAdicional","¿Tendrá equipo adicional a cargo?","text"],
+  ["responsabilidadesExtra","¿Qué responsabilidades adicionales asumirá?","textarea"]]},
+ {t:"Resultado esperado e impacto",q:[
+  ["resultadoEsperadoEnc","¿Qué se busca asegurar con esta encargatura?","textarea","Ej.: continuidad de liderazgo, cobertura de una vacancia, cumplimiento de metas o continuidad operativa."],
+  ["riesgoNoFormalizar","¿Qué ocurriría si no se formaliza?","textarea"]]}],
+"Reemplazo":[
+ {t:"Posición a reemplazar",q:[
+  ["puestoReemplazo","¿Qué posición requiere ser reemplazada?","text"],
+  ["personaOVacanteReemplazo","¿A quién reemplaza o qué vacante ocupa?","text"],
+  ["motivoVacanteReemplazo","¿Cuál es el motivo por el que la posición queda vacante?","select",["Renuncia","Cese","Promoción","Traslado","Cambio interno","Otro"]],
+  ["fechaVacanteReemplazo","¿Desde qué fecha se encuentra o se encontrará vacante la posición?","date"]]},
+ {t:"Colaborador propuesto",q:[
+  ["fechaInicioReemplazo","¿Desde qué fecha se propone que el colaborador asuma la posición?","date"],
+  ["situacionPuestoActualReemplazo","¿Qué ocurrirá con la posición actual del colaborador propuesto?","select",["Quedará vacante","Será cubierta","Se elimina","Por definir","No aplica"]],
+  ["personasCargoReemplazo","¿Tendrá personas a cargo? ¿Cuántas?","text"],
+  ["porQueColaboradorReemplazo","¿Por qué se propone a este colaborador para ocupar la posición?","textarea","Ej.: experiencia previa, conocimiento del proceso, resultados, continuidad operativa o preparación para asumir el rol."]]},
+ {t:"Cambios en el rol",q:[
+  ["responsabilidadesReemplazo","¿Qué responsabilidades asumirá en la nueva posición?","textarea","Describe las principales responsabilidades que asumirá en la posición de destino."],
+  ["cambioAlcanceReemplazo","¿Cómo cambia su alcance, nivel de responsabilidad o toma de decisiones?","textarea","Describe los cambios relevantes frente a su posición actual."]]},
+ {t:"Resultado esperado e impacto",q:[
+  ["resultadoEsperadoReemplazo","¿Qué se busca asegurar o mejorar con este reemplazo?","textarea","Describe el resultado esperado para el área, equipo u operación."],
+  ["impactoNoReemplazo","¿Qué ocurriría si la posición no se cubre o el reemplazo no se formaliza?","textarea"]]}],
+"Puesto nuevo":[
+ {t:"El puesto solicitado",q:[
+  ["puestoNuevo","Nombre del puesto solicitado","text"],
+  ["temporalPermanente","¿Es permanente o temporal?","select",["Permanente","Temporal","Por definir"]],
+  ["reportaA","¿A quién reportará?","text"],
+  ["personasCargoPN","¿Tendrá personal a cargo? ¿Cuánto?","text"],
+  ["fechaRequerida","Fecha requerida","date"]]},
+ {t:"Necesidad del negocio",q:[
+  ["necesidadPuesto","¿Qué necesidad del negocio origina la creación del puesto?","textarea","Explica brevemente qué está pasando en el área o negocio."],
+  ["problemaResuelve","¿Qué problema existe actualmente por no contar con esta posición?","textarea"],
+  ["porQueNoAbsorbe","¿Por qué la estructura actual no puede absorber esta necesidad?","textarea"],
+  ["similarOtraUnidad","¿Existe una posición similar en otra unidad?","select",SNC]]},
+ {t:"Alcance del puesto",q:[
+  ["responsabilidadesPuesto","¿Qué responsabilidades tendrá el puesto?","textarea","Ej.: coordinar al equipo, supervisar la operación, tomar decisiones, controlar indicadores."],
+  ["entregables","¿Qué resultados concretos deberá entregar?","textarea","Ej.: cumplimiento de SLA, reducción de incidencias, cierre mensual, mejora de indicadores."]]},
+ {t:"Resultado esperado e impacto",q:[
+  ["mejoraEsperadaPN","¿Qué cambiará o mejorará concretamente con la creación de este puesto?","textarea","Describe el beneficio esperado para la operación, el equipo o el negocio."],
+  ["impactoNoCrear","¿Qué ocurriría si el puesto no se crea?","textarea"]]}],
+"Incremento salarial":[
+ {t:"Motivo y situación",q:[
+  ["motivoIncremento","Motivo principal del incremento","select",["Retención","Equidad interna","Ampliación de responsabilidades","Mérito","Regularización","Contraoferta","Obtención de Grado Académico","Otro"]],
+  ["desdeCuandoInc","¿Desde cuándo se presenta esta situación?","date"],
+  ["situacionOrigen","¿Qué situación origina la solicitud?","textarea"],
+  ["queCambio","¿Qué cambió en el puesto, desempeño o contexto que sustenta la revisión?","textarea"]]},
+ {t:"Evidencia y riesgo de salida",q:[
+  ["riesgoSalida","¿Existe riesgo de salida?","select",SNS],
+  ["ofertaExterna","¿Existe oferta externa?","select",SNS],
+  ["intencionRenuncia","¿Comunicó intención de renuncia?","select",SNS],
+  ["evidenciaRiesgo","¿Qué evidencia concreta respalda la solicitud?","textarea"],
+  ["impactoSalida","¿Qué impacto tendría una eventual salida o no atender la revisión?","textarea"]]},
+ {t:"Resultado esperado",q:[
+  ["resultadoEsperadoInc","¿Qué se busca lograr con la revisión salarial?","textarea","Ej.: corregir equidad, retener talento, reconocer una ampliación sostenida de responsabilidades."]]},
+ {t:"Propuesta del negocio",q:[
+  ["tipoPropuestaNegocio","Tipo de propuesta del negocio","select",["Monto en S/","Porcentaje %"]],
+  ["propuestaNegocio","Valor de la propuesta","number"]]}],
+"Movimiento lateral":[
+ {t:"Necesidad",q:[
+  ["motivoMovimiento","¿Qué necesidad origina el movimiento lateral?","textarea"],
+  ["problemaResuelveML","¿Qué problema organizacional busca resolver?","textarea"]]},
+ {t:"Destino",q:[
+  ["puestoDestino","Puesto destino","text"],
+  ["areaDestino","Área destino","text"],
+  ["cambioUbicacion","¿Existe cambio de ubicación?","select",SN],
+  ["cambioJornada","¿Existe cambio de jornada?","select",SN]]},
+ {t:"Cambios en el rol",q:[
+  ["cambiaResponsabilidad","¿Cambia el nivel de responsabilidad?","select",SNP],
+  ["cambiaAlcance","¿Cómo cambia el alcance?","textarea"],
+  ["nuevasFuncionesML","¿Qué funciones nuevas asumirá?","textarea"]]},
+ {t:"Resultado esperado e impacto",q:[
+  ["resultadoEsperadoML","¿Qué se espera lograr con el movimiento?","textarea"],
+  ["solicitaIncrementoML","¿El cliente solicita incremento salarial?","select",SNC]]}],
+"Movimiento horizontal":[
+ {t:"Situación y tipo de cambio",q:[
+  ["tipoHorizontal","Tipo de movimiento horizontal","select",["Ampliación de funciones","Rotación de funciones","Apoyo a otra área","Cambio de línea de reporte","Otro"]],
+  ["esTemporalHorizontal","¿Es temporal o permanente?","select",["Permanente","Temporal","Por definir"]],
+  ["desdeCuandoHorizontal","¿Desde cuándo se realiza o realizará?","date"],
+  ["motivoHorizontal","¿Qué necesidad origina el movimiento horizontal?","textarea"]]},
+ {t:"Qué cambia en el rol",q:[
+  ["funcionesActualesHorizontal","¿Qué funciones mantiene en su puesto actual?","textarea"],
+  ["funcionesNuevasHorizontal","¿Qué funciones nuevas o distintas asumirá?","textarea"],
+  ["areaApoyoHorizontal","¿Con qué área o jefatura coordinará o a quién reportará?","text"],
+  ["cambiaJefeHorizontal","¿Cambia su jefe directo?","select",SN],
+  ["cambiaNivelHorizontal","¿Cambia su nivel o banda del puesto?","select",SNC]]},
+ {t:"Resultado esperado e impacto",q:[
+  ["resultadoEsperadoHorizontal","¿Qué se espera lograr con el movimiento?","textarea"],
+  ["solicitaIncrementoHorizontal","¿Se solicita compensación adicional (asignación o incremento)?","select",SNC],
+  ["impactoNoHorizontal","¿Qué ocurriría si el movimiento no se realiza?","textarea"]]}],
+"Reestructuración de área":[
+ {t:"Contexto de la reestructuración",q:[
+  ["areaReestructura","¿Qué área o unidad se reestructura?","text"],
+  ["fechaVigenciaReestructura","Fecha propuesta de entrada en vigencia","date"],
+  ["aprobadaReestructura","¿La reestructuración ya fue aprobada por la Dirección o Unidad?","select",SNC],
+  ["motivoReestructura","¿Qué situación origina la reestructuración?","textarea"],
+  ["objetivoReestructura","¿Qué se busca lograr con la nueva estructura?","textarea"]]},
+ {t:"Alcance de los cambios",q:[
+  ["nPersonasAfectadas","Número de colaboradores afectados","number"],
+  ["tipoCambioReestructura","Principal tipo de cambio","select",["Reubicación de personas","Cambio de líneas de reporte","Creación de posiciones","Eliminación de posiciones","Combinación de varios cambios"]],
+  ["posicionesCreadas","Posiciones nuevas que se crean","select",["Ninguna","1","2","3 o más"]],
+  ["posicionesEliminadas","Posiciones que se eliminan","select",["Ninguna","1","2","3 o más"]],
+  ["detalleMovimientosRest","Detalle de movimientos: una línea por colaborador (matrícula · nombre · posición actual → posición propuesta · área destino)","textarea","Ej.: 0000002458 · Lucía Ramos · Analista Senior → Coordinadora · Área Comercial"],
+  ["cambiosReporteRest","¿Qué cambios hay en las líneas de reporte?","textarea"]]},
+ {t:"Impacto económico",q:[
+  ["cambiosSalarialesRest","¿La reestructuración implica cambios salariales o de nivel?","select",SNC],
+  ["impactoPresupuestalRest","Impacto presupuestal esperado","select",["Neutro","Ahorro","Costo adicional","Por determinar"]],
+  ["detalleEconomicoRest","Explique el impacto económico y salarial","textarea"]]},
+ {t:"Resultado esperado e impacto",q:[
+  ["riesgosPersonasRest","¿Qué riesgos hay para el clima o la retención de las personas afectadas?","textarea"],
+  ["resultadoEsperadoRest","¿Qué resultado se espera lograr?","textarea"],
+  ["impactoNoRest","¿Qué ocurriría si la reestructuración no se ejecuta?","textarea"]]}],
+"Revalorización de puesto":[
+ {t:"Situación que origina la revisión",q:[
+  ["queCambioRev","¿Qué situación origina la revisión del puesto?","textarea"],
+  ["desdeCuandoRev","¿Desde cuándo se mantienen estos cambios?","date"],
+  ["cambioPermanente","¿Los cambios son permanentes?","select",SNC]]},
+ {t:"Cambios en el puesto",q:[
+  ["nuevasRespRev","¿Qué nuevas responsabilidades se incorporaron?","textarea"],
+  ["cambioAlcanceRev","¿Cómo cambió el alcance del puesto?","textarea"],
+  ["cambioPersonasRev","¿Cambió el número de personas a cargo?","text"],
+  ["cambioPresupuestoRev","¿Cambió la responsabilidad presupuestal?","textarea"],
+  ["cambioDecisionRev","¿Cambió el nivel de decisión?","textarea"],
+  ["funcionesOtroPuesto","¿Absorbió funciones de otro puesto?","textarea"]]},
+ {t:"Sustento",q:[
+  ["sustentoSubvaloracion","¿Por qué la valoración actual ya no representa el contenido real del puesto?","textarea"],
+  ["jdActualizada","¿Existe descripción de puesto actualizada?","select",["Sí","No","En proceso"]]]},
+ {t:"Resultado esperado",q:[
+  ["resultadoEsperadoRev","¿Qué se busca corregir o alinear con la revalorización?","textarea"]]}],
+"Convenio / caso especial":[
+ {t:"El caso",q:[
+  ["tipoCasoEspecial","Tipo de convenio / caso","text"],
+  ["vigenciaCaso","Vigencia o duración","text"],
+  ["objetivoCaso","¿Qué necesidad origina la solicitud?","textarea"]]},
+ {t:"Sustento, resultado e impacto",q:[
+  ["sustentoCaso","¿Qué elementos sustentan el caso?","textarea"],
+  ["resultadoEsperadoCaso","¿Qué resultado se espera lograr?","textarea"],
+  ["impactoCaso","¿Qué ocurriría si no se atiende?","textarea"]]}],
+"Otro":[
+ {t:"La solicitud",q:[
+  ["descripcionOtro","¿Qué movimiento o decisión se solicita?","textarea"],
+  ["sustentoOtro","¿Qué situación origina la solicitud?","textarea"]]},
+ {t:"Resultado esperado e impacto",q:[
+  ["resultadoEsperadoOtro","¿Qué se espera lograr?","textarea"],
+  ["impactoOtro","¿Qué ocurriría si no se atiende?","textarea"]]}]
+};
+
+// Límites [mínimo, máximo] de caracteres por pregunta. Texto corto: 2-100. Párrafos por nivel: L 60-600, M 40-500, S 30-300.
+const TA_TIER={L:[60,600],M:[40,500],S:[30,300]};
+const TIER_L=["queCambioPromo","porQuePromocion","motivoMovimiento","necesidadPuesto","problemaResuelve","porQueNoAbsorbe","situacionOrigen","queCambio","evidenciaRiesgo","queCambioRev","sustentoSubvaloracion","objetivoCaso","sustentoCaso","descripcionOtro","sustentoOtro","porQueColaboradorReemplazo","motivoHorizontal","motivoReestructura","objetivoReestructura","responsabilidadesPuesto"];
+const TIER_S=["cambioPresupuestoRev","cambioDecisionRev","funcionesOtroPuesto","funcionesActualesHorizontal","cambiosReporteRest","resultadosRen","motivoCambioEnc"];
+const LIM_OV={personasCargo:[1,60],personasCargoPN:[1,60],personasCargoReemplazo:[1,60],equipoAdicional:[1,60],cambioPersonasRev:[1,60],periodoRenovacion:[2,40],vigenciaCaso:[2,60],
+  aQuienReemplaza:[3,120],personaOVacanteReemplazo:[3,120],validaPresupuesto:[3,120],areaApoyoHorizontal:[3,120],tipoCasoEspecial:[3,100],
+  detalleMovimientosRest:[60,1500],solicitudConcreta:[50,3000]};
+function limits(id,type){
+  if(LIM_OV[id]) return LIM_OV[id];
+  if(type==="textarea") return TA_TIER[TIER_L.includes(id)?"L":TIER_S.includes(id)?"S":"M"];
+  return [2,100];
+}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function monthLabel(v){
+  if(!v) return "";
+  const [y,m]=v.split("-");
+  return `${["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Setiembre","Octubre","Noviembre","Diciembre"][Number(m)-1]} ${y}`;
+}
+function recordId(){return "CASE-"+Date.now()+"-"+Math.random().toString(36).slice(2,7).toUpperCase()}
+function nonempty(v){return String(v??"").trim()!==""}
+function store(k,v){try{v===undefined?localStorage.removeItem(k):localStorage.setItem(k,v);return true}catch(e){return false}}
+function load(k,def){try{const s=localStorage.getItem(k);return s==null?def:JSON.parse(s)}catch(e){return def}}
+let masterEmployees=new Map();
+let masterMeta=null;
+
+function normalizeTextKey(v){
+  return String(v??"")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .replace(/\s+/g," ");
+}
+
+function normalizeEmployeeCode(v){
+  let s=String(v??"").trim().replace(/^'+/,"");
+  if(!s) return "";
+  const digits=s.replace(/\s+/g,"");
+  if(/^\d+$/.test(digits)) return digits.padStart(10,"0");
+  return s;
+}
+
+function firstGivenName(v){
+  const s=String(v??"").trim();
+  return s ? s.split(/\s+/)[0] : "";
+}
+
+function displayPersonName(nombre, apellidoPaterno){
+  const n=firstGivenName(nombre);
+  const a=String(apellidoPaterno??"").trim();
+  return [n,a].filter(Boolean).join(" ");
+}
+
+function findHeaderIndex(headers, aliases){
+  const normalized=headers.map(normalizeTextKey);
+  for(const alias of aliases){
+    const idx=normalized.indexOf(normalizeTextKey(alias));
+    if(idx>=0) return idx;
+  }
+  return -1;
+}
+
+async function loadMasterFile(){
+  const f=$("masterFile").files[0];
+  if(!f){alert("Selecciona primero el archivo Maestro BPs.");return}
+  if(!await needXLSX()) return;
+  $("masterStatus").value="Leyendo base...";
+  $("masterDetail").textContent="Validando estructura del archivo.";
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:"array",cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+    if(!rows.length) throw new Error("El archivo está vacío.");
+
+    let headerRow=-1;
+    let indexes=null;
+    const scanLimit=Math.min(rows.length,50);
+
+    for(let r=0;r<scanLimit;r++){
+      const hdr=(rows[r]||[]).map(v=>String(v??"").trim());
+      const candidate={
+        codigo:findHeaderIndex(hdr,["Matrícula","Matricula"]),
+        apellidoPaterno:findHeaderIndex(hdr,["Apellido Paterno"]),
+        nombre:findHeaderIndex(hdr,["Nombre"]),
+        puesto:findHeaderIndex(hdr,["Nombre Puesto"]),
+        situacion:findHeaderIndex(hdr,["Situación Trabajador","Situacion Trabajador"]),
+        departamento:findHeaderIndex(hdr,["Nombre Departamento"]),
+        area:findHeaderIndex(hdr,["Nombre Area","Nombre Área"]),
+        seccion:findHeaderIndex(hdr,["Nombre Sección","Nombre Seccion"])
+      };
+      const mandatory=["codigo","apellidoPaterno","nombre","puesto","departamento","area","seccion"];
+      if(mandatory.every(k=>candidate[k]>=0)){
+        headerRow=r;
+        indexes=candidate;
+        break;
+      }
+    }
+
+    if(headerRow<0){
+      throw new Error("No se encontraron los encabezados requeridos: Matrícula, Apellido Paterno, Nombre, Nombre Puesto, Nombre Departamento, Nombre Area y Nombre Sección.");
+    }
+
+    const nextMap=new Map();
+    let duplicates=0;
+    for(let r=headerRow+1;r<rows.length;r++){
+      const row=rows[r]||[];
+      const code=normalizeEmployeeCode(row[indexes.codigo]);
+      if(!code) continue;
+      const item={
+        codigo:code,
+        nombre:displayPersonName(row[indexes.nombre],row[indexes.apellidoPaterno]),
+        nombreBase:String(row[indexes.nombre]??"").trim(),
+        apellidoPaterno:String(row[indexes.apellidoPaterno]??"").trim(),
+        puesto:String(row[indexes.puesto]??"").trim(),
+        departamento:String(row[indexes.departamento]??"").trim(),
+        area:String(row[indexes.area]??"").trim(),
+        seccion:String(row[indexes.seccion]??"").trim(),
+        situacion:indexes.situacion>=0 ? String(row[indexes.situacion]??"").trim() : "",
+        filaExcel:r+1
+      };
+      if(nextMap.has(code)) duplicates++;
+      nextMap.set(code,item);
+    }
+
+    masterEmployees=nextMap;
+    masterMeta={
+      fileName:f.name,
+      loadedAt:new Date().toLocaleString("es-PE"),
+      headerRow:headerRow+1,
+      count:nextMap.size,
+      duplicates
+    };
+
+    // Guardar solo los campos necesarios para futuras aperturas del sistema.
+    const subset=[...nextMap.values()].map(item=>({
+      codigo:item.codigo,
+      nombre:item.nombre,
+      puesto:item.puesto,
+      departamento:item.departamento,
+      area:item.area,
+      seccion:item.seccion,
+      situacion:item.situacion,
+      filaExcel:item.filaExcel
+    }));
+    localStorage.setItem(MASTER_KEY,JSON.stringify(subset));
+    localStorage.setItem(MASTER_META_KEY,JSON.stringify(masterMeta));
+
+    $("masterStatus").value=f.name;
+    $("masterDetail").textContent=`${nextMap.size.toLocaleString("es-PE")} colaboradores cargados · encabezados detectados en fila ${headerRow+1}${duplicates?` · ${duplicates} código(s) duplicado(s), se usó la última coincidencia`:""} · base guardada para próximas aperturas.`;
+
+    if($("codigo").value && $("codigo").value!=="No aplica") lookupEmployeeByCode();
+  }catch(e){
+    masterEmployees=new Map();
+    masterMeta=null;
+    $("masterStatus").value="Error al cargar";
+    $("masterDetail").textContent=e.message;
+    alert("No se pudo cargar el Maestro BPs: "+e.message);
+  }
+}
+
+
+function restorePersistedMaster(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(MASTER_KEY)||"[]");
+    const meta=JSON.parse(localStorage.getItem(MASTER_META_KEY)||"null");
+    if(!Array.isArray(saved) || !saved.length) return;
+
+    const map=new Map();
+    saved.forEach(item=>{
+      const code=normalizeEmployeeCode(item.codigo);
+      if(!code) return;
+      map.set(code,{
+        codigo:code,
+        nombre:String(item.nombre??""),
+        puesto:String(item.puesto??""),
+        departamento:String(item.departamento??""),
+        area:String(item.area??""),
+        seccion:String(item.seccion??""),
+        situacion:String(item.situacion??""),
+        filaExcel:Number(item.filaExcel||0)
+      });
+    });
+    masterEmployees=map;
+    masterMeta=meta || {
+      fileName:"Base maestra guardada",
+      loadedAt:"",
+      headerRow:null,
+      count:map.size,
+      duplicates:0
+    };
+    $("masterStatus").value=masterMeta.fileName||"Base maestra guardada";
+    const loadedText=masterMeta.loadedAt ? ` · actualizada ${masterMeta.loadedAt}` : "";
+    $("masterDetail").textContent=`${map.size.toLocaleString("es-PE")} colaboradores disponibles${loadedText}. La base fue recuperada automáticamente del navegador.`;
+  }catch(e){
+    masterEmployees=new Map();
+    masterMeta=null;
+    $("masterStatus").value="Sin base cargada";
+    $("masterDetail").textContent="No se pudo recuperar la base guardada. Carga nuevamente el Maestro BPs.";
+  }
+}
+
+function clearEmployeeAutofill(){
+  ["colaborador","puestoActual","departamento","area","seccion"].forEach(id=>$(id).value="");
+}
+
+function setEmployeeFields(item){
+  $("colaborador").value=item.nombre||"";
+  $("puestoActual").value=item.puesto||"";
+  $("departamento").value=item.departamento||"";
+  $("area").value=item.area||"";
+  $("seccion").value=item.seccion||"";
+}
+function cleanSentence(v){
+  return String(v??"").trim().replace(/\s+/g," ");
+}
+function sentence(text){
+  const s=cleanSentence(text);
+  if(!s) return "";
+  return /[.!?]$/.test(s) ? s : s+".";
+}
+function val(id){
+  const el=$(id);
+  return el && !el.closest(".hidden") ? cleanSentence(el.value) : "";
+}
+function proposalFormatted(){
+  const tipo=val("tipoPropuestaNegocio");
+  const raw=Number(val("propuestaNegocio")||0);
+  if(!raw) return "";
+  if(tipo==="Monto en S/") return "S/ "+raw.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(tipo==="Porcentaje %") return raw.toLocaleString("es-PE",{maximumFractionDigits:2})+"%";
+  return String(raw);
+}
+function employeeRef(){
+  return val("colaborador") || "el colaborador";
+}
+function joinNatural(items){
+  const clean=items.filter(Boolean);
+  if(!clean.length) return "";
+  if(clean.length===1) return clean[0];
+  if(clean.length===2) return clean[0]+" y "+clean[1];
+  return clean.slice(0,-1).join(", ")+" y "+clean[clean.length-1];
+}
+function impactPhrase(){
+  const detail=val("impactoDetalle");
+  const consequence=val("consecuencia");
+  const level=val("impacto");
+  if(detail) return detail;
+  if(consequence && consequence!=="Sin impacto relevante") return consequence.toLowerCase();
+  if(level==="Alto" || level==="Crítico") return "un impacto relevante para la continuidad del negocio";
+  return "";
+}
+function buildExecutiveSummary(){
+  const mov=val("movimiento");
+  const person=employeeRef();
+  const current=val("puestoActual");
+  let paragraphs=[];
+
+  const add = txt => { if(cleanSentence(txt)) paragraphs.push(sentence(txt)); };
+  const direct = id => cleanSentence(val(id));
+  const lowerLead = txt => {
+    const s=cleanSentence(txt);
+    if(!s) return "";
+    return s.charAt(0).toLowerCase()+s.slice(1);
+  };
+  const stripEnd = txt => cleanSentence(txt).replace(/[.!?]+$/,"");
+
+  if(mov==="Promoción"){
+    const proposed=direct("puestoPropuesto");
+    add(`Se solicita la promoción de ${person}${current?` de ${current}`:""}${proposed?` a ${proposed}`:""}`);
+
+    if(direct("queCambioPromo")){
+      add(`La promoción se plantea porque ${lowerLead(stripEnd(direct("queCambioPromo")))}`);
+    } else {
+      add("La promoción se plantea por una evolución relevante del alcance y nivel de responsabilidad del rol");
+    }
+
+    const drivers=[];
+    if(direct("nuevasResponsabilidades")) drivers.push("mayores responsabilidades");
+    if(direct("mayorAlcance")) drivers.push("un alcance más amplio");
+    if(direct("mayorDecision")==="Sí") drivers.push("mayor autonomía de decisión");
+    if(direct("personasCargo")) drivers.push("responsabilidad sobre equipo");
+    if(drivers.length) add(`El cambio se evidencia en ${joinNatural(drivers)}`);
+
+    if(direct("porQuePromocion")) add(`Corresponde una promoción, y no solo un incremento salarial, porque ${lowerLead(stripEnd(direct("porQuePromocion")))}`);
+    if(direct("resultadoEsperadoPromo")) add(`Con la formalización se busca ${lowerLead(stripEnd(direct("resultadoEsperadoPromo")))}`);
+    if(direct("impactoNoPromocion")) add(`Si la promoción no se formaliza, ${lowerLead(stripEnd(direct("impactoNoPromocion")))}`);
+
+    add("Se solicita la aprobación de la promoción y la revisión salarial correspondiente");
+  }
+
+  else if(mov==="Encargatura"){
+    const tipo=direct("tipoEncargatura");
+    const role=direct("puestoEncargado");
+    const reason=direct("motivoEncargo");
+
+    if(tipo==="Renovación de encargatura"){
+      add(`Se solicita renovar la encargatura de ${person}${role?` como ${role}`:""}${direct("periodoRenovacion")?` por ${direct("periodoRenovacion")}`:""}`);
+      if(reason) add(`La renovación se requiere debido a ${reason.toLowerCase()}`);
+      if(direct("resultadosRen")){
+        let result=stripEnd(direct("resultadosRen"))
+          .replace(/^Durante el periodo de encargatura\s*/i,"")
+          .replace(/^Durante el periodo anterior\s*/i,"");
+        add(`Los resultados del periodo anterior muestran que ${lowerLead(result)}`);
+      }
+    } else if(tipo==="Cambio de encargatura"){
+      add(`Se solicita el cambio de encargatura de ${person}${role?` hacia la posición de ${role}`:""}`);
+      if(direct("motivoCambioEnc")) add(`El cambio se requiere porque ${lowerLead(stripEnd(direct("motivoCambioEnc")))}`);
+    } else {
+      add(`Se solicita una nueva encargatura para ${person}${role?` como ${role}`:""}`);
+      if(reason) add(`La encargatura se requiere debido a ${reason.toLowerCase()}`);
+    }
+
+    if(direct("responsabilidadesExtra")) add(`Durante la encargatura, la persona asumirá responsabilidades adicionales asociadas a ${lowerLead(stripEnd(direct("responsabilidadesExtra")))}`);
+    if(direct("resultadoEsperadoEnc")) add(`Con la encargatura se busca ${lowerLead(stripEnd(direct("resultadoEsperadoEnc")))}`);
+    if(direct("riesgoNoFormalizar")) add(`Si la encargatura no se formaliza, ${lowerLead(stripEnd(direct("riesgoNoFormalizar")))}`);
+    add("Se solicita aprobar la encargatura en las condiciones indicadas");
+  }
+
+  else if(mov==="Reemplazo"){
+    const role=direct("puestoReemplazo");
+    const replaced=direct("personaOVacanteReemplazo");
+    const reason=direct("motivoVacanteReemplazo");
+    const start=direct("fechaInicioReemplazo");
+
+    add(`Se solicita el reemplazo ${replaced?`de ${replaced} `:""}en la posición de ${role||"la posición indicada"}`);
+    if(reason) add(`La posición queda vacante debido a ${reason.toLowerCase()}`);
+    if(start) add(`Se propone que ${person} asuma la posición a partir del ${start}`);
+
+    if(direct("responsabilidadesReemplazo") || direct("cambioAlcanceReemplazo")){
+      const changes=[];
+      if(direct("responsabilidadesReemplazo")) changes.push(`las responsabilidades asociadas a ${lowerLead(stripEnd(direct("responsabilidadesReemplazo")))}`);
+      if(direct("cambioAlcanceReemplazo")) changes.push(`un cambio de alcance y responsabilidad caracterizado por ${lowerLead(stripEnd(direct("cambioAlcanceReemplazo")))}`);
+      add(`El movimiento implica ${joinNatural(changes)}`);
+    }
+
+    if(direct("porQueColaboradorReemplazo")) add(`Se propone a ${person} porque ${lowerLead(stripEnd(direct("porQueColaboradorReemplazo")))}`);
+    if(direct("resultadoEsperadoReemplazo")) add(`Con el reemplazo se busca ${lowerLead(stripEnd(direct("resultadoEsperadoReemplazo")))}`);
+    if(direct("impactoNoReemplazo")) add(`Si la posición no se cubre o el reemplazo no se formaliza, ${lowerLead(stripEnd(direct("impactoNoReemplazo")))}`);
+    add("Se solicita la evaluación del reemplazo y, de corresponder, la revisión de las condiciones asociadas al movimiento");
+  }
+
+  else if(mov==="Movimiento horizontal"){
+    const tipo=direct("tipoHorizontal");
+    add(`Se solicita el movimiento horizontal de ${person}${tipo?` (${tipo.toLowerCase()})`:""}${direct("esTemporalHorizontal")==="Temporal"?", de carácter temporal":""}${direct("desdeCuandoHorizontal")?`, a partir del ${direct("desdeCuandoHorizontal")}`:""}`);
+    if(direct("motivoHorizontal")) add(`El movimiento se origina porque ${lowerLead(stripEnd(direct("motivoHorizontal")))}`);
+    if(direct("funcionesNuevasHorizontal")) add(`${person} asumirá ${lowerLead(stripEnd(direct("funcionesNuevasHorizontal")))}${direct("areaApoyoHorizontal")?`, en coordinación con ${direct("areaApoyoHorizontal")}`:""}`);
+    const ch=[];
+    if(direct("cambiaJefeHorizontal")==="Sí") ch.push("un cambio de jefe directo");
+    if(direct("cambiaNivelHorizontal")==="Sí") ch.push("un ajuste de nivel o banda");
+    if(direct("solicitaIncrementoHorizontal")==="Sí") ch.push("una compensación adicional");
+    if(ch.length) add(`La propuesta considera ${joinNatural(ch)}`);
+    if(direct("resultadoEsperadoHorizontal")) add(`Con el movimiento se busca ${lowerLead(stripEnd(direct("resultadoEsperadoHorizontal")))}`);
+    if(direct("impactoNoHorizontal")) add(`Si el movimiento no se realiza, ${lowerLead(stripEnd(direct("impactoNoHorizontal")))}`);
+    add("Se solicita la aprobación del movimiento horizontal en las condiciones indicadas");
+  }
+
+  else if(mov==="Reestructuración de área"){
+    const n=direct("nPersonasAfectadas");
+    add(`Se solicita la reestructuración del área ${direct("areaReestructura")||"indicada"}${n?`, que alcanza a ${n} colaborador(es)`:""}${direct("fechaVigenciaReestructura")?`, con vigencia propuesta desde el ${direct("fechaVigenciaReestructura")}`:""}`);
+    if(direct("motivoReestructura")) add(`La reestructuración se origina porque ${lowerLead(stripEnd(direct("motivoReestructura")))}`);
+    if(direct("objetivoReestructura")) add(`Con la nueva estructura se busca ${lowerLead(stripEnd(direct("objetivoReestructura")))}`);
+    const sc=[];
+    if(direct("tipoCambioReestructura")) sc.push(direct("tipoCambioReestructura").toLowerCase());
+    if(direct("posicionesCreadas")&&direct("posicionesCreadas")!=="Ninguna") sc.push(`${direct("posicionesCreadas")} posición(es) nueva(s)`);
+    if(direct("posicionesEliminadas")&&direct("posicionesEliminadas")!=="Ninguna") sc.push(`${direct("posicionesEliminadas")} posición(es) eliminada(s)`);
+    if(sc.length) add(`El cambio considera ${joinNatural(sc)}`);
+    if(direct("cambiosReporteRest")) add(`En las líneas de reporte: ${lowerLead(stripEnd(direct("cambiosReporteRest")))}`);
+    if(direct("impactoPresupuestalRest")) add(`El impacto presupuestal esperado es ${direct("impactoPresupuestalRest").toLowerCase()}${direct("cambiosSalarialesRest")==="Sí"?", con cambios salariales o de nivel":""}`);
+    if(direct("impactoNoRest")) add(`Si la reestructuración no se ejecuta, ${lowerLead(stripEnd(direct("impactoNoRest")))}`);
+    add("Se solicita la validación de la nueva estructura y la revisión de sus implicancias salariales y presupuestales");
+  }
+
+  else if(mov==="Puesto nuevo"){
+    const role=direct("puestoNuevo");
+    add(`Se solicita la creación del puesto ${role||"propuesto"}`);
+
+    if(direct("necesidadPuesto")) add(`La creación del puesto se origina porque ${lowerLead(stripEnd(direct("necesidadPuesto")))}`);
+    if(direct("problemaResuelve")) add(`Actualmente, ${lowerLead(stripEnd(direct("problemaResuelve")))}`);
+    if(direct("porQueNoAbsorbe")) add(`La estructura actual no puede absorber esta necesidad porque ${lowerLead(stripEnd(direct("porQueNoAbsorbe")))}`);
+
+    if(direct("mejoraEsperadaPN")){
+      add(`Con la creación del puesto se busca ${lowerLead(stripEnd(direct("mejoraEsperadaPN")))}`);
+    } else if(direct("entregables") || direct("responsabilidadesPuesto")){
+      add("Con la creación del puesto se busca concentrar responsabilidades, ordenar la gestión y asegurar resultados que hoy se encuentran distribuidos en la estructura");
+    }
+
+    if(direct("impactoNoCrear")) add(`Si el puesto no se crea, ${lowerLead(stripEnd(direct("impactoNoCrear")))}`);
+    add("Se solicita la aprobación de la creación de la nueva posición");
+  }
+
+  else if(mov==="Incremento salarial"){
+    const motivo=direct("motivoIncremento");
+    const prop=proposalFormatted();
+    add(`Se solicita una revisión salarial para ${person}${motivo?` por ${motivo.toLowerCase()}`:""}`);
+
+    if(direct("situacionOrigen")) add(`La solicitud se origina porque ${lowerLead(stripEnd(direct("situacionOrigen")))}`);
+    if(direct("queCambio")) add(`El contexto ha cambiado debido a que ${lowerLead(stripEnd(direct("queCambio")))}`);
+    if(direct("evidenciaRiesgo")) add(`La evidencia disponible indica que ${lowerLead(stripEnd(direct("evidenciaRiesgo")))}`);
+
+    if(direct("resultadoEsperadoInc")){
+      add(`Con la revisión salarial se busca ${lowerLead(stripEnd(direct("resultadoEsperadoInc")))}`);
+    } else if(motivo==="Equidad interna"){
+      add("Con la revisión salarial se busca corregir la brecha identificada y preservar consistencia salarial frente a posiciones comparables");
+    } else if(motivo==="Retención" || motivo==="Contraoferta"){
+      add("Con la revisión salarial se busca mitigar el riesgo de salida y preservar conocimiento relevante para el equipo");
+    }
+
+    if(direct("impactoSalida")) add(`Si la situación no se atiende, ${lowerLead(stripEnd(direct("impactoSalida")))}`);
+    if(prop) add(`El cliente plantea como referencia una propuesta de ${prop}, sujeta a la validación técnica de Compensaciones`);
+    add("Se solicita a Compensaciones evaluar la consistencia interna y definir la recomendación salarial correspondiente");
+  }
+
+  else if(mov==="Movimiento lateral"){
+    const target=direct("puestoDestino");
+    const targetArea=direct("areaDestino");
+    add(`Se solicita el movimiento lateral de ${person}${target?` hacia ${target}`:""}${targetArea?` en ${targetArea}`:""}`);
+    if(direct("motivoMovimiento")) add(`El movimiento se origina porque ${lowerLead(stripEnd(direct("motivoMovimiento")))}`);
+    if(direct("problemaResuelveML")) add(`Con este cambio se busca resolver ${lowerLead(stripEnd(direct("problemaResuelveML")))}`);
+
+    const changes=[];
+    if(direct("cambiaAlcance")) changes.push("un cambio de alcance");
+    if(direct("nuevasFuncionesML")) changes.push("la incorporación de nuevas funciones");
+    if(direct("cambiaResponsabilidad")==="Sí" || direct("cambiaResponsabilidad")==="Parcialmente") changes.push("un ajuste en el nivel de responsabilidad");
+    if(changes.length) add(`La propuesta considera ${joinNatural(changes)}`);
+
+    if(direct("resultadoEsperadoML")) add(`Con el movimiento se busca ${lowerLead(stripEnd(direct("resultadoEsperadoML")))}`);
+    add("Se solicita la aprobación del movimiento lateral en las condiciones indicadas");
+  }
+
+  else if(mov==="Revalorización de puesto"){
+    add(`Se solicita la revalorización del puesto ${current||"actual"} de ${person}`);
+    if(direct("queCambioRev")) add(`La revisión se origina porque ${lowerLead(stripEnd(direct("queCambioRev")))}`);
+
+    const changes=[];
+    if(direct("nuevasRespRev")) changes.push("nuevas responsabilidades");
+    if(direct("cambioAlcanceRev")) changes.push("una ampliación de alcance");
+    if(direct("cambioPersonasRev")) changes.push("cambios en la responsabilidad sobre equipos");
+    if(direct("cambioPresupuestoRev")) changes.push("mayor responsabilidad presupuestal");
+    if(direct("cambioDecisionRev")) changes.push("mayor nivel de decisión");
+    if(changes.length) add(`La evolución del puesto se refleja principalmente en ${joinNatural(changes)}`);
+
+    if(direct("sustentoSubvaloracion")) add(`La valoración actual ya no representa el contenido real del puesto porque ${lowerLead(stripEnd(direct("sustentoSubvaloracion")))}`);
+    if(direct("resultadoEsperadoRev")) add(`Con la revalorización se busca ${lowerLead(stripEnd(direct("resultadoEsperadoRev")))}`);
+    add("Se solicita evaluar la nueva valorización del puesto y, de corresponder, su impacto salarial");
+  }
+
+  else if(mov==="Convenio / caso especial"){
+    add(`Se solicita evaluar el caso ${direct("tipoCasoEspecial")||"especial"} presentado para ${person}`);
+    if(direct("objetivoCaso")) add(`La solicitud se origina porque ${lowerLead(stripEnd(direct("objetivoCaso")))}`);
+    if(direct("sustentoCaso")) add(`El caso se sustenta en que ${lowerLead(stripEnd(direct("sustentoCaso")))}`);
+    if(direct("resultadoEsperadoCaso")) add(`Con la medida se busca ${lowerLead(stripEnd(direct("resultadoEsperadoCaso")))}`);
+    if(direct("impactoCaso")) add(`Si no se atiende, ${lowerLead(stripEnd(direct("impactoCaso")))}`);
+    add("Se solicita la evaluación y decisión correspondiente por parte del Comité");
+  }
+
+  else {
+    add(`Se solicita la revisión del caso presentado para ${person}`);
+    if(direct("descripcionOtro")) add(`La solicitud consiste en ${lowerLead(stripEnd(direct("descripcionOtro")))}`);
+    if(direct("sustentoOtro")) add(`El caso se origina porque ${lowerLead(stripEnd(direct("sustentoOtro")))}`);
+    if(direct("resultadoEsperadoOtro")) add(`Con la medida se busca ${lowerLead(stripEnd(direct("resultadoEsperadoOtro")))}`);
+    if(direct("impactoOtro")) add(`Si no se atiende, ${lowerLead(stripEnd(direct("impactoOtro")))}`);
+    add("Se solicita la evaluación y decisión correspondiente por parte del Comité");
+  }
+
+  // Mantener el sustento breve: máximo 6 oraciones ejecutivas.
+  return paragraphs.slice(0,8).join(" ");
+}
+
+// ---------- Búsqueda de colaborador ----------
+function lockNew(reset){
+  const mov=$("movimiento").value,isNew=NOCODE.includes(mov);
+  ["codigo","colaborador","puestoActual"].forEach(id=>$(id).readOnly=isNew);
+  $("lookupEmployee").disabled=isNew;
+  if(reset){
+    if(isNew){
+      $("codigo").value="No aplica";$("colaborador").value=mov==="Puesto nuevo"?"Vacante nueva":"Varios colaboradores";$("puestoActual").value="No aplica";
+      ["departamento","area","seccion"].forEach(id=>$(id).value="");
+    }else if($("codigo").value==="No aplica"){
+      ["codigo","colaborador","puestoActual","departamento","area","seccion"].forEach(id=>$(id).value="");
+    }
+  }
+  $("codigoHelp").textContent=isNew
+    ? (mov==="Puesto nuevo"?"Puesto nuevo":"Reestructuración")+": no hay matrícula individual; completa manualmente Departamento, Área y Sección."
+    : "Ingresa el código; se completa a 10 dígitos y se busca en la base maestra si está disponible. Si no aparece, completa los datos manualmente.";
+}
+
+function lookupEmployeeByCode(){
+  if(NOCODE.includes($("movimiento").value)) return;
+  const help=$("codigoHelp"), code=normalizeEmployeeCode($("codigo").value);
+  $("codigo").value=code;
+  if(!code){help.textContent="Ingresa el código del colaborador.";return}
+  if(!masterEmployees.size){help.textContent="No hay base maestra en este equipo: completa los datos del colaborador manualmente.";return}
+  const item=masterEmployees.get(code);
+  if(!item){help.textContent=`No se encontró ${code} en la base cargada. Completa los datos manualmente.`;return}
+  setEmployeeFields(item);
+  let msg=`Encontrado en fila ${item.filaExcel} del Maestro BPs.`;
+  if(item.situacion && normalizeTextKey(item.situacion)!=="activo") msg+=` Atención: Situación Trabajador = ${item.situacion}.`;
+  if(!item.area || !item.seccion) msg+=" Área/Sección vacío en el maestro: complétalo manualmente.";
+  help.textContent=msg;
+}
+
+// ---------- Construcción de campos ----------
+function qHTML([id,label,type,opts,help]){
+  const [lmin,max]=limits(id,type);
+  const ph=esc(typeof opts==="string"?opts:"");
+  let c;
+  if(type==="textarea") c=`<textarea id="${id}" maxlength="${max}" placeholder="${ph}"></textarea><div class="cnt">0/${max} · mín. ${lmin}</div>`;
+  else if(type==="select") c=`<select id="${id}"><option value="">Seleccionar</option>${opts.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`;
+  else c=`<input id="${id}" type="${type}"${type==="number"?' min="0" step="0.01"':' maxlength="'+max+'"'} placeholder="${ph}">`;
+  if(id==="propuestaNegocio") help="Selecciona primero si la propuesta está en soles o porcentaje.";
+  return `<div class="q"><label for="${id}">${esc(label)}</label>${c}${help?`<div class="help"${id==="propuestaNegocio"?' id="propuestaNegocioHelp"':""}>${esc(help)}</div>`:""}<div class="err"></div></div>`;
+}
+const G0A=[["fechaSolicitud","Fecha de solicitud","date"],["movimiento","Tipo de movimiento","select",MOVS]];
+const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
+const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el código"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS,"Define a qué Business Partner llega tu solicitud (asignación automática)."],["area","Área","text"],["seccion","Sección","text"]];
+const CODE_HTML=`<div class="q"><label for="codigo">Código del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="codigo" inputmode="numeric" placeholder="Ej. 2458 o 0000002458"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div>`;
+const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SNC],["fuentePresupuesto","Fuente de presupuesto","select",["Presupuesto aprobado","Vacante disponible","Ahorro interno","Reasignación","Presupuesto adicional","No identificada","Otro"]],["validaPresupuesto","Quién confirma / valida el presupuesto","text","Nombre, cargo o estado de validación"],["montoPresupuesto","Monto disponible (S/)","number","0.00","Obligatorio si cuenta con presupuesto."]];
+const G4=[["urgencia","¿Cuándo se necesita implementar?","select",["Inmediato","Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
+const LEVELS=["Presidencia","Gerencia General","Líder de Unidad","Líder de Área","Líder inmediato","Otro"], EVID=["Correo","Acta","Reunión","Documento","Otro"];
+
+function renderSpecific(){
+  const mov=$("movimiento").value, sets=SETS[mov];
+  prevMov=mov;
+  $("specificQuestions").innerHTML=sets?sets.map(s=>`<div class="qgroup"${s.when?` data-when="${esc(s.when.join("|"))}"`:""}><h3>${esc(s.t)}</h3><div class="grid2">${s.q.map(qHTML).join("")}</div></div>`).join(""):"";
+  document.querySelectorAll("#specificQuestions input,#specificQuestions select,#specificQuestions textarea").forEach(el=>el.dataset.dynamic="1");
+  $("specificIntro").textContent=sets
+    ? `Preguntas para ${mov}. Todas son obligatorias; responde con hechos concretos siguiendo la secuencia: situación actual → cambio propuesto → sustento → resultado esperado → impacto.`
+    : "Selecciona primero el tipo de movimiento en el paso 1.";
+  applyWhen();
+}
+function applyWhen(){
+  document.querySelectorAll("[data-when]").forEach(s=>{
+    const [id,v]=s.dataset.when.split("|");
+    s.classList.toggle("hidden",!($(id)&&$(id).value===v));
+  });
+  const t=$("tipoPropuestaNegocio"),v=$("propuestaNegocio");
+  if(t&&v){
+    const m=t.value;
+    v.step=m==="Porcentaje %"?"0.1":"0.01";
+    v.placeholder=m==="Monto en S/"?"Ej. 6500.00":m==="Porcentaje %"?"Ej. 12.5":"";
+    $("propuestaNegocioHelp").textContent=m==="Monto en S/"?"Monto propuesto en soles. Ej.: S/ 6,500.00":m==="Porcentaje %"?"Porcentaje propuesto. Ej.: 12.5 para 12.5%.":"Selecciona primero si la propuesta está en soles o porcentaje.";
+  }
+}
+
+// ---------- Aprobaciones ----------
+function apF(cls,label,type,opts){
+  const c=type==="select"
+    ? `<select class="${cls}" aria-label="${label}"><option value="">Seleccionar</option>${opts.map(o=>`<option>${o}</option>`).join("")}</select>`
+    : `<input class="${cls}" type="${type}" aria-label="${label}"${type==="text"?' maxlength="100"':""}>`;
+  return `<div class="q"><label>${label}</label>${c}<div class="err"></div></div>`;
+}
+function renumberApprovals(){document.querySelectorAll(".approval-card .n").forEach((s,i)=>s.textContent=i+1)}
+function addApproval(p={}){
+  const card=document.createElement("div");
+  card.className="approval-card";
+  card.innerHTML=`<div class="inline" style="justify-content:space-between;margin-bottom:10px"><b>Aprobación <span class="n"></span></b><button type="button" class="secondary rm">Eliminar aprobación</button></div><div class="grid">${apF("ap-level","Nivel de aprobación","select",LEVELS)}${apF("ap-name","Nombre del aprobador","text")}${apF("ap-role","Cargo del aprobador","text")}${apF("ap-date","Fecha de aprobación","date")}${apF("ap-evidence","¿Cuenta con evidencia?","select",SN)}${apF("ap-type","Tipo de evidencia","select",EVID)}</div>`;
+  $("approvals").appendChild(card);
+  [["level","ap-level"],["name","ap-name"],["role","ap-role"],["date","ap-date"],["evidence","ap-evidence"],["type","ap-type"]].forEach(([k,c])=>card.querySelector("."+c).value=p[k]||"");
+  card.querySelector(".rm").addEventListener("click",()=>{card.remove();renumberApprovals();refresh()});
+  renumberApprovals();refresh();
+}
+
+// ---------- Datos del caso ----------
+const FIXED=["fechaSolicitud","cliente","cargoCliente","emailCliente","departamento","area","seccion","codigo","colaborador","puestoActual","movimiento","tieneAprobacion","presupuesto","fuentePresupuesto","validaPresupuesto","montoPresupuesto","urgencia","impacto","consecuencia","impactoDetalle","solicitudConcreta"];
+function gather(){
+  const per=($("fechaSolicitud").value||today()).slice(0,7);
+  const obj={periodo:per,periodoLabel:monthLabel(per)};
+  FIXED.forEach(id=>obj[id]=$(id).value);
+  obj.dynamic={};
+  document.querySelectorAll("[data-dynamic='1']").forEach(el=>{if(!el.closest(".hidden")) obj.dynamic[el.id]=el.value});
+  obj.approvals=[...document.querySelectorAll(".approval-card")].map(c=>({
+    level:c.querySelector(".ap-level").value,name:c.querySelector(".ap-name").value,role:c.querySelector(".ap-role").value,
+    date:c.querySelector(".ap-date").value,evidence:c.querySelector(".ap-evidence").value,type:c.querySelector(".ap-type").value
+  }));
+  return obj;
+}
+function fill(data){
+  FIXED.forEach(id=>$(id).value=data[id]??"");
+  if(!$("fechaSolicitud").value) $("fechaSolicitud").value=today();
+  renderSpecific();
+  Object.entries(data.dynamic||{}).forEach(([k,v])=>{const el=$(k);if(el) el.value=v??""});
+  applyWhen();
+  lockNew(false);
+  $("approvals").innerHTML="";
+  const yes=data.tieneAprobacion==="Sí";
+  $("approvalsWrap").classList.toggle("hidden",!yes);
+  if(yes) (data.approvals||[]).forEach(addApproval);
+  sustentoTouched=nonempty(data.solicitudConcreta);
+  counters();refresh();
+}
+function counters(){document.querySelectorAll("textarea").forEach(t=>{const c=t.nextElementSibling;if(c&&c.classList.contains("cnt")) c.textContent=`${t.value.length}/${t.maxLength} · mín. ${limits(t.id,"textarea")[0]}`})}
+
+// ---------- Validación ----------
+function required(el){
+  if(el.closest(".hidden")||el.type==="button"||el.disabled) return false;
+  if(el.id==="montoPresupuesto") return $("presupuesto").value==="Sí";
+  if(el.classList.contains("ap-type")) return el.closest(".approval-card").querySelector(".ap-evidence").value==="Sí";
+  return true;
+}
+function check(el){
+  if(!required(el)) return "";
+  if(el.type==="checkbox") return el.checked?"":"Debes confirmar para continuar.";
+  const v=el.value.trim();
+  if(!v) return "Esta pregunta es obligatoria.";
+  if(el.tagName==="TEXTAREA"||el.type==="text"){
+    const [min,max]=limits(el.id,el.tagName==="TEXTAREA"?"textarea":"text");
+    if(v.length<min) return min>5?`Describe con más detalle (mínimo ${min} caracteres).`:`Mínimo ${min} caracteres.`;
+    if(v.length>max) return `Máximo ${max} caracteres.`;
+  }
+  if(el.type==="email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return "Correo no válido.";
+  if(el.type==="number" && !(Number(v)>0)) return "Ingresa un valor mayor que 0.";
+  return "";
+}
+function validate(i){
+  return [...document.querySelector(`.step[data-step="${i}"]`).querySelectorAll("input,select,textarea")]
+    .map(el=>[el,check(el)]).filter(x=>x[1]);
+}
+function showErrors(errs){
+  document.querySelectorAll(".q.invalid").forEach(q=>q.classList.remove("invalid"));
+  errs.forEach(([el,msg])=>{
+    const q=el.closest(".q");q.classList.add("invalid");
+    q.querySelector(".err").textContent=msg;
+  });
+  const s=$("errSummary");
+  s.textContent=`Faltan ${errs.length} pregunta(s) por completar o corregir en este paso.`;
+  s.classList.remove("hidden");
+  errs[0][0].scrollIntoView({block:"center",behavior:"smooth"});
+  errs[0][0].focus({preventScroll:true});
+}
+
+// ---------- Evaluación (misma lógica y pesos que la versión de Amador) ----------
+function evaluateCase(d){
+  let score=0,strengths=[],alerts=[];
+  const b={general:0,sustento:0,aprobaciones:0,presupuesto:0,impacto:0};
+  const general=[d.fechaSolicitud,d.cliente,d.departamento,d.area,d.movimiento];   // el BP ya no se digita: se asigna por departamento
+  const filled=general.filter(nonempty).length;
+  b.general=Math.round(filled/general.length*20);score+=b.general;
+  if(filled===general.length) strengths.push("Información general completa."); else alerts.push("Faltan datos generales del caso.");
+  const dq=Object.values(d.dynamic||{});
+  if(dq.length){
+    const pct=dq.filter(nonempty).length/dq.length;
+    b.sustento=Math.round(pct*30);score+=b.sustento;
+    if(pct>=0.85) strengths.push("Sustento metodológico bien desarrollado."); else alerts.push("Faltan respuestas en el levantamiento específico del movimiento.");
+  }else alerts.push("Selecciona un tipo de movimiento para completar el sustento metodológico.");
+  const ap=d.approvals||[];
+  if(d.tieneAprobacion==="Sí" && ap.length){
+    const complete=ap.filter(a=>a.level&&a.name).length;
+    b.aprobaciones=Math.min(15,8+complete*3);score+=b.aprobaciones;
+    strengths.push(`Cuenta con ${ap.length} aprobación(es) previa(s) registrada(s).`);
+    if(ap.some(a=>a.evidence==="No")) alerts.push("Existe aprobación previa sin evidencia documentada.");
+  }else if(d.tieneAprobacion==="No") alerts.push("El caso no cuenta con aprobación previa.");
+  else alerts.push("No se ha definido si el caso cuenta con aprobación previa.");
+  if(d.presupuesto==="Sí"){
+    b.presupuesto=15;score+=15;strengths.push("Cuenta con presupuesto.");
+    if(!d.fuentePresupuesto) alerts.push("Falta identificar la fuente de presupuesto.");
+  }else if(d.presupuesto==="Por confirmar"){b.presupuesto=6;score+=6;alerts.push("El presupuesto está por confirmar.")}
+  else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
+  else alerts.push("No se ha definido el estado del presupuesto.");
+  if(d.urgencia) b.impacto+=6;
+  if(d.impacto) b.impacto+=6;
+  if(d.consecuencia) b.impacto+=3;
+  if(nonempty(d.impactoDetalle)) b.impacto+=5;
+  score+=b.impacto;
+  if(b.impacto>=16) strengths.push("Impacto y urgencia del negocio identificados."); else alerts.push("Falta fortalecer la justificación de impacto o urgencia.");
+  if(!nonempty(d.solicitudConcreta)) alerts.push("Falta generar o completar el sustento ejecutivo para Comité.");
+  score=Math.min(100,score);
+  let label,recommendation;
+  if(score>=85){label="Caso bien preparado";recommendation="El caso presenta un nivel alto de preparación. Puede pasar a revisión de Compensaciones, sujeto a las validaciones técnicas correspondientes."}
+  else if(score>=60){label="Caso viable con observaciones";recommendation="El caso puede avanzar, pero conviene resolver las alertas señaladas antes de elevarlo a Compensaciones."}
+  else{label="Requiere gestión previa";recommendation="El caso aún necesita información, validaciones o sustentos adicionales antes de ser enviado a Compensaciones."}
+  if(d.presupuesto==="No") recommendation+=" Prioridad: identificar una fuente de presupuesto o sustentar formalmente la excepción.";
+  if(d.tieneAprobacion==="No") recommendation+=" También se recomienda obtener una aprobación previa del nivel correspondiente.";
+  if(!nonempty(d.solicitudConcreta)) recommendation+=" Antes de guardar o exportar, genera o completa el sustento ejecutivo para Comité.";
+  return {score,label,strengths,alerts,recommendation,breakdown:b};
+}
+
+// ---------- Asistente por pasos ----------
+const STEPS=["Solicitud","Levantamiento","Aprobaciones","Presupuesto","Impacto","Sustento","Revisión"];
+let cur=0,reached=0,editingCaseId=null,prevMov="",sustentoTouched=false,lastRec=null;
+
+function renderStepper(){
+  $("stepper").innerHTML=STEPS.map((s,i)=>`<button type="button" data-go="${i}" class="${i===cur?"on":(i<reached&&i!==cur&&!validate(i).length?"ok":"")}"${i>reached?" disabled":""}${i===cur?' aria-current="step"':""}><b>${i+1}</b><span>${s}</span></button>`).join("");
+}
+function refresh(){
+  let tot=0,okc=0;
+  $("form").querySelectorAll("input,select,textarea").forEach(el=>{
+    if(el.id==="confirmo"||el.type==="button") return;
+    const req=required(el),q=el.closest(".q");
+    if(q) q.classList.toggle("opt",!req&&!el.closest(".hidden"));
+    if(req){tot++;if(!check(el)) okc++}
+  });
+  const pct=tot?Math.round(okc/tot*100):0;
+  $("barfill").style.width=pct+"%";
+  $("barTxt").textContent=`${okc} de ${tot} preguntas completas (${pct}%)`;
+  renderStepper();
+}
+function go(n){
+  cur=n;reached=Math.max(reached,n);
+  document.querySelectorAll(".step").forEach(s=>s.classList.toggle("on",+s.dataset.step===n));
+  $("errSummary").classList.add("hidden");
+  if(n===5&&!sustentoTouched){$("solicitudConcreta").value=buildExecutiveSummary();counters()}
+  if(n===6) renderReview();
+  $("prevBtn").disabled=n===0;
+  $("nextBtn").textContent=n===6?(editingCaseId?"Guardar cambios":"Enviar solicitud"):"Siguiente →";
+  refresh();window.scrollTo({top:0});
+}
+function next(){
+  const errs=validate(cur);
+  if(errs.length) return showErrors(errs);
+  cur===6?submit():go(cur+1);
+}
+function toast(m){const t=$("toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2800)}
+
+function renderReview(){
+  const d=gather(),ev=evaluateCase(d),cls=ev.score>=85?"ok":ev.score>=60?"warn":"bad";
+  const li=a=>(a.length?a:["—"]).map(x=>`<li>${esc(x)}</li>`).join("");
+  const rows=[["Movimiento",d.movimiento],["Colaborador",`${d.colaborador} (${d.codigo})`],["Puesto",d.puestoActual],["Departamento / Área / Sección",[d.departamento,d.area,d.seccion].filter(Boolean).join(" · ")],["Líder solicitante",`${d.cliente} · ${d.cargoCliente} · ${d.emailCliente}`],["Se envía a","Business Partner del departamento indicado (asignación automática)"],["Aprobaciones",d.tieneAprobacion==="Sí"?`${d.approvals.length} registrada(s)`:"Sin aprobación previa"],["Presupuesto",`${d.presupuesto} · ${d.fuentePresupuesto}${d.montoPresupuesto?` · S/ ${d.montoPresupuesto}`:""}`],["Urgencia / impacto",`${d.urgencia} · ${d.impacto} · ${d.consecuencia}`],["Sustento ejecutivo",d.solicitudConcreta]];
+  $("reviewBox").innerHTML=`<div class="scorebox"><div class="scorecircle"><strong>${ev.score}</strong><span>de 100</span></div><div><span class="badge ${cls}">${esc(ev.label)}</span><div class="grid2" style="margin-top:12px"><div class="result-block"><h4>Fortalezas</h4><ul class="list">${li(ev.strengths)}</ul></div><div class="result-block"><h4>Alertas</h4><ul class="list">${li(ev.alerts)}</ul></div></div><div class="notice">${esc(ev.recommendation)}</div></div></div><h3>Resumen de la solicitud</h3><dl class="sum">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+}
+
+// ---------- Envío ----------
+function download(name,text,type="application/json"){
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+let submitting=false;
+async function submit(){
+  if(submitting) return;
+  for(let i=0;i<STEPS.length;i++){const e=validate(i);if(e.length){go(i);showErrors(e);return}}
+  submitting=true;$("nextBtn").disabled=true;$("nextBtn").textContent="Enviando…";
+  try{await doSubmit()}finally{submitting=false;$("nextBtn").disabled=false}
+}
+async function doSubmit(){
+  const d=gather(),ev=evaluateCase(d),now=new Date().toISOString();
+  const hist=load(HISTORY_KEY,[]),idx=editingCaseId?hist.findIndex(r=>r.id===editingCaseId):-1;
+  let rec;
+  if(idx>=0){rec={...hist[idx],periodo:d.periodo,periodoLabel:d.periodoLabel,updatedAt:now,data:d,evaluation:ev};hist[idx]=rec}
+  else{rec={schemaVersion:2,appVersion:APP_VERSION,id:recordId(),periodo:d.periodo,periodoLabel:d.periodoLabel,savedAt:now,creadoPor:{nombre:SESSION.name,email:SESSION.email,rol:SESSION.role},data:d,evaluation:ev};hist.push(rec)}
+  const saved=store(HISTORY_KEY,JSON.stringify(hist));store(draftKey());
+  let sent=!CONFIG.endpoint&&saved,err=saved?"":"Este navegador bloquea el almacenamiento local.";
+  if(CONFIG.endpoint){
+    const ac=new AbortController(),t=setTimeout(()=>ac.abort(),15000);
+    try{
+      const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:CONFIG.token,rec}),signal:ac.signal});
+      const j=await r.json();sent=r.ok&&j.ok;err=sent?"":(j.error||`El servidor respondió ${r.status}.`);
+      if(sent){rec.bpAsignado=j.bp||"";rec.sinBP=!j.bp;const hh=load(HISTORY_KEY,[]),k=hh.findIndex(x=>x.id===rec.id);if(k>=0){hh[k]=rec;store(HISTORY_KEY,JSON.stringify(hh))}}
+    }
+    catch(e){err=e.name==="AbortError"?"El servidor tardó demasiado en responder.":"No hubo conexión con el servidor."}
+    finally{clearTimeout(t)}
+  }
+  showDone(rec,sent,err);
+}
+function showDone(rec,sent,err){
+  lastRec=rec;
+  ["form","stepper","actionsBar","errSummary"].forEach(id=>$(id).classList.add("hidden"));
+  const msg=!sent?`No se pudo enviar al servidor (${esc(err)}). Descarga el archivo y envíalo a tu Business Partner.`
+    :CONFIG.endpoint?(rec.bpAsignado?`Tu solicitud fue enviada a tu Business Partner: ${esc(rec.bpAsignado)}.`:"Tu solicitud fue registrada; aún no hay un Business Partner configurado para tu departamento y se derivó al coordinador.")
+    :"Tu solicitud quedó guardada en este equipo. Descarga el archivo y envíalo a tu Business Partner.";
+  $("done").classList.remove("hidden");
+  $("done").innerHTML=`<h2>${sent?"✔ Solicitud registrada":"⚠ Solicitud guardada, falta enviarla"}</h2><p>${msg}</p><dl class="sum"><dt>Código de seguimiento</dt><dd><b>${esc(rec.id)}</b></dd><dt>Movimiento</dt><dd>${esc(rec.data.movimiento)}</dd><dt>Índice de preparación</dt><dd>${rec.evaluation.score}/100 · ${esc(rec.evaluation.label)}</dd></dl><div class="inline" style="margin-top:16px"><button type="button" id="dlJson">Descargar solicitud (.json)</button><button type="button" class="secondary" id="newReq">Nueva solicitud</button></div>`;
+  $("dlJson").onclick=()=>download(`Solicitud_${rec.id}.json`,JSON.stringify(rec,null,2));
+  $("newReq").onclick=resetForm;
+  if(BP_MODE) renderHistory();
+  window.scrollTo({top:0});
+}
+function baseData(){return {fechaSolicitud:today(),cliente:SESSION?SESSION.name:"",emailCliente:SESSION?SESSION.email:""}}
+function showShell(){
+  ["form","stepper","actionsBar"].forEach(id=>$(id).classList.remove("hidden"));
+  $("done").classList.add("hidden");
+}
+function resetForm(){
+  editingCaseId=null;reached=0;
+  fill(baseData());lockLeader();
+  $("confirmo").checked=false;store(draftKey());
+  showShell();go(0);
+}
+function lockLeader(){["cliente","emailCliente"].forEach(id=>$(id).readOnly=!BP_MODE)}
+
+// ---------- Panel BP: histórico y exportación ----------
+function renderHistory(){
+  const p=$("histPeriod").value||today().slice(0,7);
+  const hist=load(HISTORY_KEY,[]).filter(r=>r.periodo===p);
+  $("historyTitle").textContent=`${hist.length} caso(s) · ${monthLabel(p)}`;
+  $("historyRows").innerHTML=hist.length?hist.map(r=>`<tr><td>${esc(r.data.fechaSolicitud)}</td><td>${esc(r.data.codigo)}</td><td>${esc(r.data.colaborador)}</td><td>${esc(r.data.cliente)}</td><td>${esc(r.data.movimiento)}</td><td>${esc(r.evaluation?.score)}</td><td><button type="button" class="linkbtn" data-act="open" data-id="${esc(r.id)}">Abrir</button> · <button type="button" class="linkbtn" data-act="xls" data-id="${esc(r.id)}">Excel</button> · <button type="button" class="linkdanger" data-act="del" data-id="${esc(r.id)}">Borrar</button></td></tr>`).join(""):'<tr><td colspan="7">No hay casos en este periodo.</td></tr>';
+}
+function detailRows(d,ev,bp=""){
+  const dyn=d.dynamic||{};
+  const rows=[["periodo","Periodo",d.periodoLabel],["fechaSolicitud","Fecha de solicitud",d.fechaSolicitud],["bp","BP asignado",bp],["cliente","Líder solicitante",d.cliente],["cargoCliente","Cargo del líder",d.cargoCliente],["emailCliente","Correo del líder",d.emailCliente],["departamento","Departamento",d.departamento],["area","Área",d.area],["seccion","Sección",d.seccion],["codigo","Código",d.codigo],["colaborador","Nombre",d.colaborador],["puestoActual","Puesto",d.puestoActual],["movimiento","Tipo de movimiento",d.movimiento]];
+  (SETS[d.movimiento]||[]).forEach(s=>s.q.forEach(q=>{if(q[0] in dyn) rows.push([q[0],q[1],dyn[q[0]]])}));
+  if(d.movimiento==="Incremento salarial"&&dyn.propuestaNegocio){
+    const raw=Number(dyn.propuestaNegocio||0),t=dyn.tipoPropuestaNegocio;
+    rows.push(["propuestaNegocioFormateada","Propuesta del negocio formateada",t==="Monto en S/"?"S/ "+raw.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2}):t==="Porcentaje %"?raw.toLocaleString("es-PE",{maximumFractionDigits:2})+"%":String(dyn.propuestaNegocio)]);
+  }
+  rows.push(["tieneAprobacion","¿Cuenta con aprobación previa?",d.tieneAprobacion],["presupuesto","¿Cuenta con presupuesto?",d.presupuesto],["fuentePresupuesto","Fuente de presupuesto",d.fuentePresupuesto],["validaPresupuesto","Quién valida presupuesto",d.validaPresupuesto],["montoPresupuesto","Monto disponible",d.montoPresupuesto],["urgencia","Urgencia",d.urgencia],["impacto","Nivel de impacto",d.impacto],["consecuencia","Consecuencia principal",d.consecuencia],["impactoDetalle","Detalle del impacto",d.impactoDetalle],["solicitudConcreta","Sustento ejecutivo para Comité",d.solicitudConcreta],["score","Índice de preparación",ev.score],["clasificacion","Clasificación",ev.label],["recomendacion","Recomendación del sistema",ev.recommendation]);
+  return rows;
+}
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve();
+  return new Promise((ok,fail)=>{
+    const s=document.createElement("script");
+    s.src=XLSX_SRC.url;s.integrity=XLSX_SRC.sri;s.crossOrigin="anonymous";
+    s.onload=ok;s.onerror=()=>fail(new Error("No se pudo cargar la librería de Excel (¿sin conexión?)."));
+    document.head.appendChild(s);
+  });
+}
+async function needXLSX(){try{await loadXLSX();return true}catch(e){alert(e.message);return false}}
+async function exportCase(rec){
+  if(!await needXLSX()) return;
+  const d=rec.data,ev=rec.evaluation||{},wb=XLSX.utils.book_new();
+  const A=XLSX.utils.aoa_to_sheet.bind(XLSX.utils);
+  XLSX.utils.book_append_sheet(wb,A([["Campo","Valor"],["Periodo",d.periodoLabel],["Fecha solicitud",d.fechaSolicitud],["BP asignado",rec.bpAsignado||""],["Líder solicitante",d.cliente],["Cargo del líder",d.cargoCliente],["Correo del líder",d.emailCliente],["Departamento",d.departamento],["Área",d.area],["Sección",d.seccion],["Código",d.codigo],["Nombre",d.colaborador],["Puesto",d.puestoActual],["Movimiento",d.movimiento],["¿Cuenta con presupuesto?",d.presupuesto],["Fuente de presupuesto",d.fuentePresupuesto],["Índice de preparación",ev.score],["Clasificación",ev.label],["Recomendación",ev.recommendation],["Sustento ejecutivo",d.solicitudConcreta]]),"Resumen");
+  XLSX.utils.book_append_sheet(wb,A([["ID campo","Campo","Valor"],...detailRows(d,ev,rec.bpAsignado||"")]),"Detalle levantamiento");
+  XLSX.utils.book_append_sheet(wb,A([["Nivel","Nombre","Cargo","Fecha","¿Evidencia?","Tipo evidencia"],...(d.approvals||[]).map(a=>[a.level,a.name,a.role,a.date,a.evidence,a.type])]),"Aprobaciones");
+  XLSX.utils.book_append_sheet(wb,A([["Periodo","Fecha solicitud","BP","Cliente","Departamento","Área","Sección","Código","Nombre","Puesto","Tipo movimiento","Tiene aprobación","N° aprobaciones","Presupuesto","Fuente presupuesto","Urgencia","Impacto","Consecuencia","Score preparación","Clasificación","Sustento ejecutivo"],[d.periodoLabel,d.fechaSolicitud,rec.bpAsignado||"",d.cliente,d.departamento,d.area,d.seccion,d.codigo,d.colaborador,d.puestoActual,d.movimiento,d.tieneAprobacion,(d.approvals||[]).length,d.presupuesto,d.fuentePresupuesto,d.urgencia,d.impacto,d.consecuencia,ev.score,ev.label,d.solicitudConcreta]]),"Datos para Compensaciones");
+  const safe=(d.colaborador||"caso").replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_");
+  XLSX.writeFile(wb,`BP_${d.movimiento.replace(/\s+/g,"_")}_${safe}_${d.fechaSolicitud||today()}.xlsx`);
+}
+async function exportAllPeriod(){
+  if(!await needXLSX()) return;
+  const p=$("histPeriod").value||today().slice(0,7),hist=load(HISTORY_KEY,[]).filter(r=>r.periodo===p);
+  if(!hist.length) return alert("No hay casos guardados en este periodo.");
+  const wb=XLSX.utils.book_new(),A=XLSX.utils.aoa_to_sheet.bind(XLSX.utils);
+  XLSX.utils.book_append_sheet(wb,A([["ID caso","Periodo","Fecha solicitud","BP","Cliente","Departamento","Área","Sección","Código","Nombre","Puesto","Tipo movimiento","Tiene aprobación","N° aprobaciones","Presupuesto","Fuente presupuesto","Urgencia","Impacto","Consecuencia","Score","Clasificación","Recomendación","Sustento ejecutivo"],...hist.map(r=>{const d=r.data,ev=r.evaluation||{};return [r.id,r.periodoLabel,d.fechaSolicitud,r.bpAsignado||"",d.cliente,d.departamento,d.area,d.seccion,d.codigo,d.colaborador,d.puestoActual,d.movimiento,d.tieneAprobacion,(d.approvals||[]).length,d.presupuesto,d.fuentePresupuesto,d.urgencia,d.impacto,d.consecuencia,ev.score,ev.label,ev.recommendation,d.solicitudConcreta]})]),"Casos del periodo");
+  const ap=[["ID caso","Periodo","Código","Nombre","Nivel","Aprobador","Cargo","Fecha","Evidencia","Tipo evidencia"]];
+  hist.forEach(r=>(r.data.approvals||[]).forEach(a=>ap.push([r.id,r.periodoLabel,r.data.codigo,r.data.colaborador,a.level,a.name,a.role,a.date,a.evidence,a.type])));
+  XLSX.utils.book_append_sheet(wb,A(ap),"Aprobaciones");
+  const det=[["ID caso","Periodo","ID campo","Campo","Valor"]];
+  hist.forEach(r=>detailRows(r.data,r.evaluation||{},r.bpAsignado||"").forEach(x=>det.push([r.id,r.periodoLabel,...x])));
+  XLSX.utils.book_append_sheet(wb,A(det),"Detalle casos");
+  XLSX.writeFile(wb,`Casos_BP_${p}.xlsx`);
+}
+function resetWholeSystem(){
+  if(!confirm("¿Reiniciar TODO el sistema?\n\nSe eliminarán la base maestra guardada, todos los casos y el borrador actual.\n\nEsta acción no se puede deshacer.")) return;
+  [MASTER_KEY,MASTER_META_KEY,HISTORY_KEY,draftKey()].forEach(k=>store(k));
+  masterEmployees=new Map();masterMeta=null;
+  $("masterFile").value="";$("masterStatus").value="Sin base cargada";$("masterDetail").textContent="No hay base maestra cargada.";
+  resetForm();renderHistory();
+}
+
+// ---------- Arranque ----------
+let draftTimer;
+function onAny(e){
+  const el=e.target,isChange=e.type==="change";
+  if(el.id==="movimiento"&&isChange){
+    const had=[...document.querySelectorAll("[data-dynamic='1']")].some(x=>nonempty(x.value));
+    if(had&&!confirm("Cambiar el tipo de movimiento borrará las respuestas del levantamiento. ¿Continuar?")){el.value=prevMov;return}
+    renderSpecific();lockNew(true);
+  }
+  if(el.id==="tieneAprobacion"){
+    const yes=el.value==="Sí";
+    $("approvalsWrap").classList.toggle("hidden",!yes);
+    if(yes&&!$("approvals").children.length) addApproval();
+    if(!yes) $("approvals").innerHTML="";
+  }
+  if(el.id==="codigo"&&isChange) lookupEmployeeByCode();
+  if(el.id==="solicitudConcreta") sustentoTouched=true;
+  applyWhen();
+  const q=el.closest(".q");
+  if(q&&q.classList.contains("invalid")&&!check(el)) q.classList.remove("invalid");
+  if(el.tagName==="TEXTAREA") counters();
+  refresh();
+  clearTimeout(draftTimer);
+  draftTimer=setTimeout(()=>store(draftKey(),JSON.stringify({data:gather(),cur,reached})),400);
+}
+function init(){
+  $("g0a").innerHTML=G0A.map(qHTML).join("");
+  $("g0b").innerHTML=G0B.map(qHTML).join("");
+  $("g0c").innerHTML=CODE_HTML+G0C.map(qHTML).join("");
+  $("g2").innerHTML=qHTML(["tieneAprobacion","¿Cuenta con alguna aprobación previa?","select",SN]);
+  $("g3").innerHTML=G3.map(qHTML).join("");
+  $("g4").innerHTML=G4.map(qHTML).join("");
+  $("g4b").innerHTML=qHTML(["impactoDetalle","Explique brevemente el impacto","textarea","¿Qué pasaría si este movimiento no se ejecuta?"]);
+  $("g5").innerHTML=qHTML(["solicitudConcreta","Sustento ejecutivo","textarea","Se genera a partir de tus respuestas; puedes editarlo."]);
+  $("form").addEventListener("input",onAny);$("form").addEventListener("change",onAny);
+  $("stepper").addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b&&!b.disabled) go(+b.dataset.go)});
+  $("prevBtn").onclick=()=>go(cur-1);$("nextBtn").onclick=next;
+  $("lookupEmployee").onclick=lookupEmployeeByCode;
+  $("codigo").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupEmployeeByCode()}});
+  $("addApproval").onclick=()=>addApproval();
+  $("generateExecutive").onclick=()=>{
+    if(sustentoTouched&&!confirm("Se reemplazará el texto editado por uno nuevo generado desde tus respuestas. ¿Continuar?")) return;
+    if(!$("movimiento").value) return alert("Selecciona primero el tipo de movimiento.");
+    $("solicitudConcreta").value=buildExecutiveSummary();sustentoTouched=false;counters();refresh();
+  };
+  restorePersistedMaster();
+  {
+    $("histPeriod").value=today().slice(0,7);
+    $("histPeriod").onchange=renderHistory;
+    $("loadMaster").onclick=loadMasterFile;$("exportAll").onclick=exportAllPeriod;$("resetSystem").onclick=resetWholeSystem;
+    $("historyRows").addEventListener("click",e=>{
+      const b=e.target.closest("[data-act]");if(!b) return;
+      const hist=load(HISTORY_KEY,[]),rec=hist.find(r=>r.id===b.dataset.id);if(!rec) return;
+      if(b.dataset.act==="xls") return exportCase(rec);
+      if(b.dataset.act==="del"){
+        if(!confirm(`¿Borrar completamente este caso de ${rec.periodoLabel}?`)) return;
+        store(HISTORY_KEY,JSON.stringify(hist.filter(r=>r.id!==rec.id)));
+        if(editingCaseId===rec.id) editingCaseId=null;
+        return renderHistory();
+      }
+      resetForm();fill(rec.data);editingCaseId=rec.id;reached=STEPS.length-1;go(0);
+      toast("Caso abierto: al guardar se actualiza el mismo registro.");
+    });
+  }
+  $("foot").textContent=`USIL · Business Partners · v${APP_VERSION}`+(CONFIG.soporte?` · Soporte: ${CONFIG.soporte}`:"");
+  setupLogin();
+  boot();
+}
+
+// ---------- Sesión ----------
+// Identificación en el cliente: ordena la experiencia y registra quién envía. NO es seguridad:
+// la protección real debe darla el hosting (SSO con Microsoft Entra ID). Ver DESPLIEGUE.md.
+function saveSession(){try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(SESSION))}catch(e){}}
+function readSession(){
+  try{const s=JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null");if(s&&Date.now()-s.last<CONFIG.sessionMinutes*60000) return s}catch(e){}
+  return null;
+}
+let lastSave=0;
+function touch(){if(!SESSION) return;SESSION.last=Date.now();if(Date.now()-lastSave>15000){lastSave=Date.now();saveSession()}}
+function setupLogin(){
+  $("loginForm").addEventListener("submit",e=>{
+    e.preventDefault();
+    const name=$("lgName").value.trim().replace(/\s+/g," "),mail=$("lgMail").value.trim().toLowerCase(),err=$("lgErr");
+    if(name.length<5||!name.includes(" ")) return void(err.textContent="Ingresa tu nombre y apellido.");
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return void(err.textContent="Ingresa un correo válido.");
+    if(CONFIG.allowedDomains.length&&!CONFIG.allowedDomains.includes(mail.split("@")[1])) return void(err.textContent=`Usa tu correo institucional (@${CONFIG.allowedDomains.join(", @")}).`);
+    SESSION={name,email:mail,role:CONFIG.bpEmails.map(x=>x.toLowerCase()).includes(mail)?"bp":"jefe",last:Date.now()};
+    saveSession();err.textContent="";enter();
+  });
+  $("logoutBtn").onclick=()=>logout(true);
+  ["click","keydown","input"].forEach(ev=>document.addEventListener(ev,touch,{passive:true}));
+  setInterval(()=>{if(SESSION&&Date.now()-SESSION.last>CONFIG.sessionMinutes*60000){logout(false);toast("Sesión cerrada por inactividad. Tu borrador se conservó.")}},30000);
+}
+function boot(){SESSION=readSession();SESSION?enter():showLogin()}
+function showLogin(){
+  $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
+  $("lgName").value="";$("lgMail").value="";setTimeout(()=>$("lgName").focus(),50);
+}
+function enter(){
+  BP_MODE=SESSION.role==="bp";
+  $("login").classList.add("hidden");$("userChip").classList.remove("hidden");
+  $("userName").textContent=`${SESSION.name} · ${BP_MODE?"BP":"Líder"}`;
+  $("bpPanel").classList.toggle("hidden",!BP_MODE);$("modeTag").textContent=BP_MODE?"· Modo BP":"";
+  if(BP_MODE) renderHistory();
+  const dr=load(draftKey(),null);
+  editingCaseId=null;reached=0;showShell();
+  fill(dr&&dr.data?dr.data:baseData());lockLeader();
+  if(dr&&dr.data){reached=dr.reached||0;go(Math.min(dr.cur||0,reached));toast("Borrador recuperado")}
+  else{lockNew(false);go(0)}
+}
+function logout(explicit){
+  if(explicit&&!confirm("Se cerrará la sesión y se eliminará el borrador sin enviar de este equipo. ¿Continuar?")) return;
+  const key=draftKey(),snap=JSON.stringify({data:gather(),cur,reached});
+  try{sessionStorage.removeItem(SESSION_KEY)}catch(e){}
+  SESSION=null;BP_MODE=false;resetForm();
+  explicit?store(key):store(key,snap);
+  showLogin();
+}
+window.addEventListener("error",()=>toast("Ocurrió un error inesperado. Recarga la página; tu borrador se conserva."));
+window.addEventListener("unhandledrejection",()=>toast("Ocurrió un error inesperado. Recarga la página; tu borrador se conserva."));
+init();
+</script>
+</body>
+</html>

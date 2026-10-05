@@ -1,0 +1,10 @@
+# Datos personales: NUNCA al repositorio
+Maestro*
+*.xlsx
+!docs/Ruteo_BP.xlsx
+*.xls
+*.csv
+*.json
+*.bak*
+.env
+node_modules/
