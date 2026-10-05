@@ -5,6 +5,7 @@ Maestro*
 *.xls
 *.csv
 *.json
+!package.json
 *.bak*
 .env
 node_modules/

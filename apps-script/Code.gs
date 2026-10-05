@@ -28,7 +28,11 @@
 const CONFIG = {
   TITULO: "Solicitud de Movimiento de Talento",
   COORDINADOR: "creyess@usil.edu.pe",   // César Reyes (Subgerente de Talento y Cultura): recibe lo «Sin asignar» y las fallas de envío
-  TOKEN: "",                       // ← clave que debe enviar la app web (cualquier texto largo y aleatorio)
+  TOKEN: "e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2",   // clave que debe enviar la app web (debe coincidir con CONFIG.token de index.html)
+  DOMINIOS_PERMITIDOS: ["usil.edu.pe"],   // la app web solo acepta correos de estos dominios
+  MAX_POR_CORREO_HORA: 10,         // límite de envíos por correo y por hora (anti-spam)
+  MAX_GLOBAL_DIA: 300,             // límite total de envíos web por día
+  MAX_BYTES: 60000,                // tamaño máximo de una solicitud web
   ENVIAR_CORREOS: true,
   CARPETA_EXPORT: "Exportaciones BP",
   HOJA_ENTRADAS: "Entradas",
@@ -1847,6 +1851,7 @@ function guardarFila_(rec) {
   if (hit && hit.getColumn() === 1) {
     const r = hit.getRow(), e = colIdx_("estado"), c = colIdx_("comentarioBP");
     const previo = sh.getRange(r, 1, 1, COLS.length).getValues()[0];
+    if (String(previo[colIdx_("enviadoPor")]).toLowerCase() !== String(rec.enviadoPor).toLowerCase()) throw new Error("ID ya registrado por otro usuario");
     fila[e] = previo[e] || "Nuevo"; fila[c] = previo[c] || "";
     sh.getRange(r, 1, 1, COLS.length).setValues([fila]);
   } else {
@@ -1923,6 +1928,12 @@ function asignar_(rec) {
 }
 
 // ============================================================ CORREOS
+/** Quita caracteres de control (conserva saltos de línea y tabulaciones) y recorta espacios. */
+function limpiar_(v, max) {
+  return String(v == null ? "" : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim().slice(0, max || 3000);
+}
+function unaLinea_(v, max) { return limpiar_(v, max).replace(/\s+/g, " "); }
+
 function h_(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
 function notificar_(rec) {
@@ -1932,14 +1943,15 @@ function notificar_(rec) {
   const fila = [["Tipo de movimiento", d.movimiento], ["Colaborador", d.colaborador + (d.codigo && d.codigo !== "No aplica" ? " · " + d.codigo : "")],
     ["Puesto actual", d.puestoActual], ["Departamento / Área", [d.departamento, d.area].filter(Boolean).join(" · ")],
     ["Líder solicitante", d.cliente + " · " + d.cargoCliente + " · " + d.emailCliente], ["Presupuesto", d.presupuesto + " · " + d.fuentePresupuesto],
-    ["Urgencia / impacto", d.urgencia + " · " + d.impacto], ["Detalle del impacto", d.impactoDetalle]];
+    ["Urgencia / impacto", d.urgencia + " · " + d.impacto], ["Detalle del impacto", d.impactoDetalle],
+    ["Origen", rec.origen === "web" ? "App web (correo declarado por el usuario, no verificado)" : "Formulario de Google (correo verificado)"]];
   const tabla = "<table cellpadding='6' style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px'>" +
     fila.map(f => "<tr><td style='border-bottom:1px solid #D9E1F5;color:#5B6A8F'><b>" + h_(f[0]) + "</b></td><td style='border-bottom:1px solid #D9E1F5'>" + h_(f[1]) + "</td></tr>").join("") + "</table>";
   const destino = sinBP ? CONFIG.COORDINADOR : rec.bpCorreo;
   try {
     if (destino) MailApp.sendEmail({
       to: destino, replyTo: d.emailCliente || undefined,
-      subject: (sinBP ? "[SIN BP ASIGNADO] " : "[Movimiento de talento] ") + d.movimiento + " · " + (d.colaborador || d.area) + " · " + rec.id,
+      subject: unaLinea_((sinBP ? "[SIN BP ASIGNADO] " : "[Movimiento de talento] ") + d.movimiento + " · " + (d.colaborador || d.area) + " · " + rec.id, 200),
       htmlBody: "<p>" + (sinBP ? "No hay Business Partner configurado para el departamento <b>" + h_(d.departamento) + "</b>. Asigna y reenvía." : "Nueva solicitud para <b>" + h_(rec.data.bp) + "</b>.") +
         "</p>" + tabla + "<p>Revisa y gestiona la solicitud completa en la hoja de entradas: <a href='" + ss.getUrl() + "'>abrir</a> (ID " + h_(rec.id) + ").</p>"
     });
@@ -1972,7 +1984,7 @@ function aRegistro_(resp) {
   const movNombre = r["Tipo de movimiento"];
   const m = CATALOGO.movs.find(x => x.nombre === movNombre);
   if (!m) throw new Error("Tipo de movimiento desconocido: " + movNombre);
-  const val = q => (r[q.t] === undefined ? "" : Array.isArray(r[q.t]) ? r[q.t].join(", ") : String(r[q.t]));
+  const val = q => (r[q.t] === undefined ? "" : limpiar_(Array.isArray(r[q.t]) ? r[q.t].join(", ") : r[q.t]));
   const pick = lista => { const o = {}; lista.forEach(q => { o[q.id] = val(q); }); return o; };
 
   const d = Object.assign({}, pick(CATALOGO.comun.solicitud), pick(m.sinMatricula ? CATALOGO.comun.area : CATALOGO.comun.colaborador));
@@ -2015,38 +2027,78 @@ function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).se
 function doPost(e) {
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
+    if (!e || !e.postData || e.postData.length > CONFIG.MAX_BYTES) return json_({ ok: false, error: "Solicitud inválida o demasiado grande" });
     const body = JSON.parse(e.postData.contents);
     if (CONFIG.TOKEN && body.token !== CONFIG.TOKEN) return json_({ ok: false, error: "No autorizado" });
-    const rec = desdeWeb_(body.rec);
+    const rec = desdeWeb_(body.rec);          // valida correo, departamento, tipos y longitudes
+    limitar_(rec.enviadoPor);                 // anti-spam
     guardarFila_(rec);
     notificar_(rec);
     return json_({ ok: true, id: rec.id, bp: rec.bpCorreo ? rec.data.bp : null });
   } catch (err) {
     log_("doPost", err);
-    return json_({ ok: false, error: String(err) });
+    return json_({ ok: false, error: String(err).replace(/^Error: /, "") });
   } finally { lock.releaseLock(); }
+}
+
+/** Máximo de envíos por correo y hora, y de envíos totales por día. Lanza error al superarlos. */
+function limitar_(email) {
+  const ahora = new Date();
+  const cache = CacheService.getScriptCache();
+  const k = "rl:" + email + ":" + Utilities.formatDate(ahora, "UTC", "yyyyMMddHH");
+  const n = Number(cache.get(k) || 0) + 1;
+  if (n > CONFIG.MAX_POR_CORREO_HORA) throw new Error("Demasiados envíos desde este correo. Intenta de nuevo en una hora.");
+  const props = PropertiesService.getScriptProperties();
+  const dk = "g:" + Utilities.formatDate(ahora, "UTC", "yyyyMMdd");
+  const g = Number(props.getProperty(dk) || 0) + 1;
+  if (g > CONFIG.MAX_GLOBAL_DIA) throw new Error("Se alcanzó el límite diario de envíos. Intenta mañana o usa el formulario.");
+  cache.put(k, String(n), 3600);
+  props.setProperty(dk, String(g));
+  const ayer = "g:" + Utilities.formatDate(new Date(ahora.getTime() - 86400000), "UTC", "yyyyMMdd");
+  props.deleteProperty(ayer);
 }
 
 /** Valida y normaliza un registro enviado por la app web. */
 function desdeWeb_(w) {
-  const t = (v, n) => String(v == null ? "" : v).slice(0, n || 3000);
   const src = w && w.data;
   if (!src) throw new Error("Registro vacío");
   const m = CATALOGO.movs.find(x => x.nombre === src.movimiento);
   if (!m) throw new Error("Tipo de movimiento inválido");
+
+  const email = unaLinea_(src.emailCliente, 120).toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("Correo inválido");
+  if (CONFIG.DOMINIOS_PERMITIDOS.length && CONFIG.DOMINIOS_PERMITIDOS.indexOf(email.split("@")[1]) < 0) throw new Error("Usa tu correo institucional");
+  if (CATALOGO.departamentos.indexOf(src.departamento) < 0) throw new Error("Departamento inválido");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(src.fechaSolicitud || ""))) throw new Error("Fecha de solicitud inválida");
+
   const d = { dynamic: {}, approvals: [] };
-  ["fechaSolicitud", "cliente", "cargoCliente", "emailCliente", "departamento", "area", "seccion", "codigo", "colaborador", "puestoActual",
-    "tieneAprobacion", "presupuesto", "fuentePresupuesto", "validaPresupuesto", "montoPresupuesto", "urgencia", "impacto", "consecuencia",
-    "impactoDetalle", "solicitudConcreta"].forEach(k => { d[k] = t(src[k], k === "solicitudConcreta" ? 3000 : 1000); });
+  ["cliente", "cargoCliente", "area", "seccion", "colaborador", "puestoActual", "validaPresupuesto"].forEach(k => { d[k] = unaLinea_(src[k], 200); });
+  ["tieneAprobacion", "presupuesto", "fuentePresupuesto", "urgencia", "impacto", "consecuencia"].forEach(k => { d[k] = unaLinea_(src[k], 80); });
+  d.fechaSolicitud = src.fechaSolicitud; d.emailCliente = email; d.departamento = src.departamento;
+  d.codigo = unaLinea_(src.codigo, 20);
+  d.montoPresupuesto = String(Number(src.montoPresupuesto) >= 0 ? Number(src.montoPresupuesto) : "");
+  d.impactoDetalle = limpiar_(src.impactoDetalle, 1000);
+  d.solicitudConcreta = limpiar_(src.solicitudConcreta, 3000);
   d.movimiento = m.nombre;
-  if (/^\d+$/.test(d.codigo)) d.codigo = ("0000000000" + d.codigo).slice(-10);
-  const validos = {};
-  m.secciones.forEach(s => s.preguntas.forEach(q => { validos[q.id] = true; }));
-  Object.keys(src.dynamic || {}).forEach(k => { if (validos[k]) d.dynamic[k] = t(src.dynamic[k], 1500); });
+  if (m.sinMatricula) { d.codigo = "No aplica"; d.colaborador = m.colaboradorFijo; d.puestoActual = "No aplica"; }
+  else if (/^\d+$/.test(d.codigo)) d.codigo = ("0000000000" + d.codigo).slice(-10);
+  else throw new Error("Matrícula inválida");
+  if (!d.cliente || !d.area) throw new Error("Faltan datos del líder o del área");
+
+  const opciones = {};
+  m.secciones.forEach(s => s.preguntas.forEach(q => { opciones[q.id] = q; }));
+  Object.keys(src.dynamic || {}).forEach(k => {
+    const q = opciones[k]; if (!q) return;
+    const v = limpiar_(src.dynamic[k], q.max || 300);
+    if (q.tipo === "select" && v && q.opc.indexOf(v) < 0) throw new Error("Valor inválido en " + k);
+    d.dynamic[k] = v;
+  });
   (src.approvals || []).slice(0, CONFIG.APROBACIONES_MAX).forEach(a => d.approvals.push({
-    level: t(a.level, 100), name: t(a.name, 120), role: t(a.role, 120), date: t(a.date, 20), evidence: t(a.evidence, 10), type: t(a.type, 40) }));
+    level: unaLinea_(a.level, 60), name: unaLinea_(a.name, 120), role: unaLinea_(a.role, 120), date: unaLinea_(a.date, 20),
+    evidence: unaLinea_(a.evidence, 10), type: unaLinea_(a.type, 40) }));
+  const id = unaLinea_(w.id, 40).replace(/[^A-Za-z0-9_-]/g, "");
   const rec = {
-    id: t(w.id, 40) || ("WEB-" + Date.now()), enviadoEl: new Date().toISOString(), enviadoPor: d.emailCliente, origen: "web",
+    id: id || ("WEB-" + Date.now()), enviadoEl: new Date().toISOString(), enviadoPor: email, origen: "web",
     periodo: d.fechaSolicitud.slice(0, 7), data: d, editUrl: ""
   };
   return asignar_(rec);

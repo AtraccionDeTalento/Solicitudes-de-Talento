@@ -1,55 +1,41 @@
-# Despliegue: Solicitud de Movimiento de Talento (v2.0.0)
+# Despliegue · Solicitudes de Talento (v2.1)
 
-Archivo único: `Sistema BP v2.html` (renómbralo a `index.html` al publicarlo). Sin servidor propio, sin build.
+Dos piezas: **la app web** (`index.html`, GitHub Pages) y **el receptor en Google** (`apps-script/Code.gs`: formulario, hoja de entradas, ruteo al BP y correos).
 
-## 1. Configurar (bloque `CONFIG`, inicio del `<script>`)
+## 1. Receptor en Google (una sola vez)
+1. https://script.google.com › Nuevo proyecto › pegar `apps-script/Code.gs`.
+2. `CONFIG`: revisar `COORDINADOR` (César Reyes), `BPS_DIRECTORIO` y `TOKEN` (ya coincide con `index.html`; si lo cambias, cámbialo en ambos).
+3. Ejecutar `crearFormulario` (▶), autorizar permisos. Tarda 2–4 min. Ver › Registros: enlace del formulario, de edición y de la hoja.
+4. Hoja «Entradas» › pestaña **Ruteo**: elegir el BP de cada departamento (el correo se completa solo).
+5. Ejecutar `compartirConBPs` (acceso a los BP y al coordinador) y, si se desea, `crearVistasPorBP`.
+6. **Implementar › Nueva implementación › Aplicación web**: ejecutar como *Yo*, acceso *Cualquier usuario*. Copiar la URL `…/exec`.
 
-| Campo | Qué poner |
-|---|---|
-| `endpoint` | URL que recibe el JSON de cada solicitud (flujo HTTP de Power Automate → SharePoint/Lista, o API). **Sin esto las solicitudes solo quedan en el navegador de quien las llena.** |
-| `bpEmails` | Correos de los BP/Compensaciones (ven el panel de casos, maestro y exportación). |
-| `allowedDomains` | Dominios que pueden ingresar. Por defecto `usil.edu.pe`. |
-| `bps` | Lista de BP sugeridos en el campo "Business Partner" (evita "Joshua" vs "Joshua López"). |
-| `soporte` | Correo de soporte que se muestra al pie. |
-| `sessionMinutes` | Cierre por inactividad (60 por defecto). |
+## 2. App web (GitHub Pages)
+1. En `index.html`, `CONFIG.endpoint` = URL `…/exec` del paso 1.6. Subir el cambio.
+2. GitHub › Settings › Pages › *Deploy from a branch* › `main` / `(root)`.
+3. Sitio: `https://atracciondetalento.github.io/Solicitudes-de-Talento/`. Para un link institucional, pedir a TI un subdominio (CNAME).
 
-Colores: variables `--navy`, `--royal`, `--green` (azul de acción), `--accent` (amarillo) al inicio del `<style>`. Tomados de usil.edu.pe; valida con el manual de marca de Comunicaciones.
+## 3. Protecciones ya incluidas
+- La app web solo acepta correos `@usil.edu.pe`; el servidor lo valida de nuevo.
+- Token compartido, límite de 10 envíos por correo y hora, 300 por día, solicitudes de máx. 60 KB.
+- Validación de departamento, tipo de movimiento, fecha, matrícula y opciones; limpieza de caracteres de control; los correos escapan el HTML.
+- Nadie puede pisar la solicitud de otro (mismo ID con otro correo se rechaza).
+- Los correos del BP indican si el correo del solicitante está **verificado** (formulario) o es **declarado** (app web).
+- CSP, `noindex`, librería de Excel con verificación de integridad, hoja de cálculo en texto (sin fórmulas inyectables).
 
-## 2. Publicar (elige una)
+## 4. Límites conocidos
+- **El inicio de sesión de la app web identifica, no autentica**: el correo lo escribe el usuario. Para identidad verificada usar el formulario de Google (correo verificado) o alojar la app tras el SSO institucional.
+- Una página en GitHub Pages es pública; el token no es secreto, solo frena envíos casuales.
+- Cuota de correo de Apps Script: ~100/día (cuenta personal) o ~1500/día (Workspace).
+- Los BP con acceso a la hoja ven todas las entradas; para separar por BP usar archivos distintos.
+- El puntaje y el sustento del formulario de Google se calculan después, con `exportarEntradas`.
 
-1. **Azure Static Web Apps + Microsoft Entra ID** (recomendado): login SSO real con cuentas USIL y control por grupo.
-2. **Sitio interno IIS/Nginx detrás del SSO institucional.**
-3. **SharePoint** (biblioteca de sitio con permisos restringidos): sirve para piloto; los navegadores pueden descargar el .html en vez de ejecutarlo según la configuración del tenant.
+## 5. Antes de abrirlo a todos
+- [ ] Ruteo completo (16 departamentos con BP).
+- [ ] Prueba de punta a punta con 2–3 jefes de área y datos ficticios (llegada al BP correcto, correos, edición).
+- [ ] TI aprueba el tratamiento de datos (nombres de colaboradores y propuestas salariales).
+- [ ] Carla valida las columnas del consolidado.
+- [ ] Guía de usuario actualizada.
 
-> El inicio de sesión de la página identifica y asigna rol, pero **no es seguridad**: cualquiera con acceso al archivo puede leer su código. La protección real la da el hosting (SSO + permisos). Si el sitio es público, no lo uses con datos reales.
-
-## 3. Antes de abrirlo a los líderes (checklist)
-
-- [ ] `endpoint` configurado y probado con una solicitud real (revisar que llega el JSON y el `id`).
-- [ ] Sitio detrás de SSO/Entra y con acceso restringido.
-- [ ] `bpEmails` y `bps` completos.
-- [ ] Carla validó las columnas del Excel consolidado.
-- [ ] TI aprobó la política de datos: la solicitud incluye nombre de colaborador y propuesta salarial.
-- [ ] Probado en Edge y Chrome, y en celular.
-- [ ] Guía de uso (`Guia_de_Uso_Movimientos_de_Talento.docx`) actualizada: ya no existe "guardar en el navegador" para líderes, y hay paso de inicio de sesión.
-
-## 4. Datos y privacidad
-
-- Líderes: no se carga el maestro (tiene DNI, direcciones y correos personales); completan los datos del colaborador a mano.
-- BP: el maestro se carga en su navegador y solo se guardan 8 campos. En equipos compartidos, usar "Cerrar sesión" (borra el borrador) y "Reiniciar sistema".
-- Los borradores se guardan por usuario en `localStorage` y se eliminan al enviar o al cerrar sesión manualmente.
-- Cada registro lleva `schemaVersion`, `appVersion` y `creadoPor` (nombre, correo y rol de quien envió).
-
-## 5. Limitaciones conocidas
-
-- El Excel consolidado se genera desde los casos guardados en el navegador del BP; con `endpoint` el consolidado debe construirse del lado del flujo/lista.
-- SheetJS se carga bajo demanda desde jsDelivr con verificación de integridad (SRI). Para uso sin internet, descárgalo y cámbialo a ruta local.
-- No hay pruebas automatizadas; la validación fue manual de extremo a extremo (login, 7 pasos, envío, reabrir caso).
-
-## 6. Asignación automática al Business Partner (v2.1)
-
-- El jefe de área **no elige BP**: el **Departamento** del colaborador (lista de 16, tomada del Maestro 05-10-2026) decide quién recibe la solicitud.
-- La tabla vive en la pestaña **Ruteo** del Google Sheet (`Ruteo_BP.xlsx` es la plantilla para llenarla): Departamento · Área (`*` = todas) · BP · correo. La fila más específica (Departamento + Área) gana sobre la general.
-- Al enviar (formulario o app web): se guarda la fila en «Entradas» con el BP asignado, se envía un correo al BP con el resumen y otro de confirmación al jefe de área. Sin BP configurado → va al `COORDINADOR` y queda «Sin asignar».
-- App web → `Code.gs` desplegado como aplicación web (`doPost`); copia su URL en `CONFIG.endpoint` y el mismo `TOKEN` en `CONFIG.token`.
-- El Maestro **no trae** qué BP atiende cada área: esa tabla hay que llenarla (ver `Ruteo_BP.xlsx`). Cuando cambie la estructura, se actualiza solo la pestaña «Ruteo», sin tocar el código.
+## 6. Pruebas
+`npm test` (Node 20): 22 pruebas del Apps Script con servicios de Google simulados y 7 comprobaciones de la app web. CI en GitHub Actions.

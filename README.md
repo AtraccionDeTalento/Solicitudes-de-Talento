@@ -11,8 +11,7 @@ Cada solicitud llega **automáticamente al Business Partner** del departamento d
 | `docs/` | Guía de despliegue, lista de preguntas y plantilla de ruteo. |
 
 ## Puesta en marcha
-1. Edita `CONFIG` en `index.html` (`endpoint`, `token`, `bpEmails`) y en `apps-script/Code.gs` (`COORDINADOR`, `TOKEN`, `BPS_DIRECTORIO`).
-2. Sigue `docs/DESPLIEGUE.md`.
+Sigue `docs/DESPLIEGUE.md` (Apps Script → `CONFIG.endpoint` → GitHub Pages). Pruebas: `npm test`.
 
 ## Datos
 Este repositorio **no debe contener** el Maestro de personal ni exportaciones de entradas (DNI, direcciones, datos de salud).

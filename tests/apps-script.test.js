@@ -1,0 +1,108 @@
+// Pruebas del Apps Script (Code.gs) con una simulación en memoria de los servicios de Google.
+// Ejecutar:  node tests/apps-script.test.js
+const fs = require('fs'), vm = require('vm'), path = require('path'), assert = require('assert');
+const code = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Code.gs'), 'utf8');
+
+// ---------- simulación mínima de Google ----------
+const items = [], mails = [], files = [];
+class Item {
+  constructor(k) { this.kind = k; this.o = {}; }
+  setTitle(t) { this.o.title = t; return this; } setHelpText(t) { this.o.help = t; return this; }
+  setRequired(b) { this.o.req = b; return this; } setValidation(v) { this.o.val = v; return this; }
+  setChoiceValues(v) { this.o.choices = v.map(x => ({ value: x })); return this; } setChoices(c) { this.o.choices = c; return this; }
+  createChoice(v, nav) { return { value: v, nav }; } setGoToPage(p) { this.o.goTo = p; return this; }
+}
+const mk = k => { const i = new Item(k); items.push(i); return i; };
+const vb = () => { const b = { rules: [] }; ['requireTextMatchesPattern', 'requireNumberGreaterThan', 'requireNumberGreaterThanOrEqualTo'].forEach(m => b[m] = x => { b.rules.push([m, x]); return b; }); b.setHelpText = t => { b.help = t; return b; }; b.build = () => b; return b; };
+const form = { getId: () => 'FID', getPublishedUrl: () => 'pub', getEditUrl: () => 'edit', addTextItem: () => mk('text'), addParagraphTextItem: () => mk('para'), addListItem: () => mk('list'), addDateItem: () => mk('date'), addPageBreakItem: () => mk('page'), addCheckboxItem: () => mk('check'), getResponses: () => [] };
+['setDescription', 'setCollectEmail', 'setAllowResponseEdits', 'setProgressBar', 'setShowLinkToRespondAgain', 'setConfirmationMessage', 'setRequireLogin', 'setLimitOneResponsePerUser'].forEach(n => form[n] = () => form);
+class Sheet {
+  constructor(n) { this.n = n; this.rows = []; }
+  setName(n) { this.n = n; return this; } clear() { this.rows = []; } getMaxRows() { return 1000; } setFrozenRows() {} setFrozenColumns() {} setColumnWidth() {}
+  appendRow(r) { this.rows.push(r.slice()); } getDataRange() { const s = this; return { getValues: () => s.rows.map(r => r.slice()) }; }
+  createTextFinder(t) { const s = this; return { matchEntireCell() { return this; }, findNext() { for (let i = 0; i < s.rows.length; i++) for (let j = 0; j < s.rows[i].length; j++) if (String(s.rows[i][j]) === t) return { getRow: () => i + 1, getColumn: () => j + 1 }; return null; } }; }
+  getRange(a, b, c, d) {
+    const s = this; if (typeof a === 'string') return { setValue() { return this; }, getValues() { return []; } };
+    const g = { setNumberFormat() { return g; }, setFontWeight() { return g; }, setBackground() { return g; }, setFontColor() { return g; }, createFilter() {}, setDataValidation() { return g; }, setFormula() {}, setFormulas() { return g; },
+      setValues(v) { v.forEach((row, i) => { s.rows[a - 1 + i] = s.rows[a - 1 + i] || []; row.forEach((x, j) => s.rows[a - 1 + i][b - 1 + j] = x); }); return g; },
+      getValues() { return s.rows.slice(a - 1, a - 1 + (c || 1)).map(r => (r || []).slice(b - 1, b - 1 + (d || 1))); } };
+    return g;
+  }
+}
+const sheets = {};
+const ss = { getActiveSheet: () => sheets.A || (sheets.A = new Sheet('A')), getId: () => 'SID', getUrl: () => 'SSURL', insertSheet: n => sheets[n] = new Sheet(n),
+  getSheetByName: n => Object.values(sheets).find(s => s.n === n) || null, addEditors: l => { ss.editors = l; } };
+const props = {}, cacheStore = {};
+const ctx = {
+  FormApp: { create: () => form, createTextValidation: vb, createParagraphTextValidation: vb },
+  SpreadsheetApp: { create: () => ss, openById: () => ss, newDataValidation: () => ({ requireValueInList() { return this; }, requireValueInRange() { return this; }, setAllowInvalid() { return this; }, build() {} }) },
+  PropertiesService: { getScriptProperties: () => ({ setProperty: (k, v) => props[k] = v, getProperty: k => props[k], deleteProperty: k => { delete props[k]; } }) },
+  CacheService: { getScriptCache: () => ({ get: k => cacheStore[k] || null, put: (k, v) => { cacheStore[k] = v; } }) },
+  ScriptApp: { newTrigger: () => ({ forForm: () => ({ onFormSubmit: () => ({ create() {} }) }) }) }, Logger: { log() {} },
+  LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+  Utilities: { formatDate: (d, tz, f) => { const z = x => String(x).padStart(2, '0'), iso = d.toISOString(); const [Y, M, D, H] = [iso.slice(0, 4), iso.slice(5, 7), iso.slice(8, 10), iso.slice(11, 13)];
+    return f === 'yyMMdd' ? Y.slice(2) + M + D : f === 'yyyyMMddHH' ? Y + M + D + H : f === 'yyyyMMdd' ? Y + M + D : Y + '-' + M + '-' + D + '_' + H + '00'; } },
+  Session: { getScriptTimeZone: () => 'UTC' }, MailApp: { sendEmail: m => mails.push(m.to ? m : { to: m }) },
+  ContentService: { createTextOutput: t => ({ t, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
+  DriveApp: { getFoldersByName: () => ({ hasNext: () => false }), createFolder: () => ({ createFile: (n, c) => { files.push({ n, c }); return { getUrl: () => n }; } }) }, console
+};
+vm.createContext(ctx);
+vm.runInContext(code + ';this.F={crearFormulario,alEnviar,doPost,exportarEntradas,compartirConBPs,CONFIG,CATALOGO};', ctx);
+const F = ctx.F;
+let n = 0; const ok = (nombre, fn) => { fn(); n++; console.log('  ✓', nombre); };
+
+console.log('Formulario');
+F.crearFormulario();
+const pages = items.filter(i => i.kind === 'page');
+ok('estructura: 11 movimientos, páginas y preguntas', () => { assert.strictEqual(F.CATALOGO.movs.length, 11); assert.ok(pages.length >= 59); assert.ok(items.length > 250); });
+ok('todas las preguntas obligatorias y con título', () => items.filter(i => i.kind !== 'page').forEach(i => { assert.ok(i.o.req, i.o.title); assert.ok(i.o.title); }));
+ok('toda navegación apunta a una sección existente', () => items.forEach(i => { (i.o.choices || []).forEach(c => c.nav && assert.ok(pages.includes(c.nav))); i.o.goTo && assert.ok(pages.includes(i.o.goTo)); }));
+const movItem = items.find(i => i.o.title === 'Tipo de movimiento');
+ok('cada movimiento llega a Aprobaciones y termina en Confirmación', () => F.CATALOGO.movs.forEach(m => {
+  let p = movItem.o.choices.find(c => c.value === m.nombre).nav, vis = [];
+  for (let g = 0; g < 80 && p; g++) { vis.push(p.o.title); let nx = null; for (let j = items.indexOf(p) + 1; j < items.length; j++) if (items[j].kind === 'page') { nx = items[j]; break; } p = p.o.goTo || nx; }
+  assert.ok(vis.includes('Aprobaciones previas'), m.nombre); assert.strictEqual(vis[vis.length - 1], 'Confirmación', m.nombre);
+}));
+ok('Encargatura ramifica por tipo', () => { const t = items.find(i => i.o.title === 'Tipo de encargatura'); assert.strictEqual(t.o.choices.length, 3); assert.ok(t.o.choices.every(c => c.nav)); });
+ok('el departamento es una lista de 16 (no hay campo BP)', () => { assert.strictEqual(F.CATALOGO.departamentos.length, 16); assert.ok(!items.some(i => i.o.title === 'Business Partner responsable')); });
+
+console.log('Ruteo y formulario');
+F.CONFIG.COORDINADOR = 'coord@usil.edu.pe';
+const ruteo = ss.getSheetByName('Ruteo');
+ruteo.rows[1] = ['VICERRECTORADO ACADEMICO', '*', 'Ana BP', 'ana.bp@usil.edu.pe'];
+ruteo.rows.push(['Vicerrectorado Académico', 'Facultad de Ingeniería', 'Beto BP', 'beto.bp@usil.edu.pe']);
+const resp = (R, mail) => ({ getItemResponses: () => Object.entries(R).map(([t, v]) => ({ getItem: () => ({ getTitle: () => t }), getResponse: () => v })), getRespondentEmail: () => mail, getTimestamp: () => new Date('2026-10-05T10:00:00Z'), getId: () => 'resp123456' + Math.random().toString(36).slice(2, 12), getEditResponseUrl: () => 'EDITURL' });
+const base = (dep, area) => ({ 'Fecha de solicitud': '2026-10-05', 'Nombre del líder solicitante': 'Ana Perez', 'Cargo del líder': 'Director', 'Tipo de movimiento': 'Reemplazo', 'Matrícula del colaborador (4 a 10 dígitos)': '2458', 'Nombre y apellido del colaborador': 'Lucia Ramos', 'Puesto actual': 'Analista', 'Departamento': dep, 'Área': area, 'Sección': 'G', '¿Qué posición requiere ser reemplazada?': 'Jefe', '¿Cuenta con alguna aprobación previa?': 'No', '¿Cuenta con presupuesto?': 'Sí', 'Fuente de presupuesto': 'Presupuesto aprobado', 'Quién confirma o valida el presupuesto': 'Plan', 'Monto disponible en S/ (escribe 0 si no hay)': '900', '¿Cuándo se necesita implementar?': 'Inmediato', 'Nivel de impacto si no se ejecuta': 'Alto', 'Principal consecuencia de no aprobar': 'Retraso operativo', 'Explique brevemente el impacto': 'x' });
+F.alEnviar({ response: resp(base('VICERRECTORADO ACADEMICO', 'Facultad de Ingeniería'), 'jefe1@usil.edu.pe') });
+F.alEnviar({ response: resp(base('VICERRECTORADO ACADEMICO', 'Otra área'), 'jefe2@usil.edu.pe') });
+F.alEnviar({ response: resp(base('RECTORADO', 'X'), 'jefe3@usil.edu.pe') });
+const ent = ss.getSheetByName('Entradas'), iBP = 15;
+ok('área específica → BP específico; área general → BP general; sin BP → "Sin asignar"', () => assert.deepStrictEqual(ent.rows.slice(1).map(r => r[iBP]), ['Beto BP', 'Ana BP', 'Sin asignar']));
+ok('matrícula guardada con 10 dígitos', () => assert.strictEqual(ent.rows[1][9], '0000002458'));
+ok('correos al BP, al jefe y (si no hay BP) al coordinador', () => { const to = mails.map(m => m.to); ['beto.bp@usil.edu.pe', 'jefe1@usil.edu.pe', 'ana.bp@usil.edu.pe', 'coord@usil.edu.pe'].forEach(x => assert.ok(to.includes(x), x)); });
+
+console.log('App web (doPost)');
+const web = () => ({ id: 'CASE-1', data: { fechaSolicitud: '2026-10-05', cliente: 'Mario Lopez', cargoCliente: 'Jefe', emailCliente: 'mario@usil.edu.pe', departamento: 'GERENCIA LEGAL', area: 'Contratos', seccion: 'S', codigo: 'No aplica', colaborador: 'x', puestoActual: 'x', movimiento: 'Puesto nuevo', tieneAprobacion: 'No', presupuesto: 'Sí', fuentePresupuesto: 'Ahorro interno', validaPresupuesto: 'Fin', montoPresupuesto: '500', urgencia: 'Inmediato', impacto: 'Alto', consecuencia: 'Otro', impactoDetalle: 'y', solicitudConcreta: 'Sustento', dynamic: { puestoNuevo: 'Analista Legal', inventado: 'x' }, approvals: [] } });
+ruteo.rows.push(['GERENCIA LEGAL', '*', 'Carla BP', 'carla.bp@usil.edu.pe']);
+const TOKEN = F.CONFIG.TOKEN, post = b => JSON.parse(F.doPost({ postData: { contents: JSON.stringify(b), length: JSON.stringify(b).length } }).t);
+ok('hay un TOKEN configurado', () => assert.ok(TOKEN && TOKEN.length >= 32));
+ok('rechaza sin token', () => assert.strictEqual(post({ rec: web() }).error, 'No autorizado'));
+ok('acepta una solicitud válida y la asigna al BP', () => { const r = post({ token: TOKEN, rec: web() }); assert.ok(r.ok); assert.strictEqual(r.bp, 'Carla BP'); });
+ok('reenviar el mismo ID actualiza (no duplica) y filtra campos inventados', () => { const antes = ent.rows.length; const w = web(); w.data.impactoDetalle = 'editado'; assert.ok(post({ token: TOKEN, rec: w }).ok); assert.strictEqual(ent.rows.length, antes); assert.ok(!JSON.stringify(ent.rows.find(r => r[0] === 'CASE-1')).includes('inventado')); });
+ok('rechaza correos fuera de @usil.edu.pe', () => { const w = web(); w.id = 'X1'; w.data.emailCliente = 'alguien@gmail.com'; assert.strictEqual(post({ token: TOKEN, rec: w }).error, 'Usa tu correo institucional'); });
+ok('rechaza departamento, movimiento, fecha y matrícula inválidos', () => {
+  const w1 = web(); w1.id = 'X2'; w1.data.departamento = 'INVENTADO'; assert.strictEqual(post({ token: TOKEN, rec: w1 }).error, 'Departamento inválido');
+  const w2 = web(); w2.id = 'X3'; w2.data.movimiento = 'Nada'; assert.strictEqual(post({ token: TOKEN, rec: w2 }).error, 'Tipo de movimiento inválido');
+  const w3 = web(); w3.id = 'X4'; w3.data.fechaSolicitud = '05/10/2026'; assert.strictEqual(post({ token: TOKEN, rec: w3 }).error, 'Fecha de solicitud inválida');
+  const w4 = web(); w4.id = 'X5'; w4.data.movimiento = 'Promoción'; w4.data.codigo = 'ABC'; assert.strictEqual(post({ token: TOKEN, rec: w4 }).error, 'Matrícula inválida');
+});
+ok('otro usuario no puede pisar una solicitud ajena', () => { const w = web(); w.data.emailCliente = 'intruso@usil.edu.pe'; assert.strictEqual(post({ token: TOKEN, rec: w }).error, 'ID ya registrado por otro usuario'); });
+ok('limpia caracteres de control y no deja saltos en el asunto del correo', () => { const w = web(); w.id = 'X6'; w.data.cliente = 'Ana\u0000\u0007 Perez'; w.data.colaborador = 'x'; w.data.area = 'Con\r\ntratos'; assert.ok(post({ token: TOKEN, rec: w }).ok); const fila = ent.rows.find(r => r[0] === 'X6'); assert.ok(!/[\u0000\u0007]/.test(fila[7])); assert.ok(mails.filter(m => /X6/.test(m.subject || '')).every(m => !/[\r\n]/.test(m.subject))); });
+ok('rechaza solicitudes demasiado grandes', () => assert.ok(/demasiado grande/.test(JSON.parse(F.doPost({ postData: { contents: '{}', length: 999999 } }).t).error)));
+ok('límite por correo y hora (anti-spam)', () => { let ultimo; for (let i = 0; i < 12; i++) { const w = web(); w.id = 'R' + i; w.data.emailCliente = 'spam@usil.edu.pe'; ultimo = post({ token: TOKEN, rec: w }); } assert.ok(/Demasiados envíos/.test(ultimo.error)); });
+ok('límite global por día', () => { F.CONFIG.MAX_GLOBAL_DIA = 1; const w = web(); w.id = 'G1'; w.data.emailCliente = 'otro@usil.edu.pe'; const r = post({ token: TOKEN, rec: w }); assert.ok(/límite diario/.test(r.error), JSON.stringify(r)); F.CONFIG.MAX_GLOBAL_DIA = 300; });
+
+console.log('Exportación');
+ok('exporta JSON y CSV con ambos orígenes', () => { const r = F.exportarEntradas(); const j = JSON.parse(files.find(f => f.n.endsWith('.json')).c); assert.strictEqual(r.total, j.length); assert.ok(j.some(e => e.origen === 'formulario') && j.some(e => e.origen === 'web')); assert.ok(j.every(e => e.data && 'dynamic' in e.data && 'approvals' in e.data)); assert.ok(files.find(f => f.n.endsWith('.csv')).c.startsWith('﻿')); });
+ok('compartirConBPs incluye BP y coordinador', () => { F.compartirConBPs(); ['ana.bp@usil.edu.pe', 'carla.bp@usil.edu.pe', 'coord@usil.edu.pe'].forEach(x => assert.ok(ss.editors.includes(x), x)); });
+console.log('\n' + n + ' pruebas OK');

@@ -1,0 +1,7 @@
+{
+  "name": "solicitudes-de-talento",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Portal de solicitudes de movimientos de talento · USIL",
+  "scripts": { "test": "node tests/apps-script.test.js && node tests/web.test.js" }
+}
