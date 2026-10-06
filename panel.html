@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solicitudes de Talento · USIL</title>
+<style>
+:root{--navy:#00195A;--line:#D9E1F5;--mut:#5B6A8F;--bg:#F5F7FC}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 Arial,sans-serif;color:#14213D;background:var(--bg)}
+header{background:var(--navy);color:#fff;padding:14px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+header h1{font-size:17px;margin:0}header small{opacity:.8}
+nav button{background:transparent;color:#fff;border:1px solid #fff6;border-radius:6px;padding:7px 14px;margin-left:6px;cursor:pointer}
+nav button.on{background:#fff;color:var(--navy);font-weight:700}
+main{padding:20px;max-width:1300px;margin:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi b{display:block;font-size:26px;color:var(--navy)}.kpi span{color:var(--mut);font-size:12px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px}
+.bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px}.bar i{display:block;height:10px;background:var(--navy);border-radius:5px}.bar span:first-child{width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+input,select,textarea{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:#EEF2FB;position:sticky;top:0;color:var(--navy)}tr.f{cursor:pointer}tr.f:hover{background:#F3F6FD}
+.tag{padding:2px 8px;border-radius:10px;background:#E5EBFA;font-size:12px}
+.Aprobado{background:#D7F3E0}.Rechazado{background:#FBD9D9}.Nuevo{background:#FFF4C2}
+dialog{border:0;border-radius:12px;max-width:760px;width:94vw;padding:20px}dialog::backdrop{background:#0008}
+dl{display:grid;grid-template-columns:200px 1fr;gap:6px 12px}dt{color:var(--mut)}dd{margin:0;white-space:pre-wrap}
+h3{color:var(--navy);margin:16px 0 6px}.err{color:#B00020;padding:20px}.muted{color:var(--mut)}
+button.p{background:var(--navy);color:#fff;border:0;border-radius:6px;padding:8px 16px;cursor:pointer}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js" integrity="sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz" crossorigin="anonymous"></script>
+</head><body>
+<header><div><h1>Solicitudes de Talento · USIL</h1><small id="quien"></small></div><nav id="tabs"></nav></header>
+<main><div id="err" class="err" hidden></div><div id="app"><p class="muted">Cargando…</p></div></main>
+<dialog id="dlg"></dialog>
+<script>
+// Fuera de Apps Script (GitHub Pages) no existe google.script.run: se reemplaza por fetch al mismo despliegue que ya recibe las solicitudes.
+if(typeof google==="undefined"){
+  const API="https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",TK="e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2";
+  const mk=(ok,ko)=>new Proxy({},{get:(_,k)=>k==="withSuccessHandler"?f=>mk(f,ko):k==="withFailureHandler"?f=>mk(ok,f):(...args)=>
+    fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({accion:"panel",token:TK,fn:k,args})})
+      .then(r=>r.json()).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).then(d=>ok&&ok(d),e=>ko&&ko(e))});
+  window.google={script:{run:mk()}};
+}
+</script>
+<script>
+const TITULOS={jefe:"Mis solicitudes",bp:"Bandeja del Business Partner",gerencia:"Gerencia · vista final"};
+const ALL=["Nuevo","En revisión BP","Devuelto al jefe","Enviado a Gerencia","Aprobado","Rechazado","En pausa"];
+let D=null,vista=null,filtro={q:"",estado:"",periodo:""};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let TOKEN=null;
+const fail=e=>{const m=(e&&e.message||e)+"";if(/venci/.test(m)){TOKEN=null;return mostrarLogin(e)}$("err").hidden=false;$("err").textContent=m;$("app").innerHTML=""};
+function mostrarLogin(e){
+  $("err").hidden=true;$("tabs").innerHTML="";$("quien").textContent="";
+  const m=(e&&e.message||"")+"";
+  $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:380px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">Panel de revisión</h3><p class="muted">Ingresa con tu correo institucional y la clave de tu rol (HRBP o Gerencia).</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p><p><input id="lgc" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="usuario@usil.edu.pe" style="width:100%"></p><p><input id="lgk" type="password" autocomplete="current-password" placeholder="Clave" style="width:100%"></p><button class="p" style="width:100%">Entrar</button></form>';
+  $("lg").onsubmit=ev=>{ev.preventDefault();$("lgm").textContent="";
+    google.script.run.withFailureHandler(x=>{$("lgm").textContent=x.message||x}).withSuccessHandler(r=>{TOKEN=r.token;cargar(r.vistas[r.vistas.length-1])}).panelEntrar($("lgc").value,$("lgk").value)};
+}
+
+function cargar(v){
+  vista=v;$("app").innerHTML='<p class="muted">Cargando…</p>';$("err").hidden=true;
+  google.script.run.withFailureHandler(fail).withSuccessHandler(d=>{D=d;pintar()}).panelDatos(v,TOKEN);
+}
+function contar(filas,k){const m={};filas.forEach(f=>{const x=f[k]||"—";m[x]=(m[x]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
+function barras(t,pares){const max=Math.max(1,...pares.map(p=>p[1]));
+  return `<div class="card"><b>${t}</b>${pares.slice(0,8).map(([k,n])=>`<div class="bar"><span title="${esc(k)}">${esc(k)}</span><i style="width:${n/max*100}px"></i><span>${n}</span></div>`).join("")}</div>`}
+function visibles(){const q=filtro.q.toLowerCase();
+  return D.filas.filter(f=>(!filtro.estado||f.estado===filtro.estado)&&(!filtro.periodo||f.periodo===filtro.periodo)&&(!q||Object.values(f).join(" ").toLowerCase().includes(q)))
+    .sort((a,b)=>String(b.enviadoEl).localeCompare(String(a.enviadoEl)))}
+function pintar(){
+  $("quien").textContent=D.email;
+  $("tabs").innerHTML=D.vistas.map(v=>`<button class="${v===vista?"on":""}" data-v="${v}">${TITULOS[v]}</button>`).join("");
+  const F=D.filas,pend=F.filter(f=>(vista==="gerencia"?["Enviado a Gerencia"]:["Nuevo","En revisión BP"]).includes(f.estado||"Nuevo")).length;
+  let h=`<div class="kpis"><div class="card kpi"><b>${F.length}</b><span>Solicitudes</span></div><div class="card kpi"><b>${pend}</b><span>Por revisar</span></div>
+   <div class="card kpi"><b>${F.filter(f=>f.estado==="Aprobado").length}</b><span>Aprobadas</span></div><div class="card kpi"><b>${F.filter(f=>f.estado==="Rechazado").length}</b><span>Rechazadas</span></div></div>`;
+  if(vista==="gerencia")h+=`<div class="row">${barras("Por estado",contar(F,"estado"))}${barras("Por Business Partner",contar(F,"bp"))}${barras("Por movimiento",contar(F,"movimiento"))}${barras("Por departamento",contar(F,"departamento"))}${barras("Por urgencia",contar(F,"urgencia"))}</div>`;
+  const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
+  h+=`<div class="tools"><input id="fq" placeholder="Buscar…" value="${esc(filtro.q)}"><select id="fe"><option value="">Todos los estados</option>${ALL.map(e=>`<option ${e===filtro.estado?"selected":""}>${esc(e)}</option>`).join("")}</select>
+   ${vista!=="jefe"?'<button class="p" id="xls" style="margin-left:auto">⬇ Descargar Excel</button>':""}<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select></div>`;
+  const V=visibles();
+  h+=`<div class="wrap"><table><tr><th>Fecha</th><th>Movimiento</th><th>Colaborador</th><th>Departamento</th>${vista!=="jefe"?"<th>Líder</th>":""}<th>BP</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th></tr>
+  ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.departamento)}</td>${vista!=="jefe"?`<td>${esc(f.cliente)}</td>`:""}<td>${esc(f.bp)}</td><td>${esc(f.urgencia)}</td><td>${esc(f.puntaje||"—")}</td><td><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span></td></tr>`).join("")||'<tr><td colspan="9" class="muted">Sin solicitudes.</td></tr>'}</table></div>`;
+  $("app").innerHTML=h;
+}
+$("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
+$("app").onclick=e=>{if(e.target.id==="xls")return descargar();const tr=e.target.closest("tr.f");if(tr)detalle(tr.dataset.id)};
+$("app").oninput=e=>{if(e.target.id==="fq"){filtro.q=e.target.value;const p=e.target.selectionStart;pintar();$("fq").focus();$("fq").setSelectionRange(p,p)}};
+$("app").onchange=e=>{if(e.target.id==="fe"){filtro.estado=e.target.value;pintar()}if(e.target.id==="fp"){filtro.periodo=e.target.value;pintar()}};
+
+// <excel>
+// Arma el libro de Excel (4 hojas) con los registros que ve la persona. rows: salida de panelExportar; meta: {titulo, usuario, fecha}.
+function construirExcel(ExcelJS, rows, meta) {
+  const NAVY = "FF00195A", GRIS = "FFF3F6FC", BORDE = { style: "thin", color: { argb: "FFD9E1F5" } };
+  const borde = { top: BORDE, bottom: BORDE, left: BORDE, right: BORDE };
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Solicitudes de Talento · USIL"; wb.created = new Date();
+  const txt = v => (v == null ? "" : String(v));
+  const lista = v => txt(v).split(" | ").join("\n");
+  const ESTADO = { "Aprobado": "FFD7F3E0", "Rechazado": "FFFBD9D9", "Enviado a Gerencia": "FFD9E6FF", "Devuelto al jefe": "FFFFE8B3", "En revisión BP": "FFFFF4C2", "Nuevo": "FFEDEFF5", "En pausa": "FFE5E5E5" };
+  const relleno = argb => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+  const cabecera = fila => {
+    fila.height = 32;
+    fila.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 }; c.fill = relleno(NAVY); c.alignment = { vertical: "middle", horizontal: "center", wrapText: true }; c.border = borde; });
+  };
+
+  // ---- Resumen
+  const rs = wb.addWorksheet("Resumen", { views: [{ showGridLines: false }], properties: { tabColor: { argb: NAVY } } });
+  rs.columns = [{ width: 38 }, { width: 14 }, { width: 4 }, { width: 38 }, { width: 14 }];
+  rs.mergeCells("A1:E1");
+  rs.getCell("A1").value = meta.titulo; rs.getCell("A1").font = { bold: true, size: 16, color: { argb: NAVY } }; rs.getRow(1).height = 28;
+  rs.getCell("A2").value = "Generado el " + meta.fecha + " por " + meta.usuario; rs.getCell("A2").font = { italic: true, color: { argb: "FF5B6A8F" } };
+  const puntajes = rows.map(r => Number(r.puntaje)).filter(n => n > 0);
+  const prom = puntajes.length ? Math.round(puntajes.reduce((a, b) => a + b, 0) / puntajes.length) : "—";
+  [["Solicitudes en este archivo", rows.length], ["Puntaje promedio de preparación (solo app web)", prom]].forEach((p, i) => {
+    const f = rs.getRow(4 + i); f.getCell(1).value = p[0]; f.getCell(2).value = p[1];
+    f.getCell(1).font = { bold: true }; f.getCell(2).font = { bold: true, size: 14, color: { argb: NAVY } }; f.getCell(2).alignment = { horizontal: "center" };
+  });
+  const contar = k => { const m = {}; rows.forEach(r => { const x = txt(r[k]) || "(sin dato)"; m[x] = (m[x] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+  const tabla = (col, fila0, titulo, datos) => {
+    const h = rs.getRow(fila0); h.getCell(col).value = titulo; h.getCell(col + 1).value = "Solicitudes";
+    [col, col + 1].forEach(c => { const x = h.getCell(c); x.font = { bold: true, color: { argb: "FFFFFFFF" } }; x.fill = relleno(NAVY); x.alignment = { horizontal: c === col ? "left" : "center" }; });
+    datos.forEach((d, i) => {
+      const f = rs.getRow(fila0 + 1 + i); f.getCell(col).value = d[0]; f.getCell(col + 1).value = d[1]; f.getCell(col + 1).alignment = { horizontal: "center" };
+      [col, col + 1].forEach(c => { f.getCell(c).border = borde; if (i % 2) f.getCell(c).fill = relleno(GRIS); });
+    });
+    return fila0 + datos.length + 2;
+  };
+  const e = contar("estado"), b = contar("bp"), mv = contar("movimiento"), dp = contar("departamento");
+  const f1 = tabla(1, 7, "Por estado", e); tabla(4, 7, "Por Business Partner", b);
+  const f2 = Math.max(f1, 7 + b.length + 2); tabla(1, f2, "Por tipo de movimiento", mv); tabla(4, f2, "Por departamento", dp);
+
+  // ---- Solicitudes (una fila por solicitud)
+  const COLS = [
+    ["ID", "id", 22], ["Fecha de solicitud", "fechaSolicitud", 14], ["Estado", "estado", 20], ["Puntaje (0-100)", "puntaje", 11], ["Tipo de movimiento", "movimiento", 24],
+    ["Colaborador", "colaborador", 30], ["Matrícula", "codigo", 13], ["Puesto actual", "puestoActual", 30], ["Departamento", "departamento", 34], ["Área", "area", 28], ["Sección", "seccion", 28],
+    ["Líder solicitante", "cliente", 26], ["Cargo del líder", "cargoCliente", 28], ["Correo del líder", "enviadoPor", 28], ["BP asignado", "bp", 20],
+    ["Urgencia", "urgencia", 18], ["Impacto", "impacto", 11], ["Consecuencia de no aprobar", "consecuencia", 28], ["Detalle del impacto", "impactoDetalle", 50],
+    ["¿Presupuesto?", "presupuesto", 14], ["Fuente de presupuesto", "fuentePresupuesto", 24], ["Quién valida", "validaPresupuesto", 24], ["Monto (S/)", "montoPresupuesto", 13], ["¿Aprobación previa?", "tieneAprobacion", 13],
+    ["Comentario del BP", "comentarioBP", 40], ["Comentario de Gerencia", "comentarioGerencia", 40],
+    ["Clasificación", "clasificacion", 26], ["Alertas", "alertas", 44], ["Fortalezas", "fortalezas", 44], ["Recomendación", "recomendacion", 50], ["Sustento ejecutivo", "solicitudConcreta", 70],
+    ["Origen", "origen", 12], ["Enviado el", "enviadoEl", 20]
+  ];
+  const ws = wb.addWorksheet("Solicitudes", { views: [{ state: "frozen", xSplit: 3, ySplit: 1 }], properties: { tabColor: { argb: "FF0036DC" } } });
+  ws.columns = COLS.map(c => ({ header: c[0], key: c[1], width: c[2] }));
+  cabecera(ws.getRow(1));
+  const ordenadas = rows.slice().sort((x, y) => txt(y.fechaSolicitud).localeCompare(txt(x.fechaSolicitud)));
+  const valor = (r, k) => {
+    const v = r[k];
+    if (k === "alertas" || k === "fortalezas") return lista(v);
+    if ((k === "montoPresupuesto" || k === "puntaje") && txt(v) !== "" && !isNaN(v)) return Number(v);
+    if (k === "enviadoEl") return txt(v).replace("T", " ").slice(0, 16);
+    return txt(v);
+  };
+  ordenadas.forEach((r, i) => {
+    const o = {}; COLS.forEach(c => { o[c[1]] = valor(r, c[1]); });
+    const f = ws.addRow(o);
+    f.eachCell(c => { c.alignment = { vertical: "top", wrapText: true }; c.border = borde; if (i % 2) c.fill = relleno(GRIS); });
+    const est = f.getCell("estado"); est.fill = relleno(ESTADO[o.estado || "Nuevo"] || ESTADO.Nuevo); est.font = { bold: true }; est.alignment = { vertical: "top", horizontal: "center", wrapText: true };
+    const pu = f.getCell("puntaje"); pu.alignment = { vertical: "top", horizontal: "center" };
+    if (typeof o.puntaje === "number") { pu.fill = relleno(o.puntaje >= 85 ? "FFD7F3E0" : o.puntaje >= 60 ? "FFFFF4C2" : "FFFBD9D9"); pu.font = { bold: true }; }
+    f.getCell("montoPresupuesto").numFmt = "#,##0.00";
+  });
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: COLS.length } };
+
+  // ---- Levantamiento (una fila por pregunta y respuesta)
+  const wl = wb.addWorksheet("Levantamiento", { views: [{ state: "frozen", ySplit: 1 }], properties: { tabColor: { argb: "FFF3BE00" } } });
+  wl.columns = [{ header: "ID", key: "id", width: 22 }, { header: "Colaborador", key: "col", width: 30 }, { header: "Tipo de movimiento", key: "mov", width: 24 }, { header: "Pregunta", key: "p", width: 60 }, { header: "Respuesta", key: "r", width: 90 }];
+  cabecera(wl.getRow(1));
+  let alterna = false, ultimo = "";
+  ordenadas.forEach(r => {
+    (r.levantamiento || []).forEach(par => {
+      if (r.id !== ultimo) { alterna = !alterna; ultimo = r.id; }
+      const f = wl.addRow({ id: r.id, col: txt(r.colaborador), mov: txt(r.movimiento), p: txt(par[0]), r: txt(par[1]) });
+      f.eachCell(c => { c.alignment = { vertical: "top", wrapText: true }; c.border = borde; if (alterna) c.fill = relleno(GRIS); });
+      f.getCell("p").font = { bold: true, color: { argb: NAVY } };
+    });
+  });
+  wl.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 5 } };
+
+  // ---- Aprobaciones previas
+  const wa = wb.addWorksheet("Aprobaciones", { views: [{ state: "frozen", ySplit: 1 }], properties: { tabColor: { argb: "FF7A8CC0" } } });
+  wa.columns = [{ header: "ID", key: "id", width: 22 }, { header: "Colaborador", key: "col", width: 30 }, { header: "Nivel", key: "n", width: 22 }, { header: "Aprobador", key: "a", width: 30 }, { header: "Cargo", key: "c", width: 30 }, { header: "Fecha", key: "f", width: 14 }, { header: "¿Evidencia?", key: "e", width: 13 }, { header: "Tipo de evidencia", key: "t", width: 20 }];
+  cabecera(wa.getRow(1));
+  ordenadas.forEach(r => (r.aprobaciones || []).forEach(a => {
+    const f = wa.addRow({ id: r.id, col: txt(r.colaborador), n: txt(a.level), a: txt(a.name), c: txt(a.role), f: txt(a.date), e: txt(a.evidence), t: txt(a.type) });
+    f.eachCell(c => { c.alignment = { vertical: "top", wrapText: true }; c.border = borde; });
+  }));
+  wa.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 8 } };
+  return wb;
+}
+// </excel>
+
+function descargar(){
+  const btn=(t,off)=>{const b=$("xls");if(b){b.textContent=t;b.disabled=off}};
+  btn("Preparando…",true);
+  google.script.run.withFailureHandler(e=>{btn("⬇ Descargar Excel",false);alert(e.message||e)}).withSuccessHandler(async rows=>{
+    try{
+      if(typeof ExcelJS==="undefined") throw new Error("No se pudo cargar la librería de Excel. Revisa tu conexión y recarga.");
+      const wb=construirExcel(ExcelJS,rows,{titulo:"Solicitudes de Talento · "+TITULOS[vista],usuario:D.email,fecha:new Date().toLocaleString("es-PE")});
+      const buf=await wb.xlsx.writeBuffer();
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+      a.download="Solicitudes_Talento_"+vista+"_"+new Date().toISOString().slice(0,10)+".xlsx";
+      document.body.appendChild(a);a.click();a.remove();
+    }catch(x){alert("No se pudo generar el Excel: "+(x.message||x))}
+    btn("⬇ Descargar Excel",false);
+  }).panelExportar(vista,TOKEN);
+}
+
+function detalle(id){
+  const f=D.filas.find(x=>x.id===id),ed=D.editables.includes(f.estado||"Nuevo");
+  google.script.run.withFailureHandler(fail).withSuccessHandler(d=>{
+    const dl=a=>`<dl>${a.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+    $("dlg").innerHTML=`<h2 style="margin-top:0;color:var(--navy)">${esc(f.movimiento)} · ${esc(f.colaborador)}</h2>
+     ${dl([["ID",f.id],["Líder",f.cliente+" · "+f.cargoCliente],["Departamento / Área",f.departamento+" · "+f.area],["Puesto actual",f.puestoActual],["BP asignado",f.bp],["Presupuesto",f.presupuesto+" · "+f.fuentePresupuesto+" · S/ "+f.montoPresupuesto],["Urgencia / impacto",f.urgencia+" · "+f.impacto],["Consecuencia",f.consecuencia],["Comentario BP",f.comentarioBP],["Comentario gerencia",f.comentarioGerencia]])}
+     <h3>Detalle del impacto</h3><p>${esc(d.impacto)}</p>
+     ${d.puntaje?`<h3>Evaluación automática: ${esc(d.puntaje)}/100 · ${esc(d.clasificacion)}</h3>${d.fortalezas?`<p><b>Fortalezas</b><br>${esc(d.fortalezas).split(" | ").join("<br>")}</p>`:""}${d.alertas?`<p><b>Alertas</b><br>${esc(d.alertas).split(" | ").join("<br>")}</p>`:""}<p class="muted">${esc(d.recomendacion)}</p>`:""}
+     ${d.sustento?`<h3>Sustento ejecutivo</h3><p style="white-space:pre-wrap">${esc(d.sustento)}</p>`:""}
+     <h3>Levantamiento</h3>${dl(d.levantamiento)||""}
+     ${d.aprobaciones.length?`<h3>Aprobaciones</h3>${d.aprobaciones.map(a=>dl([["Nivel",a.level],["Aprobador",a.name+" · "+a.role],["Fecha",a.date],["Evidencia",a.evidence+" "+(a.type||"")]])).join("<hr>")}`:""}
+     ${ed?`<h3>Gestión</h3><div class="tools"><select id="ne">${D.estados.map(e=>`<option ${e===f.estado?"selected":""}>${esc(e)}</option>`).join("")}</select></div>
+       <textarea id="nc" rows="3" style="width:100%" placeholder="Comentario">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>`:""}
+     ${vista==="jefe"&&f.estado==="Devuelto al jefe"&&d.editUrl?`<p><a href="${esc(d.editUrl)}" target="_blank" rel="noopener"><b>Corregir y reenviar</b></a></p>`:vista==="jefe"&&f.estado==="Devuelto al jefe"?"<p><b>Corrige la solicitud desde la app web y vuelve a enviarla.</b></p>":""}
+     <p style="text-align:right"><button class="p" id="cerrar" style="background:#8892AD">Cerrar</button> ${ed?'<button class="p" id="guardar">Guardar</button>':""}</p>`;
+    $("dlg").showModal();$("cerrar").onclick=()=>$("dlg").close();
+    if(ed)$("guardar").onclick=()=>{$("guardar").disabled=true;
+      google.script.run.withFailureHandler(e=>{$("guardar").disabled=false;alert(e.message||e)}).withSuccessHandler(()=>{$("dlg").close();cargar(vista)}).panelActualizar(id,vista,$("ne").value,$("nc").value,TOKEN)};
+  }).panelDetalle(id,vista,TOKEN);
+}
+google.script.run.withFailureHandler(mostrarLogin).withSuccessHandler(q=>cargar(q.vistas[q.vistas.length-1])).panelQuien();
+</script></body></html>

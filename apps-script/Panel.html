@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8">
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solicitudes de Talento · USIL</title>
 <style>
 :root{--navy:#00195A;--line:#D9E1F5;--mut:#5B6A8F;--bg:#F5F7FC}
 *{box-sizing:border-box}body{margin:0;font:14px/1.45 Arial,sans-serif;color:#14213D;background:var(--bg)}
@@ -30,6 +30,16 @@ button.p{background:var(--navy);color:#fff;border:0;border-radius:6px;padding:8p
 <header><div><h1>Solicitudes de Talento · USIL</h1><small id="quien"></small></div><nav id="tabs"></nav></header>
 <main><div id="err" class="err" hidden></div><div id="app"><p class="muted">Cargando…</p></div></main>
 <dialog id="dlg"></dialog>
+<script>
+// Fuera de Apps Script (GitHub Pages) no existe google.script.run: se reemplaza por fetch al mismo despliegue que ya recibe las solicitudes.
+if(typeof google==="undefined"){
+  const API="https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",TK="e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2";
+  const mk=(ok,ko)=>new Proxy({},{get:(_,k)=>k==="withSuccessHandler"?f=>mk(f,ko):k==="withFailureHandler"?f=>mk(ok,f):(...args)=>
+    fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({accion:"panel",token:TK,fn:k,args})})
+      .then(r=>r.json()).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).then(d=>ok&&ok(d),e=>ko&&ko(e))});
+  window.google={script:{run:mk()}};
+}
+</script>
 <script>
 const TITULOS={jefe:"Mis solicitudes",bp:"Bandeja del Business Partner",gerencia:"Gerencia · vista final"};
 const ALL=["Nuevo","En revisión BP","Devuelto al jefe","Enviado a Gerencia","Aprobado","Rechazado","En pausa"];

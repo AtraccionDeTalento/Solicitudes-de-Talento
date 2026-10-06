@@ -2042,7 +2042,7 @@ function aRegistro_(resp) {
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 function doPost(e) {
-  const consulta = e && e.postData && e.postData.length <= CONFIG.MAX_BYTES ? consultaMaestro_(e) : null;
+  const consulta = e && e.postData && e.postData.length <= CONFIG.MAX_BYTES ? consultaMaestro_(e) || consultaPanel_(e) : null;
   if (consulta) return consulta;
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
@@ -2224,6 +2224,21 @@ function panelEntrar(email, clave) {
   const token = Utilities.getUuid() + Utilities.getUuid();
   cache.put("ses:" + token, JSON.stringify({ email, vistas }), 21600);
   return { token, email, vistas };
+}
+
+/** Puente del panel alojado en GitHub Pages (el de Apps Script usa google.script.run). Solo funciones del panel y siempre con token de sesión:
+ *  sin él, quien_ usaría la cuenta de quien ejecuta el script. */
+const FN_PANEL = { panelEntrar, panelQuien, panelDatos, panelExportar, panelDetalle, panelActualizar };
+function consultaPanel_(e) {
+  let b;
+  try { b = JSON.parse(e.postData.contents); } catch (_) { return null; }
+  if (!b || b.accion !== "panel") return null;
+  try {
+    if (CONFIG.TOKEN && b.token !== CONFIG.TOKEN) throw new Error("No autorizado");
+    if (!Object.prototype.hasOwnProperty.call(FN_PANEL, b.fn) || !Array.isArray(b.args)) throw new Error("Operación no válida");
+    if (b.fn !== "panelEntrar" && !(typeof b.args[b.args.length - 1] === "string" && b.args[b.args.length - 1])) throw new Error("Tu sesión venció. Vuelve a entrar.");
+    return json_({ ok: true, data: FN_PANEL[b.fn].apply(null, b.args) });
+  } catch (err) { return json_({ ok: false, error: String(err).replace(/^Error: /, "") }); }
 }
 
 /** Quién eres: por token de clave o, si no hay, por la cuenta de Google. */

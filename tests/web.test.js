@@ -29,4 +29,5 @@ ok('los tipos de movimiento coinciden entre la app y Code.gs', () => {
   const b = [...gs.matchAll(/"nombre": "([^"]+)",\n\s+"descripcion"/g)].map(x => x[1]);
   assert.strictEqual(a.length, 11); assert.deepStrictEqual(a, b);
 });
+ok('panel.html (GitHub Pages) es copia de apps-script/Panel.html', () => assert.strictEqual(fs.readFileSync(path.join(__dirname, '..', 'panel.html'), 'utf8'), fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Panel.html'), 'utf8')));
 console.log('\n' + n + ' pruebas OK');

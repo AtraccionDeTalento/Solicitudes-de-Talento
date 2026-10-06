@@ -225,4 +225,9 @@ ok('un correo con ñ (cmuñozse) entra igual que cmunozse y ve lo de su BP', () 
   const s = como('', () => F.panelEntrar('CMUÑOZSE@usil.edu.pe', 'clave-bp')); assert.strictEqual(s.vistas.join(), 'bp');
   const d = como('', () => F.panelDatos('bp', s.token)); assert.ok(Array.isArray(d.filas));
 });
+console.log('Panel por fetch');
+const pp = (fn, args) => post({ accion: 'panel', token: TOKEN, fn, args });
+ok('panel: rechaza funciones ajenas al panel', () => assert.ok(/no válida/.test(pp('doGet', []).error)));
+ok('panel: sin token de sesión no usa la cuenta del script', () => assert.ok(/venci/.test(pp('panelQuien', [null]).error)));
+ok('panel: entrar con clave incorrecta falla y sin token de la app no pasa', () => { assert.ok(!pp('panelEntrar', ['x@usil.edu.pe', 'mala']).ok); assert.ok(/No autorizado/.test(post({ accion: 'panel', token: 'x', fn: 'panelEntrar', args: [] }).error)); });
 console.log('\n' + n + ' pruebas OK');
