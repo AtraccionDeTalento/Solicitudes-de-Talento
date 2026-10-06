@@ -201,4 +201,10 @@ ok('exportar a Excel: BP y Gerencia reciben sus registros completos; el jefe no'
   falla(() => como('jefe1@usil.edu.pe', () => F.panelExportar('jefe')), /Solo BP y Gerencia/);
   falla(() => como('beto.bp@usil.edu.pe', () => F.panelExportar('gerencia')), /Sin acceso/);
 });
+ok('la propiedad SIN_CORREOS apaga todos los correos', () => {
+  props.SIN_CORREOS = '1'; const antes = mails.length;
+  const w = web(); w.id = 'SC1'; w.data.emailCliente = 'sincorreo@usil.edu.pe'; assert.ok(post({ token: TOKEN, rec: w }).ok);
+  como('carla.bp@usil.edu.pe', () => F.panelActualizar('SC1', 'bp', 'Devuelto al jefe', 'x'));
+  assert.strictEqual(mails.length, antes); delete props.SIN_CORREOS;
+});
 console.log('\n' + n + ' pruebas OK');

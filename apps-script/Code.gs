@@ -1950,8 +1950,11 @@ function unaLinea_(v, max) { return limpiar_(v, max).replace(/\s+/g, " "); }
 
 function h_(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
+/** Los correos salen salvo que ENVIAR_CORREOS sea false o exista la propiedad SIN_CORREOS = 1 (interruptor para pruebas, sin redesplegar). */
+function enviarCorreos_() { return CONFIG.ENVIAR_CORREOS && PropertiesService.getScriptProperties().getProperty("SIN_CORREOS") !== "1"; }
+
 function notificar_(rec) {
-  if (!CONFIG.ENVIAR_CORREOS) return;
+  if (!enviarCorreos_()) return;
   const d = rec.data, sinBP = !rec.bpCorreo;
   const ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID"));
   const fila = [["Tipo de movimiento", d.movimiento], ["Colaborador", d.colaborador + (d.codigo && d.codigo !== "No aplica" ? " · " + d.codigo : "")],
@@ -2295,7 +2298,7 @@ function panelActualizar(id, vista, estado, comentario, token) {
 
 /** Correo en cada paso del flujo: devuelto → jefe; enviado a Gerencia → gerentes; decisión → jefe y BP; devuelto por Gerencia → BP. */
 function avisarCambio_(rec, estado, comentario) {
-  if (!CONFIG.ENVIAR_CORREOS) return;
+  if (!enviarCorreos_()) return;
   const d = rec.data, tema = unaLinea_(d.movimiento + " · " + (d.colaborador || d.area) + " · " + rec.id, 160);
   const destinos = { "Devuelto al jefe": [rec.enviadoPor], "Enviado a Gerencia": CONFIG.GERENTES, "Aprobado": [rec.enviadoPor, rec.bpCorreo], "Rechazado": [rec.enviadoPor, rec.bpCorreo], "En revisión BP": [rec.bpCorreo] }[estado] || [];
   const to = destinos.filter(Boolean).join(",");
