@@ -31,6 +31,8 @@ const CONFIG = {
   TOKEN: "e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2",   // clave que debe enviar la app web (debe coincidir con CONFIG.token de index.html)
   DOMINIOS_PERMITIDOS: ["usil.edu.pe"],   // la app web solo acepta correos de estos dominios
   MAX_POR_CORREO_HORA: 10,         // límite de envíos por correo y por hora (anti-spam)
+  MAX_CONSULTAS_HORA: 60,          // consultas al maestro por correo y hora
+  MAX_CONSULTAS_DIA: 3000,         // consultas al maestro por día en total
   MAX_GLOBAL_DIA: 300,             // límite total de envíos web por día
   MAX_BYTES: 60000,                // tamaño máximo de una solicitud web
   ENVIAR_CORREOS: true,
@@ -2037,6 +2039,8 @@ function aRegistro_(resp) {
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 function doPost(e) {
+  const consulta = e && e.postData && e.postData.length <= CONFIG.MAX_BYTES ? consultaMaestro_(e) : null;
+  if (consulta) return consulta;
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
     if (!e || !e.postData || e.postData.length > CONFIG.MAX_BYTES) return json_({ ok: false, error: "Solicitud inválida o demasiado grande" });
@@ -2263,4 +2267,49 @@ function actualizarEncabezados() {
   sh.getRange(1, 1, 1, COLS.length).setValues([COLS.map(c => c[0])]).setFontWeight("bold").setBackground("#00195A").setFontColor("#FFFFFF");
   sh.getRange(2, 1, sh.getMaxRows() - 1, COLS.length).setNumberFormat("@");
   sh.getRange(2, colIdx_("estado") + 1, 2000, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(ESTADOS, true).build());   // lista de estados del flujo
+}
+
+// ============================================================ MAESTRO (autocompletado de la solicitud)
+// Hoja «Maestro» dentro de la hoja de Entradas, con SOLO estas 8 columnas (se genera con tools/preparar-maestro.py). Nunca va al repositorio.
+const MAESTRO_COLS = ["Matrícula", "Nombre completo", "Puesto", "Situación", "Departamento", "Área", "Sección", "Email trabajo"];
+
+/** Responde las consultas {accion:"maestro"} de la app web. Devuelve null si el POST es otra cosa. Una persona por consulta. */
+function consultaMaestro_(e) {
+  let body;
+  try { body = JSON.parse(e.postData.contents); } catch (_) { return null; }
+  if (!body || body.accion !== "maestro") return null;
+  try {
+    if (CONFIG.TOKEN && body.token !== CONFIG.TOKEN) throw new Error("No autorizado");
+    const email = unaLinea_(body.email, 120).toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || (CONFIG.DOMINIOS_PERMITIDOS.length && CONFIG.DOMINIOS_PERMITIDOS.indexOf(email.split("@")[1]) < 0)) throw new Error("Usa tu correo institucional");
+    limitarConsulta_(email);
+    const hoja = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID")).getSheetByName("Maestro");
+    if (!hoja) return json_({ ok: true, item: null });
+    let fila = null;
+    if (body.lider) fila = buscarFilaMaestro_(hoja, 8, email);
+    else {
+      const c = String(body.codigo || "");
+      if (!/^\d{4,10}$/.test(c)) throw new Error("Matrícula inválida");
+      fila = buscarFilaMaestro_(hoja, 1, ("0000000000" + c).slice(-10));
+    }
+    return json_({ ok: true, item: fila ? { nombre: fila[1], puesto: fila[2], situacion: fila[3], departamento: fila[4], area: fila[5], seccion: fila[6] } : null });
+  } catch (err) { return json_({ ok: false, error: String(err).replace(/^Error: /, "") }); }
+}
+
+function buscarFilaMaestro_(hoja, col, valor) {
+  const hit = hoja.createTextFinder(valor).matchEntireCell(true).matchCase(false).findNext();
+  return hit && hit.getColumn() === col ? hoja.getRange(hit.getRow(), 1, 1, MAESTRO_COLS.length).getValues()[0] : null;
+}
+
+/** Límite de consultas al maestro por correo y hora, y por día en total (frena el barrido de matrículas). */
+function limitarConsulta_(email) {
+  const ahora = new Date(), cache = CacheService.getScriptCache(), props = PropertiesService.getScriptProperties();
+  const k = "mq:" + email + ":" + Utilities.formatDate(ahora, "UTC", "yyyyMMddHH");
+  const n = Number(cache.get(k) || 0) + 1;
+  if (n > CONFIG.MAX_CONSULTAS_HORA) throw new Error("Demasiadas consultas. Completa los datos manualmente o intenta en una hora.");
+  const dk = "mqd:" + Utilities.formatDate(ahora, "UTC", "yyyyMMdd");
+  const g = Number(props.getProperty(dk) || 0) + 1;
+  if (g > CONFIG.MAX_CONSULTAS_DIA) throw new Error("Se alcanzó el límite diario de consultas. Completa los datos manualmente.");
+  cache.put(k, String(n), 3600);
+  props.setProperty(dk, String(g));
 }

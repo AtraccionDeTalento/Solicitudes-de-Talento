@@ -650,7 +650,8 @@ function clearEmployeeAutofill(){
 function setEmployeeFields(item){
   $("colaborador").value=item.nombre||"";
   $("puestoActual").value=item.puesto||"";
-  $("departamento").value=item.departamento||"";
+  const dep=[...$("departamento").options].find(o=>normalizeTextKey(o.value)===normalizeTextKey(item.departamento));
+  $("departamento").value=dep?dep.value:"";
   $("area").value=item.area||"";
   $("seccion").value=item.seccion||"";
 }
@@ -928,11 +929,42 @@ function lockNew(reset){
     : "Ingresa el código; se completa a 10 dígitos y se busca en la base maestra si está disponible. Si no aparece, completa los datos manualmente.";
 }
 
+// Consulta al maestro en el servidor (Apps Script): devuelve solo la persona buscada; el maestro completo nunca viaja a la página.
+async function postMaestro(extra){
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),15000);
+  try{
+    const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:CONFIG.token,accion:"maestro",email:SESSION.email,...extra}),signal:ac.signal});
+    return await r.json();
+  }finally{clearTimeout(t)}
+}
+function afterAuto(){refresh();store(draftKey(),JSON.stringify({data:gather(),cur,reached}))}
+async function lookupRemote(code){
+  const help=$("codigoHelp");help.textContent="Buscando en la base…";
+  try{
+    const r=await postMaestro({codigo:code});
+    if(normalizeEmployeeCode($("codigo").value)!==code) return;   // el usuario cambió el código mientras tanto
+    if(!r.ok){help.textContent=`${r.error||"No se pudo consultar la base."} Completa los datos manualmente.`;return}
+    if(!r.item){help.textContent=`No se encontró ${code} en la base. Completa los datos manualmente.`;return}
+    setEmployeeFields(r.item);
+    let msg="Datos completados desde la base de personal.";
+    if(r.item.situacion&&normalizeTextKey(r.item.situacion)!=="activo") msg+=` Atención: Situación = ${r.item.situacion}.`;
+    if(!r.item.area||!r.item.seccion) msg+=" Área/Sección vacío en la base: complétalo manualmente.";
+    help.textContent=msg;afterAuto();
+  }catch(e){help.textContent="No se pudo consultar la base ahora. Completa los datos manualmente."}
+}
+async function autoLider(){
+  if(!CONFIG.endpoint||!SESSION||$("cargoCliente").value) return;
+  try{
+    const r=await postMaestro({lider:true});
+    if(r.ok&&r.item&&r.item.puesto&&!$("cargoCliente").value){$("cargoCliente").value=r.item.puesto;afterAuto()}
+  }catch(e){/* sin base: el líder escribe su cargo */}
+}
 function lookupEmployeeByCode(){
   if(NOCODE.includes($("movimiento").value)) return;
   const help=$("codigoHelp"), code=normalizeEmployeeCode($("codigo").value);
   $("codigo").value=code;
   if(!code){help.textContent="Ingresa el código del colaborador.";return}
+  if(CONFIG.endpoint) return void lookupRemote(code);
   if(!masterEmployees.size){help.textContent="No hay base maestra en este equipo: completa los datos del colaborador manualmente.";return}
   const item=masterEmployees.get(code);
   if(!item){help.textContent=`No se encontró ${code} en la base cargada. Completa los datos manualmente.`;return}
@@ -1387,7 +1419,7 @@ function enter(){
   if(BP_MODE) renderHistory();
   const dr=load(draftKey(),null);
   editingCaseId=null;reached=0;showShell();
-  fill(dr&&dr.data?dr.data:baseData());lockLeader();
+  fill(dr&&dr.data?dr.data:baseData());lockLeader();autoLider();
   if(dr&&dr.data){reached=dr.reached||0;go(Math.min(dr.cur||0,reached));toast("Borrador recuperado")}
   else{lockNew(false);go(0)}
 }

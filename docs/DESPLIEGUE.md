@@ -22,6 +22,14 @@ Dos piezas: **la app web** (`index.html`, GitHub Pages) y **el receptor en Googl
 6. Las solicitudes del **Google Form** y de la **app web** llegan a la misma hoja «Entradas», así que aparecen juntas en el panel.
 7. Requisito: quien abre el panel debe estar con su cuenta USIL en el navegador y el dueño del script en el mismo Workspace; si no, Google no entrega el correo y el panel pide iniciar sesión.
 
+## 1c. Autocompletado desde el maestro de personal
+La app completa nombre, puesto, departamento, área y sección al escribir la matrícula, y el cargo del líder según su correo. El maestro **nunca va al repositorio ni a la página**: vive en una pestaña privada de la hoja de Entradas y el servidor devuelve **una sola persona por consulta**.
+1. Genera la versión recortada (8 columnas, sin DNI ni direcciones): `python tools/preparar-maestro.py "Maestro BPs.xlsx" Maestro_recortado.csv`
+2. En la hoja de Entradas: **Archivo › Importar › Subir** el CSV › *Insertar hoja(s) nueva(s)* › **desmarca «Convertir texto en números, fechas y fórmulas»** (conserva los ceros de la matrícula). Renombra la pestaña a `Maestro`.
+3. Cuando salga un maestro nuevo, repite 1 y 2 reemplazando la pestaña.
+4. Límites: `MAX_CONSULTAS_HORA` (60 por correo) y `MAX_CONSULTAS_DIA` (3000). El correo de la app no está verificado, por lo que el límite frena el barrido de matrículas pero no lo impide; para identidad verificada usar inicio de sesión de Google.
+5. Quien tenga acceso de edición a la hoja (BP, coordinador) ve la pestaña `Maestro`: limitar el acceso o proteger la pestaña.
+
 ## 2. App web (GitHub Pages)
 1. En `index.html`, `CONFIG.endpoint` = URL `…/exec` del paso 1.6. Subir el cambio.
 2. GitHub › Settings › Pages › *Deploy from a branch* › `main` / `(root)`.

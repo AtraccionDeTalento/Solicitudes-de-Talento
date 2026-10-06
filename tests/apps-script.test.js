@@ -20,7 +20,7 @@ class Sheet {
   constructor(n) { this.n = n; this.rows = []; }
   setName(n) { this.n = n; return this; } clear() { this.rows = []; } getMaxRows() { return 1000; } setFrozenRows() {} setFrozenColumns() {} setColumnWidth() {}
   appendRow(r) { this.rows.push(r.slice()); } getDataRange() { const s = this; return { getValues: () => s.rows.map(r => r.slice()) }; }
-  createTextFinder(t) { const s = this; return { matchEntireCell() { return this; }, findNext() { for (let i = 0; i < s.rows.length; i++) for (let j = 0; j < s.rows[i].length; j++) if (String(s.rows[i][j]) === t) return { getRow: () => i + 1, getColumn: () => j + 1 }; return null; } }; }
+  createTextFinder(t) { const s = this; return { matchEntireCell() { return this; }, matchCase() { return this; }, findNext() { for (let i = 0; i < s.rows.length; i++) for (let j = 0; j < s.rows[i].length; j++) if (String(s.rows[i][j]) === t) return { getRow: () => i + 1, getColumn: () => j + 1 }; return null; } }; }
   getRange(a, b, c, d) {
     const s = this; if (typeof a === 'string') return { setValue() { return this; }, getValues() { return []; } };
     const g = { setNumberFormat() { return g; }, setFontWeight() { return g; }, setBackground() { return g; }, setFontColor() { return g; }, createFilter() {}, setDataValidation() { return g; }, setFormula() {}, setFormulas() { return g; }, setValue(v) { s.rows[a - 1][b - 1] = v; return g; },
@@ -164,4 +164,15 @@ ok('BP devuelve al jefe (con correo) y al reenviar vuelve al BP', () => {
   const w = web(); w.id = 'EV1'; w.data.emailCliente = 'evaluado@usil.edu.pe'; assert.ok(post({ token: TOKEN, rec: w }).ok);
   assert.strictEqual(como('evaluado@usil.edu.pe', () => F.panelDatos('jefe')).filas[0].estado, 'En revisión BP');
 });
+console.log('Maestro (autocompletado)');
+const hm = ss.insertSheet('Maestro');
+hm.rows = [['Matrícula', 'Nombre completo', 'Puesto', 'Situación', 'Departamento', 'Área', 'Sección', 'Email trabajo'],
+  ['0000002458', 'Lucia Ramos Diaz', 'Analista Senior', 'ACTIVO', 'GERENCIA LEGAL', 'Contratos', 'Revisión', 'lramos@usil.edu.pe'],
+  ['0000009999', 'Mario Lopez Vega', 'Jefe de Contratos', 'ACTIVO', 'GERENCIA LEGAL', 'Contratos', '', 'mario@usil.edu.pe']];
+const mq = x => post(Object.assign({ token: TOKEN, accion: 'maestro', email: 'mario@usil.edu.pe' }, x));
+ok('busca al colaborador por matrícula corta y devuelve solo 6 campos', () => { const r = mq({ codigo: '2458' }); assert.ok(r.ok); assert.strictEqual(r.item.nombre, 'Lucia Ramos Diaz'); assert.strictEqual(r.item.departamento, 'GERENCIA LEGAL'); assert.strictEqual(Object.keys(r.item).length, 6); assert.ok(!JSON.stringify(r).includes('lramos@')); });
+ok('matrícula inexistente → null; inválida → error', () => { assert.strictEqual(mq({ codigo: '1234' }).item, null); assert.strictEqual(mq({ codigo: 'abc' }).error, 'Matrícula inválida'); });
+ok('el cargo del líder sale de su correo', () => assert.strictEqual(mq({ lider: true }).item.puesto, 'Jefe de Contratos'));
+ok('exige token y correo institucional', () => { assert.strictEqual(post({ accion: 'maestro', email: 'mario@usil.edu.pe', codigo: '2458' }).error, 'No autorizado'); assert.strictEqual(mq({ email: 'x@gmail.com', codigo: '2458' }).error, 'Usa tu correo institucional'); });
+ok('límite de consultas por correo y hora', () => { F.CONFIG.MAX_CONSULTAS_HORA = 3; let r; for (let k = 0; k < 4; k++) r = mq({ email: 'barrido@usil.edu.pe', codigo: '2458' }); assert.ok(/Demasiadas consultas/.test(r.error)); F.CONFIG.MAX_CONSULTAS_HORA = 60; });
 console.log('\n' + n + ' pruebas OK');
