@@ -1288,17 +1288,89 @@ function loadXLSX(){
   });
 }
 async function needXLSX(){try{await loadXLSX();return true}catch(e){alert(e.message);return false}}
-async function exportCase(rec){
-  if(!await needXLSX()) return;
-  const d=rec.data,ev=rec.evaluation||{},wb=XLSX.utils.book_new();
-  const A=XLSX.utils.aoa_to_sheet.bind(XLSX.utils);
-  XLSX.utils.book_append_sheet(wb,A([["Campo","Valor"],["Periodo",d.periodoLabel],["Fecha solicitud",d.fechaSolicitud],["BP asignado",rec.bpAsignado||""],["Líder solicitante",d.cliente],["Cargo del líder",d.cargoCliente],["Correo del líder",d.emailCliente],["Departamento",d.departamento],["Área",d.area],["Sección",d.seccion],["Código",d.codigo],["Nombre",d.colaborador],["Puesto",d.puestoActual],["Movimiento",d.movimiento],["¿Cuenta con presupuesto?",d.presupuesto],["Fuente de presupuesto",d.fuentePresupuesto],["Índice de preparación",ev.score],["Clasificación",ev.label],["Recomendación",ev.recommendation],["Sustento ejecutivo",d.solicitudConcreta]]),"Resumen");
-  XLSX.utils.book_append_sheet(wb,A([["ID campo","Campo","Valor"],...detailRows(d,ev,rec.bpAsignado||"")]),"Detalle levantamiento");
-  XLSX.utils.book_append_sheet(wb,A([["Nivel","Nombre","Cargo","Fecha","¿Evidencia?","Tipo evidencia"],...(d.approvals||[]).map(a=>[a.level,a.name,a.role,a.date,a.evidence,a.type])]),"Aprobaciones");
-  XLSX.utils.book_append_sheet(wb,A([["Periodo","Fecha solicitud","BP","Cliente","Departamento","Área","Sección","Código","Nombre","Puesto","Tipo movimiento","Tiene aprobación","N° aprobaciones","Presupuesto","Fuente presupuesto","Urgencia","Impacto","Consecuencia","Score preparación","Clasificación","Sustento ejecutivo"],[d.periodoLabel,d.fechaSolicitud,rec.bpAsignado||"",d.cliente,d.departamento,d.area,d.seccion,d.codigo,d.colaborador,d.puestoActual,d.movimiento,d.tieneAprobacion,(d.approvals||[]).length,d.presupuesto,d.fuentePresupuesto,d.urgencia,d.impacto,d.consecuencia,ev.score,ev.label,d.solicitudConcreta]]),"Datos para Compensaciones");
-  const safe=(d.colaborador||"caso").replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_");
-  XLSX.writeFile(wb,`BP_${d.movimiento.replace(/\s+/g,"_")}_${safe}_${d.fechaSolicitud||today()}.xlsx`);
+// ---------- Excel individual con diseño (ExcelJS) ----------
+const EXCELJS_SRC={url:"https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js",sri:"sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz"};
+function loadExcelJS(){
+  if(window.ExcelJS) return Promise.resolve();
+  return new Promise((ok,fail)=>{
+    const s=document.createElement("script");
+    s.src=EXCELJS_SRC.url;s.integrity=EXCELJS_SRC.sri;s.crossOrigin="anonymous";
+    s.onload=ok;s.onerror=()=>fail(new Error("No se pudo cargar la librería de Excel (¿sin conexión?)."));
+    document.head.appendChild(s);
+  });
 }
+async function needExcelJS(){try{await loadExcelJS();return true}catch(e){alert(e.message);return false}}
+
+function construirExcelCaso(ExcelJS,rec){
+  const d=rec.data,ev=rec.evaluation||{},bp=rec.bpAsignado||"";
+  const NAVY="FF00195A",AZUL="FF0036DC",GRIS="FFF3F6FC",ETQ="FFE9EEFB",BORDE={style:"thin",color:{argb:"FFD9E1F5"}};
+  const borde={top:BORDE,bottom:BORDE,left:BORDE,right:BORDE};
+  const fill=argb=>({type:"pattern",pattern:"solid",fgColor:{argb}});
+  const txt=v=>v==null?"":String(v);
+  const wb=new ExcelJS.Workbook();wb.creator="Solicitudes de Talento · USIL";wb.created=new Date();
+  const lineas=(t,ancho)=>txt(t).split("\n").reduce((n,l)=>n+Math.max(1,Math.ceil(l.length/ancho)),0);
+  const alto=(t,ancho)=>Math.max(20,lineas(t,ancho)*15+6);
+
+  // ---- Hoja 1: Resumen (ficha de una página)
+  const ws=wb.addWorksheet("Resumen",{views:[{showGridLines:false}],properties:{tabColor:{argb:NAVY}},pageSetup:{orientation:"portrait",fitToPage:true,fitToWidth:1,fitToHeight:0}});
+  ws.columns=[{width:30},{width:100}];
+  ws.mergeCells("A1:B1");const t1=ws.getCell("A1");t1.value="SOLICITUD DE MOVIMIENTO DE TALENTO";t1.font={bold:true,size:18,color:{argb:"FFFFFFFF"}};t1.fill=fill(NAVY);t1.alignment={vertical:"middle",indent:1};ws.getRow(1).height=38;
+  ws.mergeCells("A2:B2");const t2=ws.getCell("A2");t2.value=`${txt(d.movimiento)} · ${txt(d.colaborador)} · Código de seguimiento ${txt(rec.id)}`;t2.font={size:11,color:{argb:"FFFFFFFF"}};t2.fill=fill(AZUL);t2.alignment={vertical:"middle",indent:1};ws.getRow(2).height=24;
+
+  const score=Number(ev.score)||0,colorScore=score>=85?"FFD7F3E0":score>=60?"FFFFF4C2":"FFFBD9D9";
+  ws.mergeCells("A4:A6");const sc=ws.getCell("A4");sc.value=score;sc.font={bold:true,size:40,color:{argb:NAVY}};sc.fill=fill(colorScore);sc.alignment={vertical:"middle",horizontal:"center"};sc.border=borde;
+  const cl=ws.getCell("B4");cl.value=`Índice de preparación (0-100): ${txt(ev.label)}`;cl.font={bold:true,size:14,color:{argb:NAVY}};cl.alignment={vertical:"middle",indent:1};
+  ws.mergeCells("B5:B6");const rc=ws.getCell("B5");rc.value=txt(ev.recommendation);rc.alignment={vertical:"top",wrapText:true,indent:1};rc.font={color:{argb:"FF5B6A8F"}};
+  ws.getRow(4).height=26;ws.getRow(5).height=22;ws.getRow(6).height=22;
+
+  let f=8;
+  const seccion=titulo=>{ws.mergeCells(`A${f}:B${f}`);const c=ws.getCell(`A${f}`);c.value=titulo;c.font={bold:true,color:{argb:"FFFFFFFF"},size:11};c.fill=fill(AZUL);c.alignment={vertical:"middle",indent:1};ws.getRow(f).height=22;f++};
+  const fila=(k,v)=>{const a=ws.getCell(`A${f}`),b=ws.getCell(`B${f}`);a.value=k;b.value=txt(v);
+    a.font={bold:true,color:{argb:NAVY}};a.fill=fill(ETQ);a.alignment={vertical:"top",wrapText:true,indent:1};b.alignment={vertical:"top",wrapText:true,indent:1};a.border=borde;b.border=borde;
+    ws.getRow(f).height=alto(v,105);f++};
+  const sp=()=>{f++};
+  seccion("DATOS DE LA SOLICITUD");fila("Periodo",d.periodoLabel);fila("Fecha de solicitud",d.fechaSolicitud);fila("Tipo de movimiento",d.movimiento);fila("Business Partner asignado",bp||"Pendiente de asignar");sp();
+  seccion("LÍDER SOLICITANTE");fila("Nombre",d.cliente);fila("Cargo",d.cargoCliente);fila("Correo",d.emailCliente);sp();
+  seccion("COLABORADOR");fila("Nombre",d.colaborador);fila("Código (matrícula)",d.codigo);fila("Puesto actual",d.puestoActual);fila("Departamento",d.departamento);fila("Área",d.area);fila("Sección",d.seccion);sp();
+  seccion("PRESUPUESTO");fila("¿Cuenta con presupuesto?",d.presupuesto);fila("Fuente",d.fuentePresupuesto);fila("Quién valida",d.validaPresupuesto);fila("Monto disponible (S/)",d.montoPresupuesto);sp();
+  seccion("PRIORIDAD E IMPACTO");fila("Urgencia",d.urgencia);fila("Impacto",d.impacto);fila("Consecuencia de no aprobar",d.consecuencia);fila("Detalle del impacto",d.impactoDetalle);sp();
+  seccion("EVALUACIÓN AUTOMÁTICA");fila("Fortalezas",(ev.strengths||[]).map(x=>"• "+x).join("\n"));fila("Alertas",(ev.alerts||[]).map(x=>"• "+x).join("\n"));sp();
+  seccion("SUSTENTO EJECUTIVO PARA EL COMITÉ");fila("Sustento",d.solicitudConcreta);
+
+  // ---- Hoja 2: Detalle del levantamiento
+  const wd=wb.addWorksheet("Detalle levantamiento",{views:[{state:"frozen",ySplit:1}],properties:{tabColor:{argb:AZUL}}});
+  wd.columns=[{header:"Campo / pregunta",key:"k",width:62},{header:"Respuesta",key:"v",width:95}];
+  const cab=(w,n)=>{const r=w.getRow(1);r.height=30;for(let c=1;c<=n;c++){const x=r.getCell(c);x.font={bold:true,color:{argb:"FFFFFFFF"}};x.fill=fill(NAVY);x.alignment={vertical:"middle",horizontal:"center",wrapText:true};x.border=borde}};
+  cab(wd,2);
+  detailRows(d,ev,bp).forEach((r,i)=>{const x=wd.addRow({k:txt(r[1]),v:txt(r[2])});x.height=Math.max(20,Math.max(lineas(r[1],68),lineas(r[2],100))*15+6);
+    x.eachCell(c=>{c.alignment={vertical:"top",wrapText:true};c.border=borde;if(i%2)c.fill=fill(GRIS)});x.getCell(1).font={bold:true,color:{argb:NAVY}}});
+  wd.autoFilter={from:{row:1,column:1},to:{row:1,column:2}};
+
+  // ---- Hoja 3: Aprobaciones previas
+  const wa=wb.addWorksheet("Aprobaciones",{views:[{state:"frozen",ySplit:1}],properties:{tabColor:{argb:"FF7A8CC0"}}});
+  wa.columns=[{header:"Nivel",key:"a",width:24},{header:"Nombre",key:"b",width:32},{header:"Cargo",key:"c",width:32},{header:"Fecha",key:"d",width:14},{header:"¿Evidencia?",key:"e",width:13},{header:"Tipo de evidencia",key:"f",width:22}];
+  cab(wa,6);
+  const aps=d.approvals||[];
+  if(aps.length) aps.forEach((a,i)=>{const x=wa.addRow({a:txt(a.level),b:txt(a.name),c:txt(a.role),d:txt(a.date),e:txt(a.evidence),f:txt(a.type)});x.eachCell(c=>{c.alignment={vertical:"top",wrapText:true};c.border=borde;if(i%2)c.fill=fill(GRIS)})});
+  else{wa.mergeCells("A2:F2");const c=wa.getCell("A2");c.value="Sin aprobaciones previas registradas.";c.font={italic:true,color:{argb:"FF5B6A8F"}};c.alignment={indent:1}}
+
+  // ---- Hoja 4: Datos para Compensaciones (una fila)
+  const wc=wb.addWorksheet("Datos para Compensaciones",{views:[{state:"frozen",ySplit:1,xSplit:1}],properties:{tabColor:{argb:"FFF3BE00"}}});
+  const COLS=[["Periodo",d.periodoLabel,16],["Fecha de solicitud",d.fechaSolicitud,14],["BP",bp,22],["Líder",d.cliente,26],["Departamento",d.departamento,34],["Área",d.area,28],["Sección",d.seccion,26],["Código",d.codigo,13],["Nombre",d.colaborador,32],["Puesto",d.puestoActual,28],["Tipo de movimiento",d.movimiento,22],["¿Aprobación previa?",d.tieneAprobacion,13],["N.º de aprobaciones",aps.length,13],["Presupuesto",d.presupuesto,14],["Fuente de presupuesto",d.fuentePresupuesto,24],["Urgencia",d.urgencia,18],["Impacto",d.impacto,11],["Consecuencia",d.consecuencia,28],["Puntaje (0-100)",score,11],["Clasificación",ev.label,26],["Sustento ejecutivo",d.solicitudConcreta,90]];
+  wc.columns=COLS.map(c=>({header:c[0],width:c[2]}));cab(wc,COLS.length);
+  const r=wc.addRow(COLS.map(c=>typeof c[1]==="number"?c[1]:txt(c[1])));r.height=Math.max(30,lineas(d.solicitudConcreta,95)*15+6);
+  r.eachCell(c=>{c.alignment={vertical:"top",wrapText:true};c.border=borde});
+  const ps=r.getCell(19);ps.fill=fill(colorScore);ps.font={bold:true};ps.alignment={vertical:"top",horizontal:"center"};
+  return wb;
+}
+async function exportCase(rec){
+  if(!await needExcelJS()) return;
+  const d=rec.data,wb=construirExcelCaso(ExcelJS,rec);
+  const buf=await wb.xlsx.writeBuffer();
+  const safe=(d.colaborador||"caso").replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_");
+  download(`BP_${txt0(d.movimiento).replace(/\s+/g,"_")}_${safe}_${d.fechaSolicitud||today()}.xlsx`,buf,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+}
+const txt0=v=>v==null?"":String(v);
 async function exportAllPeriod(){
   if(!await needXLSX()) return;
   const p=$("histPeriod").value||today().slice(0,7),hist=load(HISTORY_KEY,[]).filter(r=>r.periodo===p);
