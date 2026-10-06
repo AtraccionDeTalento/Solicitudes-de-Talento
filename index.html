@@ -124,6 +124,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
       <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="email" autocomplete="email" placeholder="usuario@usil.edu.pe"></div>
       <div class="lerr" id="lgErr" role="alert"></div>
       <button type="submit">Ingresar</button>
+      <p class="fine hidden" id="demoLoginWrap"><a href="#" id="demoLogin">Modo demo: entrar como César Augusto Reyes</a></p>
       <p class="fine">Acceso solo para colaboradores USIL. Tu información se usa únicamente para registrar la solicitud.</p>
     </form>
   </div>
@@ -141,6 +142,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 </div></header>
 
 <main class="wrap">
+  <div id="demoBar" class="hidden" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button type="button" id="demoFill">✨ Rellenar todo con un ejemplo</button><span class="muted" style="font-size:13px">Modo prueba: carga una persona al azar y completa los 7 pasos; solo falta pulsar «Enviar solicitud».</span></div>
   <nav id="stepper" aria-label="Pasos de la solicitud"></nav>
   <div id="errSummary" class="alert hidden" role="alert"></div>
 
@@ -1317,6 +1319,58 @@ function resetWholeSystem(){
   resetForm();renderHistory();
 }
 
+// ---------- Modo demo (solo con CONFIG.modoPrueba) ----------
+// Entra como César Reyes y rellena los 7 pasos con una persona al azar de la base; solo falta pulsar «Enviar solicitud».
+const DEMO_LIDER={name:"César Augusto Reyes",email:"creyess@usil.edu.pe"};
+const DEMO_PICK={tieneAprobacion:"Sí",presupuesto:"Sí",fuentePresupuesto:"Presupuesto aprobado",urgencia:"Dentro de 30 días",impacto:"Alto",consecuencia:"Retraso operativo",tipoPropuestaNegocio:"Porcentaje %","ap-level":"Gerencia General","ap-evidence":"Sí","ap-type":"Correo"};
+const DEMO_TEXT={validaPresupuesto:"Gerencia de Finanzas",montoPresupuesto:"4500",propuestaNegocio:"8",personasCargo:"3 personas",personasCargoPN:"2 personas",personasCargoReemplazo:"2 personas",equipoAdicional:"2 personas",cambioPersonasRev:"Sí, de 2 a 4 personas",periodoRenovacion:"3 meses",reportaA:"Subgerente de Talento y Cultura",puestoPropuesto:"Analista Senior",puestoEncargado:"Jefe de Área",aQuienReemplaza:"Jefe saliente (vacancia)",puestoReemplazo:"Analista Senior",personaOVacanteReemplazo:"Vacante por renuncia",puestoNuevo:"Analista de Datos de Talento",puestoDestino:"Analista Senior",areaDestino:"Selección y Desarrollo",tipoCasoEspecial:"Convenio de colaboración",vigenciaCaso:"6 meses",areaReestructura:"Área de Talento",areaApoyoHorizontal:"Gerencia de Talento y Cultura",puestoEncargaturaAnterior:"Coordinador de Área","ap-name":"Aprobador de ejemplo","ap-role":"Gerente General"};
+const DEMO_FRASES=["El colaborador asumió funciones de mayor alcance y responsabilidad en los últimos meses, con resultados verificables y reconocimiento del equipo.","La necesidad surge por el crecimiento de la operación, que hoy supera la capacidad de la estructura actual y afecta los plazos comprometidos.","Con esta decisión se asegura la continuidad del servicio, se reduce el riesgo de perder talento clave y se ordena la carga de trabajo del área."];
+function demoTexto(min,max){let t="",i=0;while(t.length<Math.max(min,60)+10&&i<12) t+=(t?" ":"")+DEMO_FRASES[i++%3];return t.slice(0,Math.max(1,max-1))}
+const demoTick=ms=>new Promise(r=>setTimeout(r,ms));
+function dset(id,v){const e=$(id);if(!e) return;e.value=v;e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}))}
+function demoAuto(step){
+  const root=document.querySelector(`.step[data-step="${step}"]`);
+  const dias=n=>new Date(Date.now()+n*864e5).toISOString().slice(0,10);
+  for(let pass=0;pass<4;pass++) root.querySelectorAll("input,select,textarea").forEach(el=>{
+    if(el.closest(".hidden")||el.disabled||el.readOnly||el.type==="button"||el.type==="file"||el.value) return;
+    if(el.type==="checkbox"){el.checked=true;el.dispatchEvent(new Event("change",{bubbles:true}));return}
+    const id=el.id||[...el.classList].find(c=>c.startsWith("ap-"))||"";
+    let v;
+    if(el.tagName==="SELECT"){const o=[...el.options].filter(x=>x.value);v=(o.find(x=>x.value===DEMO_PICK[id])||o[Math.min(1,o.length-1)]||{}).value}
+    else if(el.type==="date") v=/fin|hasta|termino/i.test(id)?dias(90):dias(0);
+    else if(el.type==="number") v=DEMO_TEXT[id]||"1500";
+    else if(el.tagName==="TEXTAREA"){const [mn,mx]=limits(el.id,"textarea");v=demoTexto(mn,mx)}
+    else{v=DEMO_TEXT[id];if(v===undefined){const [mn]=limits(el.id,"text");v="Ejemplo demostrativo".padEnd(mn,"x")}}
+    if(v!==undefined){el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}))}
+  });
+}
+async function demoFill(){
+  const b=$("demoFill");b.disabled=true;b.textContent="Rellenando…";
+  try{
+    resetForm();
+    const mov=MOVS[Math.floor(Math.random()*MOVS.length)];
+    let per=null;
+    if(CONFIG.endpoint) try{const r=await postMaestro({aleatorio:true});if(r.ok&&r.item) per=r.item}catch(e){}
+    per=per||{codigo:"0000012345",nombre:"Ana Lucía Torres",puesto:"Analista de Selección",departamento:"GERENCIA DE TALENTO Y CULTURA",area:"Atracción de Talento",seccion:"Selección"};
+    dset("movimiento",mov);await demoTick(200);
+    if(!$("cargoCliente").value) dset("cargoCliente","Subgerente de Talento y Cultura");
+    if(NOCODE.includes(mov)){
+      const dep=[...$("departamento").options].find(o=>normalizeTextKey(o.value)===normalizeTextKey(per.departamento));
+      if(dep) $("departamento").value=dep.value;
+      $("area").value=per.area||"";$("seccion").value=per.seccion||"";
+    }else{
+      $("codigo").value=per.codigo;setEmployeeFields(per);$("codigoHelp").textContent="Datos de ejemplo cargados desde la base de personal.";
+    }
+    for(let s=0;s<=5;s++){go(s);await demoTick(150);demoAuto(s)}
+    dset("impactoDetalle",("[DEMO] "+$("impactoDetalle").value).slice(0,480));
+    go(6);$("confirmo").checked=true;
+    const faltan=[0,1,2,3,4,5].reduce((n,i)=>n+validate(i).length,0);
+    toast(faltan?`Ejemplo cargado (${mov}); ${faltan} campo(s) pendiente(s): revisa los pasos.`:`Ejemplo cargado (${mov}). Pulsa «Enviar solicitud».`);
+    afterAuto();
+  }catch(e){toast("No se pudo rellenar el ejemplo: "+(e.message||e))}
+  b.disabled=false;b.textContent="✨ Rellenar todo con un ejemplo";
+}
+
 // ---------- Arranque ----------
 let draftTimer;
 function onAny(e){
@@ -1407,11 +1461,14 @@ function setupLogin(){
     saveSession();err.textContent="";enter();
   });
   $("logoutBtn").onclick=()=>logout(true);
+  $("demoLogin").onclick=e=>{e.preventDefault();SESSION={name:DEMO_LIDER.name,email:DEMO_LIDER.email,role:"jefe",demo:true,last:Date.now()};saveSession();enter()};
+  $("demoFill").onclick=demoFill;
   ["click","keydown","input"].forEach(ev=>document.addEventListener(ev,touch,{passive:true}));
   setInterval(()=>{if(SESSION&&Date.now()-SESSION.last>CONFIG.sessionMinutes*60000){logout(false);toast("Sesión cerrada por inactividad. Tu borrador se conservó.")}},30000);
 }
 function boot(){SESSION=readSession();SESSION?enter():showLogin()}
 function showLogin(){
+  $("demoLoginWrap").classList.toggle("hidden",!CONFIG.modoPrueba);
   $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
   $("lgName").value="";$("lgMail").value="";setTimeout(()=>$("lgName").focus(),50);
 }
@@ -1420,6 +1477,7 @@ function enter(){
   $("login").classList.add("hidden");$("userChip").classList.remove("hidden");
   $("userName").textContent=`${SESSION.name} · ${{bp:"BP",gerencia:"Gerencia"}[SESSION.role]||"Líder"}`;
   $("bpPanel").classList.toggle("hidden",!BP_MODE||!!CONFIG.panelUrl);$("modeTag").textContent=(BP_MODE?"· Modo BP":"")+(CONFIG.modoPrueba?" · Modo prueba":"");
+  $("demoBar").classList.toggle("hidden",!CONFIG.modoPrueba);
   if(CONFIG.panelUrl&&SESSION.role!=="jefe"){$("panelLink").href=CONFIG.panelUrl;$("panelLink").classList.remove("hidden")}
   if(BP_MODE) renderHistory();
   const dr=load(draftKey(),null);
