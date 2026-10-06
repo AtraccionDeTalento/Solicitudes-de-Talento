@@ -37,17 +37,17 @@ const ctx = {
   FormApp: { create: () => form, createTextValidation: vb, createParagraphTextValidation: vb },
   SpreadsheetApp: { create: () => ss, openById: () => ss, newDataValidation: () => ({ requireValueInList() { return this; }, requireValueInRange() { return this; }, setAllowInvalid() { return this; }, build() {} }) },
   PropertiesService: { getScriptProperties: () => ({ setProperty: (k, v) => props[k] = v, getProperty: k => props[k], deleteProperty: k => { delete props[k]; } }) },
-  CacheService: { getScriptCache: () => ({ get: k => cacheStore[k] || null, put: (k, v) => { cacheStore[k] = v; } }) },
+  CacheService: { getScriptCache: () => ({ get: k => cacheStore[k] || null, put: (k, v) => { cacheStore[k] = v; }, remove: k => { delete cacheStore[k]; } }) },
   ScriptApp: { newTrigger: () => ({ forForm: () => ({ onFormSubmit: () => ({ create() {} }) }) }) }, Logger: { log() {} },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-  Utilities: { formatDate: (d, tz, f) => { const z = x => String(x).padStart(2, '0'), iso = d.toISOString(); const [Y, M, D, H] = [iso.slice(0, 4), iso.slice(5, 7), iso.slice(8, 10), iso.slice(11, 13)];
+  Utilities: { getUuid: () => Math.random().toString(36).slice(2) + Date.now().toString(36), formatDate: (d, tz, f) => { const z = x => String(x).padStart(2, '0'), iso = d.toISOString(); const [Y, M, D, H] = [iso.slice(0, 4), iso.slice(5, 7), iso.slice(8, 10), iso.slice(11, 13)];
     return f === 'yyMMdd' ? Y.slice(2) + M + D : f === 'yyyyMMddHH' ? Y + M + D + H : f === 'yyyyMMdd' ? Y + M + D : Y + '-' + M + '-' + D + '_' + H + '00'; } },
   Session: { getScriptTimeZone: () => 'UTC', getActiveUser: () => ({ getEmail: () => ctx.quien }) }, HtmlService: { createHtmlOutputFromFile: f => ({ f, setTitle() { return this; }, addMetaTag() { return this; } }) }, MailApp: { sendEmail: m => mails.push(m.to ? m : { to: m }) },
   ContentService: { createTextOutput: t => ({ t, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
   DriveApp: { getFoldersByName: () => ({ hasNext: () => false }), createFolder: () => ({ createFile: (n, c) => { files.push({ n, c }); return { getUrl: () => n }; } }) }, console
 };
 vm.createContext(ctx);
-vm.runInContext(code + ';this.F={crearFormulario,alEnviar,doPost,exportarEntradas,compartirConBPs,doGet,panelDatos,panelDetalle,panelActualizar,CONFIG,CATALOGO};', ctx);
+vm.runInContext(code + ';this.F={crearFormulario,alEnviar,doPost,exportarEntradas,compartirConBPs,doGet,panelDatos,panelDetalle,panelActualizar,panelEntrar,panelQuien,panelExportar,CONFIG,CATALOGO};', ctx);
 const F = ctx.F;
 let n = 0; const ok = (nombre, fn) => { fn(); n++; console.log('  ✓', nombre); };
 
@@ -175,4 +175,30 @@ ok('matrícula inexistente → null; inválida → error', () => { assert.strict
 ok('el cargo del líder sale de su correo', () => assert.strictEqual(mq({ lider: true }).item.puesto, 'Jefe de Contratos'));
 ok('exige token y correo institucional', () => { assert.strictEqual(post({ accion: 'maestro', email: 'mario@usil.edu.pe', codigo: '2458' }).error, 'No autorizado'); assert.strictEqual(mq({ email: 'x@gmail.com', codigo: '2458' }).error, 'Usa tu correo institucional'); });
 ok('límite de consultas por correo y hora', () => { F.CONFIG.MAX_CONSULTAS_HORA = 3; let r; for (let k = 0; k < 4; k++) r = mq({ email: 'barrido@usil.edu.pe', codigo: '2458' }); assert.ok(/Demasiadas consultas/.test(r.error)); F.CONFIG.MAX_CONSULTAS_HORA = 60; });
+ok('demo: una persona activa al azar con área y sección completas', () => { const r = mq({ aleatorio: true }); assert.ok(r.ok && r.item.codigo && r.item.area && r.item.seccion); assert.strictEqual(r.item.nombre, 'Lucia Ramos Diaz'); });
+ok('el receptor web acepta solicitudes sin área ni sección', () => { const w = web(); w.id = 'SINAREA'; w.data.emailCliente = 'sinarea@usil.edu.pe'; w.data.area = ''; w.data.seccion = ''; assert.ok(post({ token: TOKEN, rec: w }).ok); });
+
+console.log('Panel con clave (sin sesión de Google)');
+props.CLAVE_BP = 'clave-bp'; props.CLAVE_GERENCIA = 'clave-ger';
+ok('HRBP entra con su correo y clave; solo ve la vista BP', () => {
+  const s = como('', () => F.panelEntrar('beto.bp@usil.edu.pe', 'clave-bp')); assert.strictEqual(s.vistas.join(), 'bp');
+  const d = como('', () => F.panelDatos('bp', s.token)); assert.ok(d.filas.every(f => f.bp === 'Beto BP'));
+  falla(() => como('', () => F.panelDatos('gerencia', s.token)), /Sin acceso/);
+});
+ok('Gerencia entra con la clave de gerencia; la clave de BP no sirve para ella', () => {
+  const s = como('', () => F.panelEntrar('karla@usil.edu.pe', 'clave-ger')); assert.strictEqual(s.vistas.join(), 'gerencia');
+  assert.ok(Array.isArray(como('', () => F.panelDatos('gerencia', s.token)).filas));
+  falla(() => como('', () => F.panelEntrar('karla@usil.edu.pe', 'clave-bp')), /incorrectos/);
+});
+ok('un jefe cualquiera no entra con la clave de BP', () => falla(() => como('', () => F.panelEntrar('jefe1@usil.edu.pe', 'clave-bp')), /incorrectos/));
+ok('token falso o vencido se rechaza', () => falla(() => como('', () => F.panelDatos('bp', 'falso')), /sesión venció/));
+ok('5 intentos fallidos bloquean al correo', () => { let e; for (let k = 0; k < 7; k++) { try { como('', () => F.panelEntrar('atacante@usil.edu.pe', 'x' + k)); } catch (x) { e = x; } } assert.ok(/Demasiados intentos/.test(e.message)); });
+ok('sin clave configurada nadie entra por clave', () => { delete props.CLAVE_BP; falla(() => como('', () => F.panelEntrar('beto.bp@usil.edu.pe', '')), /incorrectos/); props.CLAVE_BP = 'clave-bp'; });
+ok('exportar a Excel: BP y Gerencia reciben sus registros completos; el jefe no', () => {
+  const r = como('beto.bp@usil.edu.pe', () => F.panelExportar('bp')); assert.ok(r.length >= 1 && r.every(x => x.bp === 'Beto BP'));
+  assert.ok(r.every(x => Array.isArray(x.levantamiento) && Array.isArray(x.aprobaciones) && !('editUrl' in x)));
+  assert.ok(r.some(x => x.levantamiento.some(p => /posición/.test(p[0]))));
+  falla(() => como('jefe1@usil.edu.pe', () => F.panelExportar('jefe')), /Solo BP y Gerencia/);
+  falla(() => como('beto.bp@usil.edu.pe', () => F.panelExportar('gerencia')), /Sin acceso/);
+});
 console.log('\n' + n + ' pruebas OK');

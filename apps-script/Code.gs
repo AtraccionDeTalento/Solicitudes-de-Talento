@@ -2102,7 +2102,7 @@ function desdeWeb_(w) {
   if (m.sinMatricula) { d.codigo = "No aplica"; d.colaborador = m.colaboradorFijo; d.puestoActual = "No aplica"; }
   else if (/^\d+$/.test(d.codigo)) d.codigo = ("0000000000" + d.codigo).slice(-10);
   else throw new Error("Matrícula inválida");
-  if (!d.cliente || !d.area) throw new Error("Faltan datos del líder o del área");
+  if (!d.cliente) throw new Error("Faltan datos del líder");
 
   const opciones = {};
   m.secciones.forEach(s => s.preguntas.forEach(q => { opciones[q.id] = q; }));
@@ -2178,20 +2178,51 @@ function doGet() {
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
-function quien_() {
+function quien_(token) {
+  if (token) {
+    const s = CacheService.getScriptCache().get("ses:" + token);
+    if (!s) throw new Error("Tu sesión venció. Vuelve a entrar.");
+    return JSON.parse(s);
+  }
   const email = String(Session.getActiveUser().getEmail() || "").toLowerCase();
   if (!email) throw new Error("Inicia sesión en Google con tu cuenta institucional y recarga la página.");
   if (CONFIG.DOMINIOS_PERMITIDOS.length && CONFIG.DOMINIOS_PERMITIDOS.indexOf(email.split("@")[1]) < 0) throw new Error("Estás con la cuenta " + email + ". Abre el panel con tu cuenta institucional (@usil.edu.pe).");
+  const roles = rolesDe_(email), vistas = ["jefe"];
+  if (roles.bp) vistas.push("bp");
+  if (roles.gerencia) vistas.push("gerencia");
+  return { email, vistas };
+}
+/** Roles de un correo (según BPs, GERENTES) y, si se indica, la identidad de Google. */
+function rolesDe_(email) {
   const ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID"));
   const bps = {};
   CONFIG.BPS_DIRECTORIO.forEach(b => { bps[b[1].toLowerCase()] = 1; });
   const hoja = ss.getSheetByName("BPs");
   if (hoja) hoja.getDataRange().getValues().slice(1).forEach(r => { if (r[1]) bps[String(r[1]).trim().toLowerCase()] = 1; });
-  const vistas = ["jefe"];
-  if (bps[email]) vistas.push("bp");
-  if (CONFIG.GERENTES.some(g => g.toLowerCase() === email)) vistas.push("gerencia");
-  return { email, vistas };
+  return { bp: !!bps[email], gerencia: CONFIG.GERENTES.some(g => g.toLowerCase() === email) };
 }
+
+/** Entrada con clave (para quien no tiene sesión de Google institucional). Las claves viven en Propiedades de la secuencia de comandos:
+ *  CLAVE_BP (HRBP) y CLAVE_GERENCIA (Gerencia). Devuelve un token de sesión de 6 horas. */
+function panelEntrar(email, clave) {
+  email = unaLinea_(email, 120).toLowerCase();
+  const cache = CacheService.getScriptCache(), props = PropertiesService.getScriptProperties();
+  const k = "in:" + email, n = Number(cache.get(k) || 0);
+  if (n >= 5) throw new Error("Demasiados intentos. Espera 15 minutos.");
+  const roles = rolesDe_(email), vistas = [];
+  const ok = (rol, nombre) => { const c = props.getProperty(nombre); return roles[rol] && c && String(clave) === c; };
+  if (ok("bp", "CLAVE_BP")) vistas.push("bp");
+  if (ok("gerencia", "CLAVE_GERENCIA")) vistas.push("gerencia");
+  if (!vistas.length) { cache.put(k, String(n + 1), 900); throw new Error("Correo o clave incorrectos."); }
+  cache.remove(k);
+  const token = Utilities.getUuid() + Utilities.getUuid();
+  cache.put("ses:" + token, JSON.stringify({ email, vistas }), 21600);
+  return { token, email, vistas };
+}
+
+/** Quién eres: por token de clave o, si no hay, por la cuenta de Google. */
+function panelQuien(token) { return quien_(token); }
+
 
 function filasVista_(q, vista) {
   if (q.vistas.indexOf(vista) < 0) throw new Error("Sin acceso a esta vista");
@@ -2200,8 +2231,8 @@ function filasVista_(q, vista) {
     .filter(f => f[0] && (vista === "gerencia" ? VISIBLE_GER.indexOf(f[colIdx_("estado")]) >= 0 : String(f[clave]).toLowerCase() === q.email));
 }
 
-function panelDatos(vista) {
-  const q = quien_();
+function panelDatos(vista, token) {
+  const q = quien_(token);
   const filas = filasVista_(q, vista).map(f => {
     const o = {};
     COLS.forEach((c, i) => { if (["_dyn", "_apr", "editUrl"].indexOf(c[1]) < 0) o[c[1]] = f[i]; });
@@ -2210,26 +2241,41 @@ function panelDatos(vista) {
   return { email: q.email, vistas: q.vistas, vista, filas, estados: vista === "bp" ? ESTADOS_BP : ESTADOS_GER, editables: vista === "bp" ? EDITABLE_BP : vista === "gerencia" ? EDITABLE_GER : [] };
 }
 
+/** Respuestas del levantamiento como pares [texto de la pregunta, respuesta]. */
+function levantamientoDe_(rec) {
+  const m = CATALOGO.movs.find(x => x.nombre === rec.data.movimiento), titulo = {};
+  if (m) m.secciones.forEach(s => s.preguntas.forEach(p => { titulo[p.id] = p.t; }));
+  return Object.keys(rec.data.dynamic).filter(k => rec.data.dynamic[k] !== "").map(k => [titulo[k] || k, rec.data.dynamic[k]]);
+}
+
+/** Todos los registros de la vista (BP o Gerencia) con el levantamiento y las aprobaciones, para armar el Excel en el panel. */
+function panelExportar(vista, token) {
+  if (vista !== "bp" && vista !== "gerencia") throw new Error("Solo BP y Gerencia pueden descargar el Excel");
+  return filasVista_(quien_(token), vista).map(f => {
+    const rec = filaARegistro_(f), o = {};
+    COLS.forEach((c, i) => { if (["_dyn", "_apr", "editUrl"].indexOf(c[1]) < 0) o[c[1]] = f[i]; });
+    o.levantamiento = levantamientoDe_(rec); o.aprobaciones = rec.data.approvals;
+    return o;
+  });
+}
+
 /** Detalle de una solicitud (levantamiento con los títulos de las preguntas y aprobaciones). Solo si la vista la puede ver. */
-function panelDetalle(id, vista) {
-  const f = filasVista_(quien_(), vista).find(x => x[0] === id);
+function panelDetalle(id, vista, token) {
+  const f = filasVista_(quien_(token), vista).find(x => x[0] === id);
   if (!f) throw new Error("Solicitud no disponible");
   const rec = filaARegistro_(f);
-  const m = CATALOGO.movs.find(x => x.nombre === rec.data.movimiento);
-  const titulo = {};
-  if (m) m.secciones.forEach(s => s.preguntas.forEach(p => { titulo[p.id] = p.t; }));
   return {
     puntaje: rec.data.puntaje, clasificacion: rec.data.clasificacion, fortalezas: rec.data.fortalezas, alertas: rec.data.alertas, recomendacion: rec.data.recomendacion,
     sustento: rec.data.solicitudConcreta, impacto: rec.data.impactoDetalle, editUrl: rec.editUrl,
-    levantamiento: Object.keys(rec.data.dynamic).filter(k => rec.data.dynamic[k] !== "").map(k => [titulo[k] || k, rec.data.dynamic[k]]),
+    levantamiento: levantamientoDe_(rec),
     aprobaciones: rec.data.approvals
   };
 }
 
 /** BP: cambia estado/comentario de SUS solicitudes. Gerencia: de cualquiera, con decisión final. */
-function panelActualizar(id, vista, estado, comentario) {
+function panelActualizar(id, vista, estado, comentario, token) {
   if (vista !== "bp" && vista !== "gerencia") throw new Error("Vista no válida");
-  const q = quien_();
+  const q = quien_(token);
   if ((vista === "bp" ? ESTADOS_BP : ESTADOS_GER).indexOf(estado) < 0) throw new Error("Estado no permitido");
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
@@ -2286,14 +2332,23 @@ function consultaMaestro_(e) {
     const hoja = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID")).getSheetByName("Maestro");
     if (!hoja) return json_({ ok: true, item: null });
     let fila = null;
-    if (body.lider) fila = buscarFilaMaestro_(hoja, 8, email);
+    if (body.aleatorio) fila = filaAleatoriaMaestro_(hoja);          // solo para el modo demo
+    else if (body.lider) fila = buscarFilaMaestro_(hoja, 8, email);
     else {
       const c = String(body.codigo || "");
       if (!/^\d{4,10}$/.test(c)) throw new Error("Matrícula inválida");
       fila = buscarFilaMaestro_(hoja, 1, ("0000000000" + c).slice(-10));
     }
-    return json_({ ok: true, item: fila ? { nombre: fila[1], puesto: fila[2], situacion: fila[3], departamento: fila[4], area: fila[5], seccion: fila[6] } : null });
+    const item = fila ? { nombre: fila[1], puesto: fila[2], situacion: fila[3], departamento: fila[4], area: fila[5], seccion: fila[6] } : null;
+    if (item && body.aleatorio) item.codigo = fila[0];
+    return json_({ ok: true, item });
   } catch (err) { return json_({ ok: false, error: String(err).replace(/^Error: /, "") }); }
+}
+
+/** Una persona ACTIVA con departamento, área y sección completos, al azar (modo demo). */
+function filaAleatoriaMaestro_(hoja) {
+  const v = hoja.getDataRange().getValues().slice(1).filter(f => normalizar_(f[3]) === "activo" && f[4] && f[5] && f[6]);
+  return v.length ? v[Math.floor(Math.random() * v.length)] : null;
 }
 
 function buscarFilaMaestro_(hoja, col, valor) {
