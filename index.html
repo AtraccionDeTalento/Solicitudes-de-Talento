@@ -121,7 +121,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
       <h3 id="loginTitle">Solicitud de Movimiento de Talento</h3>
       <p class="sub">Ingresa con tu nombre y tu correo institucional para continuar.</p>
       <div class="f"><label for="lgName">Nombre y apellido</label><input id="lgName" autocomplete="name" placeholder="Ej. Mariana Torres"></div>
-      <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="email" autocomplete="email" placeholder="usuario@usil.edu.pe"></div>
+      <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="email" placeholder="usuario@usil.edu.pe"></div>
       <div class="lerr" id="lgErr" role="alert"></div>
       <button type="submit">Ingresar</button>
       <p class="fine hidden" id="demoLoginWrap"><a href="#" id="demoLogin">Modo demo: entrar como César Augusto Reyes</a></p>
@@ -1549,7 +1549,7 @@ function setupLogin(){
     if(name.length<5||!name.includes(" ")) return void(err.textContent="Ingresa tu nombre y apellido.");
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return void(err.textContent="Ingresa un correo válido.");
     if(CONFIG.allowedDomains.length&&!CONFIG.allowedDomains.includes(mail.split("@")[1])) return void(err.textContent=`Usa tu correo institucional (@${CONFIG.allowedDomains.join(", @")}).`);
-    SESSION={name,email:mail,role:CONFIG.gerenteEmails.map(x=>x.toLowerCase()).includes(mail)?"gerencia":CONFIG.bpEmails.map(x=>x.toLowerCase()).includes(mail)?"bp":"jefe",last:Date.now()};
+    SESSION={name,email:mail,role:CONFIG.gerenteEmails.map(normalizeTextKey).includes(normalizeTextKey(mail))?"gerencia":CONFIG.bpEmails.map(normalizeTextKey).includes(normalizeTextKey(mail))?"bp":"jefe",last:Date.now()};
     saveSession();err.textContent="";enter();
   });
   $("logoutBtn").onclick=()=>logout(true);

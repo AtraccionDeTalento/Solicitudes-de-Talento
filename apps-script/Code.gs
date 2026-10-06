@@ -2201,10 +2201,11 @@ function quien_(token) {
 function rolesDe_(email) {
   const ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID"));
   const bps = {};
-  CONFIG.BPS_DIRECTORIO.forEach(b => { bps[b[1].toLowerCase()] = 1; });
+  // Los correos se comparan sin tildes ni ñ (cmunozse = cmuñozse) y sin distinguir mayúsculas.
+  CONFIG.BPS_DIRECTORIO.forEach(b => { bps[normalizar_(b[1])] = 1; });
   const hoja = ss.getSheetByName("BPs");
-  if (hoja) hoja.getDataRange().getValues().slice(1).forEach(r => { if (r[1]) bps[String(r[1]).trim().toLowerCase()] = 1; });
-  return { bp: !!bps[email], gerencia: CONFIG.GERENTES.some(g => g.toLowerCase() === email) };
+  if (hoja) hoja.getDataRange().getValues().slice(1).forEach(r => { if (r[1]) bps[normalizar_(r[1])] = 1; });
+  return { bp: !!bps[normalizar_(email)], gerencia: CONFIG.GERENTES.some(g => normalizar_(g) === normalizar_(email)) };
 }
 
 /** Entrada con clave (para quien no tiene sesión de Google institucional). Las claves viven en Propiedades de la secuencia de comandos:
@@ -2233,7 +2234,7 @@ function filasVista_(q, vista) {
   if (q.vistas.indexOf(vista) < 0) throw new Error("Sin acceso a esta vista");
   const clave = vista === "jefe" ? colIdx_("enviadoPor") : colIdx_("bpCorreo");
   return hojaEntradas_().getDataRange().getValues().slice(1)
-    .filter(f => f[0] && (vista === "gerencia" ? VISIBLE_GER.indexOf(f[colIdx_("estado")]) >= 0 : String(f[clave]).toLowerCase() === q.email));
+    .filter(f => f[0] && (vista === "gerencia" ? VISIBLE_GER.indexOf(f[colIdx_("estado")]) >= 0 : normalizar_(f[clave]) === normalizar_(q.email)));
 }
 
 function panelDatos(vista, token) {

@@ -220,4 +220,9 @@ ok('el receptor web acepta una solicitud casi vacia (solo correo, departamento y
   const fila = ss.getSheetByName('Entradas').rows.find(x => x[0] === 'VACIA1'); assert.strictEqual(fila[6].length, 10); assert.strictEqual(fila[9], 'No indicada');
 });
 ok('el ruteo de prueba deja Gerencia de Talento y Cultura con Claudia', () => { const r = ss.getSheetByName('Ruteo').rows.find(x => x[0] === 'GERENCIA DE TALENTO Y CULTURA'); assert.strictEqual(r[2], 'Claudia Muñoz'); });
+ok('un correo con ñ (cmuñozse) entra igual que cmunozse y ve lo de su BP', () => {
+  ss.getSheetByName('BPs').rows.push(['Claudia Muñoz', 'cmunozse@usil.edu.pe', 'Socio de Negocio']);
+  const s = como('', () => F.panelEntrar('CMUÑOZSE@usil.edu.pe', 'clave-bp')); assert.strictEqual(s.vistas.join(), 'bp');
+  const d = como('', () => F.panelDatos('bp', s.token)); assert.ok(Array.isArray(d.filas));
+});
 console.log('\n' + n + ' pruebas OK');

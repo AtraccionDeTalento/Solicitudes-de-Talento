@@ -41,7 +41,7 @@ const fail=e=>{const m=(e&&e.message||e)+"";if(/venci/.test(m)){TOKEN=null;retur
 function mostrarLogin(e){
   $("err").hidden=true;$("tabs").innerHTML="";$("quien").textContent="";
   const m=(e&&e.message||"")+"";
-  $("app").innerHTML='<form id="lg" class="card" style="max-width:380px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">Panel de revisión</h3><p class="muted">Ingresa con tu correo institucional y la clave de tu rol (HRBP o Gerencia).</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p><p><input id="lgc" type="email" placeholder="usuario@usil.edu.pe" style="width:100%" required></p><p><input id="lgk" type="password" placeholder="Clave" style="width:100%" required></p><button class="p" style="width:100%">Entrar</button></form>';
+  $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:380px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">Panel de revisión</h3><p class="muted">Ingresa con tu correo institucional y la clave de tu rol (HRBP o Gerencia).</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p><p><input id="lgc" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="usuario@usil.edu.pe" style="width:100%"></p><p><input id="lgk" type="password" autocomplete="current-password" placeholder="Clave" style="width:100%"></p><button class="p" style="width:100%">Entrar</button></form>';
   $("lg").onsubmit=ev=>{ev.preventDefault();$("lgm").textContent="";
     google.script.run.withFailureHandler(x=>{$("lgm").textContent=x.message||x}).withSuccessHandler(r=>{TOKEN=r.token;cargar(r.vistas[r.vistas.length-1])}).panelEntrar($("lgc").value,$("lgk").value)};
 }
