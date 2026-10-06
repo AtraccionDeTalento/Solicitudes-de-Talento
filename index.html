@@ -931,7 +931,7 @@ function lockNew(reset){
 
 // Consulta al maestro en el servidor (Apps Script): devuelve solo la persona buscada; el maestro completo nunca viaja a la página.
 async function postMaestro(extra){
-  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),15000);
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),30000);
   try{
     const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:CONFIG.token,accion:"maestro",email:SESSION.email,...extra}),signal:ac.signal});
     return await r.json();
@@ -948,7 +948,7 @@ async function lookupRemote(code){
     setEmployeeFields(r.item);
     let msg="Datos completados desde la base de personal.";
     if(r.item.situacion&&normalizeTextKey(r.item.situacion)!=="activo") msg+=` Atención: Situación = ${r.item.situacion}.`;
-    if(!r.item.area||!r.item.seccion) msg+=" Área/Sección vacío en la base: complétalo manualmente.";
+    if(!r.item.area||!r.item.seccion) msg+=" Esta persona no tiene Área o Sección en la base: puedes continuar sin completarlas.";
     help.textContent=msg;afterAuto();
   }catch(e){help.textContent="No se pudo consultar la base ahora. Completa los datos manualmente."}
 }
@@ -1068,6 +1068,7 @@ function counters(){document.querySelectorAll("textarea").forEach(t=>{const c=t.
 
 // ---------- Validación ----------
 function required(el){
+  if(el.id==="area"||el.id==="seccion") return false;   // practicantes, aprendices y otros puestos sin área o sección en la base
   if(el.closest(".hidden")||el.type==="button"||el.disabled) return false;
   if(el.id==="montoPresupuesto") return $("presupuesto").value==="Sí";
   if(el.classList.contains("ap-type")) return el.closest(".approval-card").querySelector(".ap-evidence").value==="Sí";
@@ -1108,7 +1109,7 @@ function showErrors(errs){
 function evaluateCase(d){
   let score=0,strengths=[],alerts=[];
   const b={general:0,sustento:0,aprobaciones:0,presupuesto:0,impacto:0};
-  const general=[d.fechaSolicitud,d.cliente,d.departamento,d.area,d.movimiento];   // el BP ya no se digita: se asigna por departamento
+  const general=[d.fechaSolicitud,d.cliente,d.departamento,d.movimiento];   // el BP ya no se digita: se asigna por departamento
   const filled=general.filter(nonempty).length;
   b.general=Math.round(filled/general.length*20);score+=b.general;
   if(filled===general.length) strengths.push("Información general completa."); else alerts.push("Faltan datos generales del caso.");
