@@ -1,0 +1,9 @@
+Copia este archivo como tools/usuarios.json (queda fuera de GitHub). Una entrada por persona que entra al panel.
+El correo se escribe sin tildes ni ñ (cmunozse, no cmuñozse). La clave debe tener 6 caracteres o más.
+roles: "bp" (HRBP) y/o "gerencia".
+
+{
+  "cmunozse@usil.edu.pe": { "nombre": "Claudia Muñoz", "clave": "CAMBIAR", "roles": ["bp"] },
+  "msalazar@usil.edu.pe": { "nombre": "Fátima Salazar", "clave": "CAMBIAR", "roles": ["bp"] },
+  "jlopezp@usil.edu.pe":  { "nombre": "Jefe de pruebas", "clave": "CAMBIAR", "roles": ["gerencia", "bp"] }
+}

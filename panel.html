@@ -27,20 +27,51 @@ button.p{background:var(--navy);color:#fff;border:0;border-radius:6px;padding:8p
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js" integrity="sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz" crossorigin="anonymous"></script>
 </head><body>
-<header><div><h1>Solicitudes de Talento · USIL</h1><small id="quien"></small></div><nav id="tabs"></nav></header>
+<header><div><h1>Solicitudes de Talento · USIL</h1><small id="quien"></small></div><nav id="tabs"></nav><button class="p" id="salir" style="background:#fff3;display:none">Salir</button></header>
 <main><div id="err" class="err" hidden></div><div id="app"><p class="muted">Cargando…</p></div></main>
 <dialog id="dlg"></dialog>
-<script>
-// Fuera de Apps Script (GitHub Pages) no existe google.script.run: se reemplaza por fetch al mismo despliegue que ya recibe las solicitudes.
-if(typeof google==="undefined"){
-  const API="https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",TK="e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2";
-  const mk=(ok,ko)=>new Proxy({},{get:(_,k)=>k==="withSuccessHandler"?f=>mk(f,ko):k==="withFailureHandler"?f=>mk(ok,f):(...args)=>
-    fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({accion:"panel",token:TK,fn:k,args})})
-      .then(r=>r.json()).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).then(d=>ok&&ok(d),e=>ko&&ko(e))});
-  window.google={script:{run:mk()}};
-}
-</script>
-<script>
+<script type="module">
+import * as FB from "./firebase.js";
+// Panel de HRBP y Gerencia sobre Firestore. Las reglas (firestore.rules) deciden qué ve y qué cambia cada rol; aquí solo se consulta.
+const VISIBLE_GER=["Enviado a Gerencia","Aprobado","Rechazado"];
+const CFG={bp:{estados:["En revisión BP","Devuelto al jefe","Enviado a Gerencia","En pausa"],editables:["Nuevo","En revisión BP","Devuelto al jefe","En pausa"],campo:"comentarioBP"},
+  gerencia:{estados:["Enviado a Gerencia","Aprobado","Rechazado","En revisión BP"],editables:VISIBLE_GER,campo:"comentarioGerencia"}};
+const sesion=async()=>{
+  const u=await FB.usuario();if(!u||u.isAnonymous)throw new Error("Inicia sesión");
+  const s=await FB.getDoc(FB.doc(FB.db,"roles",u.email));const vistas=s.exists()?(s.data().roles||[]).filter(r=>CFG[r]):[];
+  if(!vistas.length){await FB.signOut(FB.auth);throw new Error("Tu cuenta no tiene un rol asignado.")}
+  return {token:"fb",email:u.email,vistas};
+};
+const SIN=new Set(["levantamiento","aprobaciones","uid","gestionadoPor","gestionadoEl"]);
+const plano=(d,extra)=>{const o={};Object.entries(d).forEach(([k,v])=>{if(extra||!SIN.has(k))o[k]=v});return o};
+const pares=d=>(d.levantamiento||[]).map(x=>[x.p,x.r]);
+const filas=async(vista,q)=>{
+  if(!CFG[vista]||!q.vistas.includes(vista))throw new Error("Sin acceso a esta vista");
+  const c=FB.collection(FB.db,"solicitudes");
+  return (await FB.getDocs(vista==="bp"?FB.query(c,FB.where("bpCorreo","==",q.email)):FB.query(c,FB.where("estado","in",VISIBLE_GER)))).docs.map(d=>d.data());
+};
+const API={
+  async panelEntrar(email,clave){
+    try{await FB.signInWithEmailAndPassword(FB.auth,FB.normalizar(email),String(clave))}catch(e){throw new Error("Correo o clave incorrectos.")}
+    return sesion();
+  },
+  panelQuien:sesion,
+  async panelDatos(vista){const q=await sesion();return {email:q.email,vistas:q.vistas,vista,filas:(await filas(vista,q)).map(d=>plano(d)),estados:CFG[vista].estados,editables:CFG[vista].editables}},
+  async panelExportar(vista){return (await filas(vista,await sesion())).map(d=>({...plano(d),levantamiento:pares(d),aprobaciones:d.aprobaciones||[]}))},
+  async panelDetalle(id,vista){
+    await sesion();const s=await FB.getDoc(FB.doc(FB.db,"solicitudes",id));if(!s.exists())throw new Error("Solicitud no disponible");const d=s.data();
+    return {puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
+  },
+  async panelActualizar(id,vista,estado,comentario){
+    const q=await sesion();if(!CFG[vista]||!CFG[vista].estados.includes(estado))throw new Error("Estado no permitido");
+    try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),{estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString()})}
+    catch(e){throw new Error(e.code==="permission-denied"?"Esta solicitud ya no está en tu etapa.":e.message)}
+    return {ok:true};
+  }
+};
+// Misma interfaz que google.script.run de Apps Script, para no tocar el resto del panel.
+const mk=(ok,ko)=>new Proxy({},{get:(_,k)=>k==="withSuccessHandler"?f=>mk(f,ko):k==="withFailureHandler"?f=>mk(ok,f):(...a)=>API[k](...a).then(d=>ok&&ok(d),e=>ko&&ko(e))});
+const google={script:{run:mk()}};
 const TITULOS={jefe:"Mis solicitudes",bp:"Bandeja del Business Partner",gerencia:"Gerencia · vista final"};
 const ALL=["Nuevo","En revisión BP","Devuelto al jefe","Enviado a Gerencia","Aprobado","Rechazado","En pausa"];
 let D=null,vista=null,filtro={q:"",estado:"",periodo:""};
@@ -48,8 +79,9 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let TOKEN=null;
 const fail=e=>{const m=(e&&e.message||e)+"";if(/venci/.test(m)){TOKEN=null;return mostrarLogin(e)}$("err").hidden=false;$("err").textContent=m;$("app").innerHTML=""};
+$("salir").onclick=async()=>{await FB.signOut(FB.auth);TOKEN=null;mostrarLogin()};
 function mostrarLogin(e){
-  $("err").hidden=true;$("tabs").innerHTML="";$("quien").textContent="";
+  $("err").hidden=true;$("tabs").innerHTML="";$("quien").textContent="";$("salir").style.display="none";
   const m=(e&&e.message||"")+"";
   $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:380px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">Panel de revisión</h3><p class="muted">Ingresa con tu correo institucional y la clave de tu rol (HRBP o Gerencia).</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p><p><input id="lgc" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="usuario@usil.edu.pe" style="width:100%"></p><p><input id="lgk" type="password" autocomplete="current-password" placeholder="Clave" style="width:100%"></p><button class="p" style="width:100%">Entrar</button></form>';
   $("lg").onsubmit=ev=>{ev.preventDefault();$("lgm").textContent="";
@@ -67,7 +99,7 @@ function visibles(){const q=filtro.q.toLowerCase();
   return D.filas.filter(f=>(!filtro.estado||f.estado===filtro.estado)&&(!filtro.periodo||f.periodo===filtro.periodo)&&(!q||Object.values(f).join(" ").toLowerCase().includes(q)))
     .sort((a,b)=>String(b.enviadoEl).localeCompare(String(a.enviadoEl)))}
 function pintar(){
-  $("quien").textContent=D.email;
+  $("quien").textContent=D.email;$("salir").style.display="";
   $("tabs").innerHTML=D.vistas.map(v=>`<button class="${v===vista?"on":""}" data-v="${v}">${TITULOS[v]}</button>`).join("");
   const F=D.filas,pend=F.filter(f=>(vista==="gerencia"?["Enviado a Gerencia"]:["Nuevo","En revisión BP"]).includes(f.estado||"Nuevo")).length;
   let h=`<div class="kpis"><div class="card kpi"><b>${F.length}</b><span>Solicitudes</span></div><div class="card kpi"><b>${pend}</b><span>Por revisar</span></div>

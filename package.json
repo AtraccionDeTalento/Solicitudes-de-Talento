@@ -3,5 +3,13 @@
   "version": "2.1.0",
   "private": true,
   "description": "Portal de solicitudes de movimientos de talento · USIL",
-  "scripts": { "test": "node tests/apps-script.test.js && node tests/web.test.js" }
+  "scripts": {
+    "test": "node tests/web.test.js",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-rules \"node tests/rules.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^15.32.1"
+  }
 }

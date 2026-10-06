@@ -9,3 +9,8 @@ Maestro*
 *.bak*
 .env
 node_modules/
+
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+!firebase.json

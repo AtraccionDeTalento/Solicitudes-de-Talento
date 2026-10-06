@@ -2,21 +2,20 @@
 
 Portal para que los jefes de área registren **solicitudes de movimientos de talento** (promoción, encargatura, reemplazo,
 puesto nuevo, incremento salarial, movimiento lateral, horizontal, reestructuración de área, revalorización, convenio y otros).
-Cada solicitud llega **automáticamente al Business Partner** del departamento del colaborador.
+Cada solicitud llega **automáticamente al Business Partner** del departamento del colaborador, que la revisa y la pasa a Gerencia.
 
-| Carpeta | Contenido |
+| Archivo | Contenido |
 |---|---|
 | `index.html` | App web (una sola página, sin build): inicio de sesión, 7 pasos guiados, puntaje de preparación y sustento ejecutivo. |
-| `apps-script/Code.gs` | Google Apps Script: crea el Google Form completo, la hoja «Entradas», el ruteo Departamento → BP, los correos y el receptor de la app web. |
-| `apps-script/Panel.html` | Panel con 3 vistas por rol: jefes de área, Business Partners y Gerencia (Karla). Lee la misma hoja «Entradas» (Google Form + app web). |
-| `docs/` | Guía de despliegue, lista de preguntas y plantilla de ruteo. |
+| `panel.html` | Panel de HRBP y Gerencia: bandeja, detalle, estados, comentarios y descarga de Excel. |
+| `firebase.js` | Conexión a Firebase (Firestore y Auth), compartida por ambas páginas. |
+| `firestore.rules` | Reglas de seguridad: quién lee y qué cambia cada rol. |
+| `tools/` | Carga inicial de datos (ruteo, usuarios, Maestro) y preparación del Maestro. |
+| `docs/` | Guía de puesta en marcha, lista de preguntas y plantilla de ruteo. |
 
 ## Puesta en marcha
-Sigue `docs/DESPLIEGUE.md` (Apps Script → `CONFIG.endpoint` → GitHub Pages). Pruebas: `npm test`.
+Sigue `docs/DESPLIEGUE.md`. Pruebas: `npm test` y `npm run test:rules`.
 
 ## Datos
-Este repositorio **no debe contener** el Maestro de personal ni exportaciones de entradas (DNI, direcciones, datos de salud).
+Este repositorio **no debe contener** el Maestro de personal ni claves (DNI, direcciones, datos de salud, claves de servicio).
 `.gitignore` ya los excluye. Solo se usan 16 nombres de departamento y los correos institucionales de los BP.
-
-## Privacidad y seguridad
-El inicio de sesión de la página identifica y asigna rol, pero no es seguridad: el acceso real lo debe dar el hosting (SSO institucional).

@@ -1,0 +1,58 @@
+rules_version = '2';
+// Modelo: los jefes entran como usuarios anónimos (crean y leen SUS solicitudes). HRBP y Gerencia entran con correo y clave:
+// su rol vive en roles/{correo}. El maestro solo se lee por matrícula (get); la lista solo en modo prueba (config/app.modoPrueba).
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function dentro() { return request.auth != null; }
+    function personal() { return dentro() && request.auth.token.firebase.sign_in_provider == 'password'; }
+    function yo() { return request.auth.token.email; }
+    function tieneRol(r) {
+      return personal() && exists(/databases/$(db)/documents/roles/$(yo()))
+        && r in get(/databases/$(db)/documents/roles/$(yo())).data.roles;
+    }
+
+    match /roles/{correo} { allow get: if personal() && correo == yo(); }
+    match /ruteo/{dep}    { allow get: if dentro(); }
+    match /lideres/{correo} { allow get: if dentro(); }
+    match /maestro/{mat} {
+      allow get: if dentro();
+      allow list: if dentro() && request.query.limit <= 50
+        && get(/databases/$(db)/documents/config/app).data.modoPrueba == true;
+    }
+
+    match /solicitudes/{id} {
+      // ponytail: sin Cloud Functions no hay límite de envíos por usuario; si hace falta, activar App Check o pasar a plan Blaze.
+      allow create: if dentro() && nueva(id, request.resource.data);
+      allow get, list: if dentro() && (
+        resource.data.uid == request.auth.uid
+        || (tieneRol('bp') && resource.data.bpCorreo == yo())
+        || (tieneRol('gerencia') && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']));
+      allow update: if
+        (tieneRol('bp') && resource.data.bpCorreo == yo()
+          && resource.data.estado in ['Nuevo', 'En revisión BP', 'Devuelto al jefe', 'En pausa']
+          && request.resource.data.estado in ['En revisión BP', 'Devuelto al jefe', 'Enviado a Gerencia', 'En pausa']
+          && gestion(['comentarioBP']))
+        || (tieneRol('gerencia')
+          && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']
+          && request.resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado', 'En revisión BP']
+          && gestion(['comentarioGerencia']));
+    }
+
+    // Solo cambian estado, el comentario del rol y quién gestionó.
+    function gestion(comentario) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'gestionadoPor', 'gestionadoEl'].concat(comentario))
+        && request.resource.data.gestionadoPor == yo()
+        && request.resource.data.get(comentario[0], '').size() <= 1000;
+    }
+
+    function nueva(id, d) {
+      let rt = get(/databases/$(db)/documents/ruteo/$(d.departamento)).data;
+      return d.id == id && d.uid == request.auth.uid && d.estado == 'Nuevo'
+        && d.bpCorreo == rt.correo && d.bp == rt.nombre
+        && d.comentarioBP == '' && d.comentarioGerencia == '' && !('gestionadoPor' in d)
+        && d.enviadoPor.matches('.+@usil[.]edu[.]pe')
+        && d.movimiento in ['Promoción', 'Encargatura', 'Reemplazo', 'Puesto nuevo', 'Incremento salarial', 'Movimiento lateral', 'Movimiento horizontal', 'Reestructuración de área', 'Revalorización de puesto', 'Convenio / caso especial', 'Otro']
+        && d.impactoDetalle.size() <= 1000 && d.solicitudConcreta.size() <= 3000 && d.keys().size() < 60;
+    }
+  }
+}

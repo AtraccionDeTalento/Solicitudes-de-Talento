@@ -1,61 +1,50 @@
-# Despliegue · Solicitudes de Talento (v2.1)
+# Puesta en marcha (Firebase + GitHub Pages)
 
-Dos piezas: **la app web** (`index.html`, GitHub Pages) y **el receptor en Google** (`apps-script/Code.gs`: formulario, hoja de entradas, ruteo al BP y correos).
+Arquitectura: la página (`index.html` y `panel.html`) vive en GitHub Pages y habla directamente con **Firestore** y **Firebase Auth**.
+No hay servidor propio: la seguridad la dan las reglas de `firestore.rules`. Plan gratuito (Spark) suficiente. **No envía correos.**
 
-## 1. Receptor en Google (una sola vez)
-1. https://script.google.com › Nuevo proyecto › pegar `apps-script/Code.gs`.
-2. `CONFIG`: revisar `COORDINADOR` (César Reyes), `BPS_DIRECTORIO` y `TOKEN` (ya coincide con `index.html`; si lo cambias, cámbialo en ambos).
-3. Ejecutar `crearFormulario` (▶), autorizar permisos. Tarda 2–4 min. Ver › Registros: enlace del formulario, de edición y de la hoja.
-4. Hoja «Entradas» › pestaña **Ruteo**: elegir el BP de cada departamento (el correo se completa solo).
-5. Ejecutar `compartirConBPs` (acceso a los BP y al coordinador) y, si se desea, `crearVistasPorBP`.
-6. **Implementar › Nueva implementación › Aplicación web**: ejecutar como *Yo*, acceso *Cualquier usuario*. Copiar la URL `…/exec`.
+| Quién | Cómo entra | Qué puede |
+|---|---|---|
+| Jefe de área | Escribe nombre y correo `@usil.edu.pe` (sesión anónima de Firebase) | Crear solicitudes y leer solo las suyas |
+| HRBP | Panel → correo y clave propios | Ver y gestionar solo lo que llega a su correo |
+| Gerencia | Panel → correo y clave propios | Ver lo que los HRBP le pasan y decidir |
 
-## 1b. Panel web con tres vistas (jefes · BP · Gerencia)
-1. En el mismo proyecto de Apps Script: **+ › HTML** › nombre exacto `Panel` › pegar `apps-script/Panel.html`.
-2. En `CONFIG.GERENTES` poner el correo de Karla (gerenta). Quien esté ahí ve la vista **Gerencia** (todo + decisión final Aprobado/Rechazado).
-3. Implementar de nuevo (**Administrar implementaciones › editar › Nueva versión**). La URL `…/exec` abierta en el navegador es el panel.
-4. **Flujo:** el jefe envía (Nuevo) → el BP revisa y elige *Devuelto al jefe* (le llega correo con enlace para corregir; al reenviar vuelve al BP) o *Enviado a Gerencia* (le llega correo a los `GERENTES`) → Gerencia elige *Aprobado*, *Rechazado* o *En revisión BP* (lo devuelve al BP). Gerencia solo ve lo que el BP le pasó; el BP no puede tocar una solicitud que ya está en Gerencia.
-5. Roles (según la cuenta Google con la que entra, no un campo de texto):
-   - **Jefe de área**: cualquier `@usil.edu.pe` → *Mis solicitudes* (solo las que envió).
-   - **BP**: correos de la pestaña `BPs` → *Bandeja* (solo lo que Ruteo le asigna); cambia estado y comenta, sin aprobar/rechazar.
-   - **Gerencia**: correos de `CONFIG.GERENTES` → todo, KPIs por estado/BP/movimiento/departamento, decisión final y comentario.
-6. Las solicitudes del **Google Form** y de la **app web** llegan a la misma hoja «Entradas», así que aparecen juntas en el panel.
-7. Requisito: quien abre el panel debe estar con su cuenta USIL en el navegador y el dueño del script en el mismo Workspace; si no, Google no entrega el correo y el panel pide iniciar sesión.
+## 1. Crear el proyecto (una vez, en la consola de Firebase)
+1. https://console.firebase.google.com → **Agregar proyecto** (sin Google Analytics).
+2. **Compilación → Authentication → Comenzar → Método de acceso**: habilita **Anónimo** y **Correo electrónico/contraseña**.
+3. **Compilación → Firestore Database → Crear base de datos** (modo producción; región `southamerica-east1`).
+4. Pestaña **Reglas**: pega todo `firestore.rules` y **Publicar**.
+5. **Configuración del proyecto (⚙) → Tus apps → Web (`</>`)**: registra la app y copia el bloque `firebaseConfig` a `firebase.js` (no es secreto).
+6. **Authentication → Configuración → Dominios autorizados**: agrega `atracciondetalento.github.io`.
 
-## 1c. Autocompletado desde el maestro de personal
-La app completa nombre, puesto, departamento, área y sección al escribir la matrícula, y el cargo del líder según su correo. El maestro **nunca va al repositorio ni a la página**: vive en una pestaña privada de la hoja de Entradas y el servidor devuelve **una sola persona por consulta**.
-1. Genera la versión recortada (8 columnas, sin DNI ni direcciones): `python tools/preparar-maestro.py "Maestro BPs.xlsx" Maestro_recortado.csv`
-2. En la hoja de Entradas: **Archivo › Importar › Subir** el CSV › *Insertar hoja(s) nueva(s)* › **desmarca «Convertir texto en números, fechas y fórmulas»** (conserva los ceros de la matrícula). Renombra la pestaña a `Maestro`.
-3. Cuando salga un maestro nuevo, repite 1 y 2 reemplazando la pestaña.
-4. Límites: `MAX_CONSULTAS_HORA` (60 por correo) y `MAX_CONSULTAS_DIA` (3000). El correo de la app no está verificado, por lo que el límite frena el barrido de matrículas pero no lo impide; para identidad verificada usar inicio de sesión de Google.
-5. Quien tenga acceso de edición a la hoja (BP, coordinador) ve la pestaña `Maestro`: limitar el acceso o proteger la pestaña.
+## 2. Cargar datos y usuarios (una vez)
+1. **⚙ → Cuentas de servicio → Generar nueva clave privada**. Guarda el JSON **fuera del repositorio**.
+2. Copia `tools/usuarios.ejemplo.txt` como `tools/usuarios.json` y pon correos (sin tildes ni ñ), claves (6+ caracteres) y roles.
+3. Genera el CSV del Maestro: `python tools/preparar-maestro.py "Maestro BPs.xlsx" Maestro_recortado.csv`.
+4. En PowerShell:
+```powershell
+cd tools; npm install
+$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\ruta\clave-de-servicio.json"
+node cargar-datos.js ..\Maestro_recortado.csv
+```
+Esto crea el ruteo (`tools/ruteo.js`), el modo prueba, los usuarios del panel y el Maestro. Es repetible: vuelve a ejecutarlo para cambiar claves o ruteo.
+`--borrar-solicitudes` vacía las solicitudes (útil al terminar las pruebas).
 
-## 2. App web (GitHub Pages)
-1. En `index.html`, `CONFIG.endpoint` = URL `…/exec` del paso 1.6. Subir el cambio.
-2. GitHub › Settings › Pages › *Deploy from a branch* › `main` / `(root)`.
-3. Sitio: `https://atracciondetalento.github.io/Solicitudes-de-Talento/`. Para un link institucional, pedir a TI un subdominio (CNAME).
+## 3. Publicar
+`git push` a `main`: GitHub Pages sirve `index.html` y `panel.html`. Panel: `https://atracciondetalento.github.io/Solicitudes-de-Talento/panel.html`.
 
-## 3. Protecciones ya incluidas
-- La app web solo acepta correos `@usil.edu.pe`; el servidor lo valida de nuevo.
-- Token compartido, límite de 10 envíos por correo y hora, 300 por día, solicitudes de máx. 60 KB.
-- Validación de departamento, tipo de movimiento, fecha, matrícula y opciones; limpieza de caracteres de control; los correos escapan el HTML.
-- Nadie puede pisar la solicitud de otro (mismo ID con otro correo se rechaza).
-- Los correos del BP indican si el correo del solicitante está **verificado** (formulario) o es **declarado** (app web).
-- CSP, `noindex`, librería de Excel con verificación de integridad, hoja de cálculo en texto (sin fórmulas inyectables).
+## Salir de pruebas
+- En Firestore, documento `config/app`: `modoPrueba` → `false` (cierra la lectura en lista del Maestro).
+- En `index.html`: `CONFIG.modoPrueba:false` y `camposObligatorios:true`.
+- Cambia el ruteo de prueba por el real en `tools/ruteo.js` y vuelve a cargar.
 
-## 4. Límites conocidos
-- **El inicio de sesión de la app web identifica, no autentica**: el correo lo escribe el usuario. Para identidad verificada usar el formulario de Google (correo verificado) o alojar la app tras el SSO institucional.
-- Una página en GitHub Pages es pública; el token no es secreto, solo frena envíos casuales.
-- Cuota de correo de Apps Script: ~100/día (cuenta personal) o ~1500/día (Workspace).
-- Los BP con acceso a la hoja ven todas las entradas; para separar por BP usar archivos distintos.
-- El puntaje y el sustento del formulario de Google se calculan después, con `exportarEntradas`.
+## Pruebas
+- `npm test`: comprobaciones estáticas.
+- `npm run test:rules`: reglas de seguridad contra el emulador (necesita Java).
+- Prueba local contra emuladores: abre `http://localhost:PUERTO/index.html?emu`.
 
-## 5. Antes de abrirlo a todos
-- [ ] Ruteo completo (16 departamentos con BP).
-- [ ] Prueba de punta a punta con 2–3 jefes de área y datos ficticios (llegada al BP correcto, correos, edición).
-- [ ] TI aprueba el tratamiento de datos (nombres de colaboradores y propuestas salariales).
-- [ ] Carla valida las columnas del consolidado.
-- [ ] Guía de usuario actualizada.
-
-## 6. Pruebas
-`npm test` (Node 20): 22 pruebas del Apps Script con servicios de Google simulados y 7 comprobaciones de la app web. CI en GitHub Actions.
+## Límites conocidos
+- Sin correos: nadie recibe aviso; el HRBP debe abrir el panel. Se puede agregar luego (Apps Script o extensión de Firebase).
+- Los jefes no tienen bandeja propia ni pueden corregir una solicitud «Devuelta al jefe» (no hay login individual para ellos).
+- Sin Cloud Functions no hay límite de envíos por persona; si hay abuso, activar App Check.
+- El correo del jefe es declarado y no verificado (igual que antes).

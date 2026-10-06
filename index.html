@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#00195A">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https:; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https:; base-uri 'none'; form-action 'none'; object-src 'none'">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300195A'/%3E%3Ctext x='32' y='43' font-family='Arial' font-weight='800' font-size='30' text-anchor='middle' fill='white'%3Eu%3C/text%3E%3Crect x='14' y='50' width='36' height='4' rx='2' fill='%23F3BE00'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -228,17 +228,18 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 <footer id="foot"></footer>
 <div id="toast" class="hidden" role="status" aria-live="polite"></div>
 
+<script type="module">import * as FB from "./firebase.js";window.FB=FB;dispatchEvent(new Event("fb"))</script>
 <script>
 const $ = id => document.getElementById(id);
 // Configuración de despliegue. endpoint: URL que recibe el JSON de la solicitud (Power Automate, Apps Script, API propia).
 // Si está vacío, la solicitud se guarda en este navegador y se ofrece la descarga del archivo.
 const APP_VERSION="2.0.0";
+const FBp=new Promise(r=>addEventListener("fb",()=>r(window.FB)));   // firebase.js (módulo) avisa al cargar
 const CONFIG = {
-  endpoint:"https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",                         // URL del receptor (Apps Script «aplicación web» de Code.gs). Vacío = guardado local + descarga.
+  endpoint:"firebase",                  // «firebase» = las solicitudes se guardan en Firestore (firebase.js). Vacío = solo en este navegador.
   camposObligatorios:false,            // false = ningún campo es obligatorio (solo Tipo de movimiento y Departamento, necesarios para el ruteo). true = exige todos como antes.
   modoPrueba:true,                     // true = mínimos de caracteres reducidos (3) para probar. PONER EN false antes de abrirlo a los jefes.
   panelUrl:"https://atracciondetalento.github.io/Solicitudes-de-Talento/panel.html",                         // URL del panel de revisión (la misma «aplicación web» …/exec). Muestra el enlace «Panel de revisión» a jefes, BP y Gerencia.
-  token:"e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2",   // Misma clave que CONFIG.TOKEN de Code.gs (no es secreta: la página es pública; solo frena envíos casuales).
   bpEmails:["msalazar@usil.edu.pe","mhiga@usil.edu.pe","lreyes@usil.edu.pe","cmunozse@usil.edu.pe","creyess@usil.edu.pe","jlopezp@usil.edu.pe"],   // HRBP / BP de Talento y Cultura, su Subgerente y el coordinador: ven el enlace «Panel de revisión».
   gerenteEmails:[],                    // Correo de Karla (gerenta): ve el enlace «Panel de revisión» para aprobar. Debe coincidir con CONFIG.GERENTES de Code.gs.
   allowedDomains:["usil.edu.pe"],      // Dominios de correo que pueden ingresar.
@@ -934,20 +935,10 @@ function lockNew(reset){
     : "Ingresa el código; se completa a 10 dígitos y se busca en la base maestra si está disponible. Si no aparece, completa los datos manualmente.";
 }
 
-// Consulta al maestro en el servidor (Apps Script): devuelve solo la persona buscada; el maestro completo nunca viaja a la página.
+// Consulta al maestro en Firestore (por matrícula, sin listar): devuelve solo la persona buscada.
 async function postMaestro(extra){
-  // Apps Script a veces responde con una página de error pasajera: se reintenta hasta 3 veces antes de rendirse.
-  let ultimo=new Error("sin respuesta");
-  for(let i=0;i<3;i++){
-    const ac=new AbortController(),t=setTimeout(()=>ac.abort(),30000);
-    try{
-      const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:CONFIG.token,accion:"maestro",email:SESSION.email,...extra}),signal:ac.signal});
-      const txt=await r.text();
-      try{return JSON.parse(txt)}catch(e){ultimo=new Error("respuesta no válida del servidor")}
-    }catch(e){ultimo=e}finally{clearTimeout(t)}
-    await new Promise(r=>setTimeout(r,1500*(i+1)));
-  }
-  throw ultimo;
+  try{return {ok:true,item:await (await FBp).maestro(extra,SESSION.email)}}
+  catch(e){return {ok:false,error:e.code==="permission-denied"?"Sin permiso para consultar la base.":String(e.message||e)}}
 }
 function afterAuto(){refresh();store(draftKey(),JSON.stringify({data:gather(),cur,reached}))}
 async function lookupRemote(code){
@@ -1214,6 +1205,15 @@ function renderReview(){
 function download(name,text,type="application/json"){
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
+// Registro plano para Firestore: lo que lee el panel (sin tener que reconstruir el formulario).
+function aPlano(rec){
+  const d=rec.data,ev=rec.evaluation||{},lista=a=>(a||[]).slice(0,10).join(" | ");
+  const levantamiento=(SETS[d.movimiento]||[]).flatMap(b=>b.q.filter(q=>d.dynamic&&d.dynamic[q[0]]).map(q=>({p:q[1],r:String(d.dynamic[q[0]])})));   // objetos: Firestore no admite arreglos anidados
+  const p={id:rec.id,enviadoEl:new Date().toISOString(),enviadoPor:SESSION.email.toLowerCase(),origen:"web",periodo:d.periodo,levantamiento,aprobaciones:d.approvals||[],
+    puntaje:String(ev.score??""),clasificacion:ev.label||"",fortalezas:lista(ev.strengths),alertas:lista(ev.alerts),recomendacion:ev.recommendation||""};
+  FIXED.forEach(k=>{if(k!=="emailCliente")p[k]=String(d[k]??"")});
+  return p;
+}
 let submitting=false;
 async function submit(){
   if(submitting) return;
@@ -1230,14 +1230,11 @@ async function doSubmit(){
   const saved=store(HISTORY_KEY,JSON.stringify(hist));store(draftKey());
   let sent=!CONFIG.endpoint&&saved,err=saved?"":"Este navegador bloquea el almacenamiento local.";
   if(CONFIG.endpoint){
-    const ac=new AbortController(),t=setTimeout(()=>ac.abort(),15000);
     try{
-      const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:CONFIG.token,rec}),signal:ac.signal});
-      const j=await r.json();sent=r.ok&&j.ok;err=sent?"":(j.error||`El servidor respondió ${r.status}.`);
-      if(sent){rec.bpAsignado=j.bp||"";rec.sinBP=!j.bp;const hh=load(HISTORY_KEY,[]),k=hh.findIndex(x=>x.id===rec.id);if(k>=0){hh[k]=rec;store(HISTORY_KEY,JSON.stringify(hh))}}
-    }
-    catch(e){err=e.name==="AbortError"?"El servidor tardó demasiado en responder.":"No hubo conexión con el servidor."}
-    finally{clearTimeout(t)}
+      const r=await Promise.race([(await FBp).enviar(aPlano(rec)),new Promise((_,no)=>setTimeout(()=>no(new Error("El servidor tardó demasiado en responder.")),20000))]);
+      sent=true;err="";rec.bpAsignado=r.bp||"";rec.sinBP=!r.bp;
+      const hh=load(HISTORY_KEY,[]),k=hh.findIndex(x=>x.id===rec.id);if(k>=0){hh[k]=rec;store(HISTORY_KEY,JSON.stringify(hh))}
+    }catch(e){sent=false;err=e.code==="permission-denied"?"Sin permiso: revisa que el correo sea @usil.edu.pe y el departamento tenga BP.":(e.message||"No hubo conexión con el servidor.")}
   }
   showDone(rec,sent,err);
 }
