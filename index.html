@@ -936,11 +936,18 @@ function lockNew(reset){
 
 // Consulta al maestro en el servidor (Apps Script): devuelve solo la persona buscada; el maestro completo nunca viaja a la página.
 async function postMaestro(extra){
-  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),30000);
-  try{
-    const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:CONFIG.token,accion:"maestro",email:SESSION.email,...extra}),signal:ac.signal});
-    return await r.json();
-  }finally{clearTimeout(t)}
+  // Apps Script a veces responde con una página de error pasajera: se reintenta hasta 3 veces antes de rendirse.
+  let ultimo=new Error("sin respuesta");
+  for(let i=0;i<3;i++){
+    const ac=new AbortController(),t=setTimeout(()=>ac.abort(),30000);
+    try{
+      const r=await fetch(CONFIG.endpoint,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({token:CONFIG.token,accion:"maestro",email:SESSION.email,...extra}),signal:ac.signal});
+      const txt=await r.text();
+      try{return JSON.parse(txt)}catch(e){ultimo=new Error("respuesta no válida del servidor")}
+    }catch(e){ultimo=e}finally{clearTimeout(t)}
+    await new Promise(r=>setTimeout(r,1500*(i+1)));
+  }
+  throw ultimo;
 }
 function afterAuto(){refresh();store(draftKey(),JSON.stringify({data:gather(),cur,reached}))}
 async function lookupRemote(code){
@@ -1170,7 +1177,8 @@ function refresh(){
     if(el.id==="confirmo"||el.type==="button") return;
     const req=required(el),q=el.closest(".q");
     if(q) q.classList.toggle("opt",!req&&!el.closest(".hidden"));
-    if(req){tot++;if(!check(el)) okc++}
+    const cuenta=req||(!CONFIG.camposObligatorios&&!el.closest(".hidden")&&!el.disabled&&!el.readOnly&&el.type!=="checkbox");
+    if(cuenta){tot++;if(CONFIG.camposObligatorios?!check(el):nonempty(el.value)) okc++}
   });
   const pct=tot?Math.round(okc/tot*100):0;
   $("barfill").style.width=pct+"%";
@@ -1425,12 +1433,15 @@ async function demoFill(enviar,dep,mov0){
     resetForm();
     const mov=mov0||MOVS[Math.floor(Math.random()*MOVS.length)];
     let per=null;
-    let motivo="";
-    if(CONFIG.endpoint) for(let k=0;k<3&&!per;k++){
+    let motivo="",parcial=false;
+    if(CONFIG.endpoint) for(let k=0;k<1&&!per;k++){
       try{const r=await postMaestro(dep?{aleatorio:true,departamento:dep}:{codigo:DEMO_COLABORADOR});if(r.ok&&r.item) per={...r.item,codigo:r.item.codigo||DEMO_COLABORADOR};else motivo=r.error||"sin datos"}catch(e){motivo=String(e.message||e)}
       if(!per) await demoTick(1500);
     }
-    if(CONFIG.endpoint&&!per){toast("No se pudo leer a la persona del ejemplo desde la base ("+motivo+"). Intenta de nuevo.");bs.forEach(b=>{b.disabled=false;b.textContent=b.dataset.t});return null}
+    if(CONFIG.endpoint&&!per){
+      if(dep){toast("No se pudo leer a la persona del ejemplo desde la base ("+motivo+"). Intenta de nuevo.");bs.forEach(b=>{b.disabled=false;b.textContent=b.dataset.t});return null}
+      per={codigo:DEMO_COLABORADOR,nombre:"Colaboradora del ejemplo",puesto:"SOCIO DE NEGOCIO",departamento:"GERENCIA DE TALENTO Y CULTURA",area:"SUBGERENCIA DE TALENTO Y CULTURA",seccion:""};parcial=true;
+    }
     per=per||{codigo:"0000012345",nombre:"Ana Lucía Torres",puesto:"Analista de Selección",departamento:"GERENCIA DE TALENTO Y CULTURA",area:"Atracción de Talento",seccion:"Selección"};
     dset("movimiento",mov);await demoTick(200);
     if(!$("cargoCliente").value) dset("cargoCliente","Subgerente de Talento y Cultura");
@@ -1445,7 +1456,7 @@ async function demoFill(enviar,dep,mov0){
     dset("impactoDetalle",("[DEMO] "+$("impactoDetalle").value).slice(0,480));
     go(6);$("confirmo").checked=true;
     const faltan=[0,1,2,3,4,5].reduce((n,i)=>n+validate(i).length,0);
-    toast(faltan?`Ejemplo cargado (${mov}); ${faltan} campo(s) pendiente(s): revisa los pasos.`:`Ejemplo cargado (${mov}). Pulsa «Enviar solicitud».`);
+    toast((faltan?`Ejemplo cargado (${mov}); ${faltan} campo(s) pendiente(s): revisa los pasos.`:`Ejemplo cargado (${mov}). Pulsa «Enviar solicitud».`)+(parcial?" La base no respondió: se cargaron solo matrícula, departamento y área.":""));
     afterAuto();
     if(enviar&&!faltan){await submit();bs.forEach(b=>{b.disabled=false;b.textContent=b.dataset.t});return lastRec}
   }catch(e){toast("No se pudo rellenar el ejemplo: "+(e.message||e))}
