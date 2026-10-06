@@ -235,6 +235,7 @@ const $ = id => document.getElementById(id);
 const APP_VERSION="2.0.0";
 const CONFIG = {
   endpoint:"https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",                         // URL del receptor (Apps Script «aplicación web» de Code.gs). Vacío = guardado local + descarga.
+  camposObligatorios:false,            // false = ningún campo es obligatorio (solo Tipo de movimiento y Departamento, necesarios para el ruteo). true = exige todos como antes.
   modoPrueba:true,                     // true = mínimos de caracteres reducidos (3) para probar. PONER EN false antes de abrirlo a los jefes.
   panelUrl:"https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",                         // URL del panel de revisión (la misma «aplicación web» …/exec). Muestra el enlace «Panel de revisión» a jefes, BP y Gerencia.
   token:"e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2",   // Misma clave que CONFIG.TOKEN de Code.gs (no es secreta: la página es pública; solo frena envíos casuales).
@@ -1074,6 +1075,7 @@ function counters(){document.querySelectorAll("textarea").forEach(t=>{t.style.he
 function required(el){
   if(el.id==="area"||el.id==="seccion") return false;   // practicantes, aprendices y otros puestos sin área o sección en la base
   if(el.closest(".hidden")||el.type==="button"||el.disabled) return false;
+  if(!CONFIG.camposObligatorios) return el.id==="movimiento"||el.id==="departamento";
   if(el.id==="montoPresupuesto") return $("presupuesto").value==="Sí";
   if(el.classList.contains("ap-type")) return el.closest(".approval-card").querySelector(".ap-evidence").value==="Sí";
   return true;

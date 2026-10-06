@@ -2088,12 +2088,13 @@ function desdeWeb_(w) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("Correo inválido");
   if (CONFIG.DOMINIOS_PERMITIDOS.length && CONFIG.DOMINIOS_PERMITIDOS.indexOf(email.split("@")[1]) < 0) throw new Error("Usa tu correo institucional");
   if (CATALOGO.departamentos.indexOf(src.departamento) < 0) throw new Error("Departamento inválido");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(src.fechaSolicitud || ""))) throw new Error("Fecha de solicitud inválida");
+  const fecha = src.fechaSolicitud ? String(src.fechaSolicitud) : new Date().toISOString().slice(0, 10);   // sin fecha: hoy
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw new Error("Fecha de solicitud inválida");
 
   const d = { dynamic: {}, approvals: [] };
   ["cliente", "cargoCliente", "area", "seccion", "colaborador", "puestoActual", "validaPresupuesto"].forEach(k => { d[k] = unaLinea_(src[k], 200); });
   ["tieneAprobacion", "presupuesto", "fuentePresupuesto", "urgencia", "impacto", "consecuencia"].forEach(k => { d[k] = unaLinea_(src[k], 80); });
-  d.fechaSolicitud = src.fechaSolicitud; d.emailCliente = email; d.departamento = src.departamento;
+  d.fechaSolicitud = fecha; d.emailCliente = email; d.departamento = src.departamento;
   d.codigo = unaLinea_(src.codigo, 20);
   d.montoPresupuesto = String(Number(src.montoPresupuesto) >= 0 ? Number(src.montoPresupuesto) : "");
   d.impactoDetalle = limpiar_(src.impactoDetalle, 1000);
@@ -2104,6 +2105,7 @@ function desdeWeb_(w) {
   d.movimiento = m.nombre;
   if (m.sinMatricula) { d.codigo = "No aplica"; d.colaborador = m.colaboradorFijo; d.puestoActual = "No aplica"; }
   else if (/^\d+$/.test(d.codigo)) d.codigo = ("0000000000" + d.codigo).slice(-10);
+  else if (!d.codigo) d.codigo = "No indicada";
   else throw new Error("Matrícula inválida");
   if (!d.cliente) throw new Error("Faltan datos del líder");
 

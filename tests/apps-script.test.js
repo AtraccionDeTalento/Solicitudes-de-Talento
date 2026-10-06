@@ -214,4 +214,9 @@ ok('cargarRuteoDePrueba reparte los 16 departamentos entre los 4 BP (4 cada uno)
   assert.deepStrictEqual(Object.values(porBP), [4, 4, 4, 4]); assert.strictEqual(Object.keys(porBP).length, 4);
 });
 ok('demo: la persona al azar respeta el departamento pedido', () => { const r = mq({ aleatorio: true, departamento: 'GERENCIA LEGAL' }); assert.strictEqual(r.item.departamento, 'GERENCIA LEGAL'); });
+ok('el receptor web acepta una solicitud casi vacia (solo correo, departamento y movimiento)', () => {
+  const w = { id: 'VACIA1', data: { emailCliente: 'vacia@usil.edu.pe', cliente: 'Jefe Prueba', departamento: 'GERENCIA LEGAL', movimiento: 'Promoción', dynamic: {}, approvals: [] } };
+  const r = post({ token: TOKEN, rec: w }); assert.ok(r.ok, JSON.stringify(r));
+  const fila = ss.getSheetByName('Entradas').rows.find(x => x[0] === 'VACIA1'); assert.strictEqual(fila[6].length, 10); assert.strictEqual(fila[9], 'No indicada');
+});
 console.log('\n' + n + ' pruebas OK');
