@@ -2371,3 +2371,15 @@ function limitarConsulta_(email) {
   cache.put(k, String(n), 3600);
   props.setProperty(dk, String(g));
 }
+
+/** Asignación de PRUEBA en «Ruteo»: reparte los departamentos entre los BP de BPS_DIRECTORIO (4 por BP) y reescribe la fórmula del correo.
+ *  Ejecútala una vez para probar. Para producción, reemplaza la columna C por el BP real de cada departamento. */
+function cargarRuteoDePrueba() {
+  const sh = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID")).getSheetByName(CONFIG.HOJA_RUTEO);
+  const n = CATALOGO.departamentos.length, bps = CONFIG.BPS_DIRECTORIO.map(b => b[0]), por = Math.ceil(n / bps.length);
+  sh.getRange(2, 1, n, 1).setValues(CATALOGO.departamentos.map(d => [d]));
+  sh.getRange(2, 2, n, 1).setValues(CATALOGO.departamentos.map(() => ["*"]));
+  sh.getRange(2, 3, n, 1).setValues(CATALOGO.departamentos.map((d, i) => [bps[Math.floor(i / por) % bps.length]]));
+  sh.getRange(2, 4, 200, 1).setFormulas(Array.from({ length: 200 }, (_, i) => ['=IF(C' + (i + 2) + '="","",IFERROR(VLOOKUP(C' + (i + 2) + ',BPs!A:B,2,FALSE),""))']));
+  Logger.log("Ruteo de prueba cargado: " + n + " departamentos entre " + bps.length + " BP.");
+}

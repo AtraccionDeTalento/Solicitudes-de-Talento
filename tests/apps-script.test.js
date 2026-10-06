@@ -47,7 +47,7 @@ const ctx = {
   DriveApp: { getFoldersByName: () => ({ hasNext: () => false }), createFolder: () => ({ createFile: (n, c) => { files.push({ n, c }); return { getUrl: () => n }; } }) }, console
 };
 vm.createContext(ctx);
-vm.runInContext(code + ';this.F={crearFormulario,alEnviar,doPost,exportarEntradas,compartirConBPs,doGet,panelDatos,panelDetalle,panelActualizar,panelEntrar,panelQuien,panelExportar,CONFIG,CATALOGO};', ctx);
+vm.runInContext(code + ';this.F={crearFormulario,alEnviar,doPost,exportarEntradas,compartirConBPs,doGet,panelDatos,panelDetalle,panelActualizar,panelEntrar,panelQuien,panelExportar,cargarRuteoDePrueba,CONFIG,CATALOGO};', ctx);
 const F = ctx.F;
 let n = 0; const ok = (nombre, fn) => { fn(); n++; console.log('  ✓', nombre); };
 
@@ -206,5 +206,11 @@ ok('la propiedad SIN_CORREOS apaga todos los correos', () => {
   const w = web(); w.id = 'SC1'; w.data.emailCliente = 'sincorreo@usil.edu.pe'; assert.ok(post({ token: TOKEN, rec: w }).ok);
   como('carla.bp@usil.edu.pe', () => F.panelActualizar('SC1', 'bp', 'Devuelto al jefe', 'x'));
   assert.strictEqual(mails.length, antes); delete props.SIN_CORREOS;
+});
+ok('cargarRuteoDePrueba reparte los 16 departamentos entre los 4 BP (4 cada uno)', () => {
+  F.cargarRuteoDePrueba();
+  const filas = ss.getSheetByName('Ruteo').rows.slice(1, 17); assert.strictEqual(filas.length, 16);
+  const porBP = {}; filas.forEach(r => { porBP[r[2]] = (porBP[r[2]] || 0) + 1; });
+  assert.deepStrictEqual(Object.values(porBP), [4, 4, 4, 4]); assert.strictEqual(Object.keys(porBP).length, 4);
 });
 console.log('\n' + n + ' pruebas OK');
