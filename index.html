@@ -86,49 +86,51 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 .linkbtn{background:none;color:var(--green);padding:0;text-decoration:underline}.linkdanger{background:none;color:var(--danger);padding:0;text-decoration:underline}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;z-index:30;font-size:14px}
 .check{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-weight:600}.check input{width:auto;margin-top:3px}
-#login{position:fixed;inset:0;z-index:100;display:grid;grid-template-columns:1.1fr 1fr;background:var(--bg)}
-#login .brand{background:radial-gradient(1100px 600px at 10% 110%,#1E50DC55,transparent 60%),linear-gradient(150deg,var(--navy),var(--royal) 70%,#0036DC);color:#fff;padding:56px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
-#login .brand::after{content:"";position:absolute;right:-120px;top:-120px;width:360px;height:360px;border-radius:50%;border:56px solid #ffffff12}
-#login .wm{font-size:44px;font-weight:800;letter-spacing:-1px;line-height:1}#login .wm i{font-style:normal;color:var(--accent)}
-#login .wm small{display:block;font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#C9D6F5;margin-top:8px}
-#login h2{font-size:34px;line-height:1.15;margin:0 0 14px;max-width:460px}
-#login .brand p{color:#C9D6F5;max-width:430px;margin:0 0 22px}
-#login ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:14px}
-#login li::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:10px}
-#login .side{display:flex;align-items:center;justify-content:center;padding:32px}
-#login form{width:100%;max-width:390px;background:#fff;border:1px solid var(--border);border-radius:18px;padding:34px 30px;box-shadow:0 18px 50px #00195A1F}
-#login form h3{margin:0 0 4px;font-size:22px;color:var(--navy);text-transform:none;letter-spacing:0;border:0;padding:0}
-#login form .sub{color:var(--muted);font-size:13.5px;margin:0 0 22px}
+#login{position:fixed;inset:0;z-index:100;height:100dvh;display:grid;grid-template-columns:1fr;background:#fff;overflow:hidden}
+#login .lform{display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;background:#fff;position:relative;z-index:2}
+#login form{width:100%;max-width:380px}
+#login form img{display:block;height:auto}
+#login .rule,#login .prule{width:52px;height:3px;border-radius:2px;background:var(--accent);margin:18px 0}
+#login form h3{margin:0 0 4px;font-size:24px;font-weight:800;letter-spacing:-.01em;color:var(--navy);text-transform:none;border:0;padding:0}
+#login form .sub{color:var(--muted);font-size:14px;margin:0 0 clamp(14px,3vh,28px)}
 #login .f{margin-bottom:16px}
 #login .lerr{color:var(--danger);font-size:12.5px;font-weight:600;min-height:18px;margin:-6px 0 10px}
 #login button[type=submit]{width:100%;padding:13px;font-size:15px;background:linear-gradient(100deg,var(--green),var(--green2))}
 #login .fine{margin-top:16px;font-size:11.5px;color:var(--muted);text-align:center}
-@media(max-width:860px){#login{grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:auto}#login .brand{padding:22px 24px;gap:12px}#login .wm{font-size:34px}#login h2{font-size:19px;margin:0}#login ul,#login .brand p,#login .brand>div:last-child{display:none}#login .side{padding:20px 16px}.userchip{position:static;margin-top:6px}}
+#login .lart{display:none}
+@media(min-width:900px){
+#login{grid-template-columns:64px minmax(360px,480px) 1fr;background:linear-gradient(160deg,var(--navy) 0%,var(--royal) 60%,#163884 100%)}
+#login::before{content:"";grid-column:1}
+#login .lform{grid-column:2;box-shadow:10px 0 34px #0F204214;padding:40px 56px 40px 40px}
+#login .lart{display:block;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--navy) 0%,var(--royal) 55%,#163884 100%)}
+#login .lart video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:75% center;z-index:1}
+#login .ov{position:absolute;inset:0;z-index:2;background:linear-gradient(135deg,#08142EEB 0%,#0B1D448C 22%,#123A8C2E 42%,transparent 60%),linear-gradient(to top,#061026D9 0%,#0610261F 30%,transparent 55%),radial-gradient(ellipse at 100% 0%,#2F6FED73,transparent 55%)}
+#login .pitch{position:absolute;left:90px;right:90px;top:18%;z-index:3;color:#fff}
+#login .pitch h2{font-weight:800;font-size:30px;line-height:1.28;max-width:420px;margin:0}
+}
 @media print{header,.actions,#stepper,#login,#toast{display:none!important}.step{display:block!important}}
 @media(max-width:720px){.wrap{padding:12px 12px 110px}.panel{padding:16px}.scorebox{grid-template-columns:1fr}dl.sum{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}#stepper button span{display:none}}
 </style>
 </head>
 <body>
 <div id="login" class="hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
-  <div class="brand">
-    <div class="wm">us<i>i</i>l<small>Business Partners · Talento</small></div>
-    <div>
-      <h2 id="loginTitle">Solicitudes de movimiento de talento, claras y completas.</h2>
-      <p>Un solo formulario guiado para que tu solicitud llegue al Comité con el sustento que necesita.</p>
-      <ul><li>Preguntas ordenadas según el tipo de movimiento</li><li>Resumen ejecutivo generado con tus respuestas</li><li>Índice de preparación antes de enviar</li></ul>
-    </div>
-    <div style="font-size:12px;color:#C9D6F5">Universidad San Ignacio de Loyola</div>
-  </div>
-  <div class="side">
+  <div class="lform">
     <form id="loginForm" novalidate>
-      <h3>Bienvenido</h3>
-      <p class="sub">Ingresa con tu correo institucional para continuar.</p>
+      <img src="assets/usil-lockup-navy.png" alt="Corporación Educativa USIL" width="190" height="auto">
+      <div class="rule"></div>
+      <h3 id="loginTitle">Solicitud de Movimiento de Talento</h3>
+      <p class="sub">Ingresa con tu nombre y tu correo institucional para continuar.</p>
       <div class="f"><label for="lgName">Nombre y apellido</label><input id="lgName" autocomplete="name" placeholder="Ej. Mariana Torres"></div>
       <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="email" autocomplete="email" placeholder="usuario@usil.edu.pe"></div>
       <div class="lerr" id="lgErr" role="alert"></div>
       <button type="submit">Ingresar</button>
       <p class="fine">Acceso solo para colaboradores USIL. Tu información se usa únicamente para registrar la solicitud.</p>
     </form>
+  </div>
+  <div class="lart" aria-hidden="true">
+    <video autoplay muted loop playsinline preload="auto" poster="assets/login-hero.jpg" onerror="this.style.display='none'"><source src="assets/login-hero.mp4" type="video/mp4"></video>
+    <div class="ov"></div>
+    <div class="pitch"><div class="prule"></div><h2>Un solo lugar para solicitar, revisar y aprobar movimientos de talento.</h2></div>
   </div>
 </div>
 <header><div class="hwrap">
@@ -233,7 +235,8 @@ const CONFIG = {
   endpoint:"https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",                         // URL del receptor (Apps Script «aplicación web» de Code.gs). Vacío = guardado local + descarga.
   panelUrl:"https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",                         // URL del panel de revisión (la misma «aplicación web» …/exec). Muestra el enlace «Panel de revisión» a jefes, BP y Gerencia.
   token:"e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2",   // Misma clave que CONFIG.TOKEN de Code.gs (no es secreta: la página es pública; solo frena envíos casuales).
-  bpEmails:["msalazar@usil.edu.pe","mhiga@usil.edu.pe","lreyes@usil.edu.pe","cmunozse@usil.edu.pe","creyess@usil.edu.pe"],   // BP de Talento y Cultura + su Subgerente (ven el panel de casos, maestro y exportación).
+  bpEmails:["msalazar@usil.edu.pe","mhiga@usil.edu.pe","lreyes@usil.edu.pe","cmunozse@usil.edu.pe","creyess@usil.edu.pe","jlopezp@usil.edu.pe"],   // HRBP / BP de Talento y Cultura, su Subgerente y el coordinador: ven el enlace «Panel de revisión».
+  gerenteEmails:[],                    // Correo de Karla (gerenta): ve el enlace «Panel de revisión» para aprobar. Debe coincidir con CONFIG.GERENTES de Code.gs.
   allowedDomains:["usil.edu.pe"],      // Dominios de correo que pueden ingresar.
   soporte:"",                          // Correo de soporte que se muestra al pie.
     sessionMinutes:60                    // Cierre de sesión por inactividad.
@@ -1363,7 +1366,7 @@ function setupLogin(){
     if(name.length<5||!name.includes(" ")) return void(err.textContent="Ingresa tu nombre y apellido.");
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return void(err.textContent="Ingresa un correo válido.");
     if(CONFIG.allowedDomains.length&&!CONFIG.allowedDomains.includes(mail.split("@")[1])) return void(err.textContent=`Usa tu correo institucional (@${CONFIG.allowedDomains.join(", @")}).`);
-    SESSION={name,email:mail,role:CONFIG.bpEmails.map(x=>x.toLowerCase()).includes(mail)?"bp":"jefe",last:Date.now()};
+    SESSION={name,email:mail,role:CONFIG.gerenteEmails.map(x=>x.toLowerCase()).includes(mail)?"gerencia":CONFIG.bpEmails.map(x=>x.toLowerCase()).includes(mail)?"bp":"jefe",last:Date.now()};
     saveSession();err.textContent="";enter();
   });
   $("logoutBtn").onclick=()=>logout(true);
@@ -1378,9 +1381,9 @@ function showLogin(){
 function enter(){
   BP_MODE=SESSION.role==="bp";
   $("login").classList.add("hidden");$("userChip").classList.remove("hidden");
-  $("userName").textContent=`${SESSION.name} · ${BP_MODE?"BP":"Líder"}`;
-  $("bpPanel").classList.toggle("hidden",!BP_MODE);$("modeTag").textContent=BP_MODE?"· Modo BP":"";
-  if(CONFIG.panelUrl){$("panelLink").href=CONFIG.panelUrl;$("panelLink").classList.remove("hidden")}
+  $("userName").textContent=`${SESSION.name} · ${{bp:"BP",gerencia:"Gerencia"}[SESSION.role]||"Líder"}`;
+  $("bpPanel").classList.toggle("hidden",!BP_MODE||!!CONFIG.panelUrl);$("modeTag").textContent=BP_MODE?"· Modo BP":"";
+  if(CONFIG.panelUrl&&SESSION.role!=="jefe"){$("panelLink").href=CONFIG.panelUrl;$("panelLink").classList.remove("hidden")}
   if(BP_MODE) renderHistory();
   const dr=load(draftKey(),null);
   editingCaseId=null;reached=0;showShell();

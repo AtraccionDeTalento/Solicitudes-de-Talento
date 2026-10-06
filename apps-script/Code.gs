@@ -2177,7 +2177,7 @@ function doGet() {
 function quien_() {
   const email = String(Session.getActiveUser().getEmail() || "").toLowerCase();
   if (!email) throw new Error("Inicia sesión en Google con tu cuenta institucional y recarga la página.");
-  if (CONFIG.DOMINIOS_PERMITIDOS.length && CONFIG.DOMINIOS_PERMITIDOS.indexOf(email.split("@")[1]) < 0) throw new Error("Usa tu cuenta institucional.");
+  if (CONFIG.DOMINIOS_PERMITIDOS.length && CONFIG.DOMINIOS_PERMITIDOS.indexOf(email.split("@")[1]) < 0) throw new Error("Estás con la cuenta " + email + ". Abre el panel con tu cuenta institucional (@usil.edu.pe).");
   const ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID"));
   const bps = {};
   CONFIG.BPS_DIRECTORIO.forEach(b => { bps[b[1].toLowerCase()] = 1; });
