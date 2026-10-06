@@ -142,7 +142,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 </div></header>
 
 <main class="wrap">
-  <div id="demoBar" class="hidden" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button type="button" id="demoFill">✨ Rellenar con un ejemplo</button><button type="button" id="demoSend">🚀 Rellenar y enviar</button><button type="button" class="secondary" id="demoBatch">📨 Generar 16 registros</button><span class="muted" style="font-size:13px">Modo prueba: rellenar deja listo para enviar; «Rellenar y enviar» crea un registro real para el BP; «Generar 16» envía uno por departamento (4 por BP).</span></div>
+  <div id="demoBar" class="hidden" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button type="button" id="demoFill">✨ Rellenar con un ejemplo</button><button type="button" id="demoSend">🚀 Rellenar y enviar</button><button type="button" class="secondary" id="demoBatch">📨 Generar 16 registros</button><span class="muted" style="font-size:13px">Modo prueba: el colaborador del ejemplo es Claudia; «Rellenar y enviar» crea un registro real para el BP; «Generar 16» envía uno por departamento con personas al azar (4 por BP).</span></div>
   <nav id="stepper" aria-label="Pasos de la solicitud"></nav>
   <div id="errSummary" class="alert hidden" role="alert"></div>
 
@@ -1322,6 +1322,7 @@ function resetWholeSystem(){
 // ---------- Modo demo (solo con CONFIG.modoPrueba) ----------
 // Entra como César Reyes y rellena los 7 pasos con una persona al azar de la base; solo falta pulsar «Enviar solicitud».
 const DEMO_LIDER={name:"César Augusto Reyes",email:"creyess@usil.edu.pe"};
+const DEMO_COLABORADOR="0000303125";   // colaboradora fija del demo individual (sus datos se leen de la base, no están en el código)
 const DEMO_PICK={tieneAprobacion:"Sí",presupuesto:"Sí",fuentePresupuesto:"Presupuesto aprobado",urgencia:"Dentro de 30 días",impacto:"Alto",consecuencia:"Retraso operativo",tipoPropuestaNegocio:"Porcentaje %","ap-level":"Gerencia General","ap-evidence":"Sí","ap-type":"Correo"};
 const DEMO_TEXT={validaPresupuesto:"Gerencia de Finanzas",montoPresupuesto:"4500",propuestaNegocio:"8",personasCargo:"3 personas",personasCargoPN:"2 personas",personasCargoReemplazo:"2 personas",equipoAdicional:"2 personas",cambioPersonasRev:"Sí, de 2 a 4 personas",periodoRenovacion:"3 meses",reportaA:"Subgerente de Talento y Cultura",puestoPropuesto:"Analista Senior",puestoEncargado:"Jefe de Área",aQuienReemplaza:"Jefe saliente (vacancia)",puestoReemplazo:"Analista Senior",personaOVacanteReemplazo:"Vacante por renuncia",puestoNuevo:"Analista de Datos de Talento",puestoDestino:"Analista Senior",areaDestino:"Selección y Desarrollo",tipoCasoEspecial:"Convenio de colaboración",vigenciaCaso:"6 meses",areaReestructura:"Área de Talento",areaApoyoHorizontal:"Gerencia de Talento y Cultura",puestoEncargaturaAnterior:"Coordinador de Área","ap-name":"Aprobador de ejemplo","ap-role":"Gerente General"};
 const DEMO_FRASES=["El colaborador asumió funciones de mayor alcance y responsabilidad en los últimos meses, con resultados verificables y reconocimiento del equipo.","La necesidad surge por el crecimiento de la operación, que hoy supera la capacidad de la estructura actual y afecta los plazos comprometidos.","Con esta decisión se asegura la continuidad del servicio, se reduce el riesgo de perder talento clave y se ordena la carga de trabajo del área."];
@@ -1335,6 +1336,7 @@ function demoAuto(step){
     if(el.closest(".hidden")||el.disabled||el.readOnly||el.type==="button"||el.type==="file"||el.value) return;
     if(el.type==="checkbox"){el.checked=true;el.dispatchEvent(new Event("change",{bubbles:true}));return}
     const id=el.id||[...el.classList].find(c=>c.startsWith("ap-"))||"";
+    if(id==="area"||id==="seccion") return;   // opcionales: si la base no los trae, se dejan vacíos
     let v;
     if(el.tagName==="SELECT"){const o=[...el.options].filter(x=>x.value);v=(o.find(x=>x.value===DEMO_PICK[id])||o[Math.min(1,o.length-1)]||{}).value}
     else if(el.type==="date") v=/fin|hasta|termino/i.test(id)?dias(90):dias(0);
@@ -1350,7 +1352,12 @@ async function demoFill(enviar,dep,mov0){
     resetForm();
     const mov=mov0||MOVS[Math.floor(Math.random()*MOVS.length)];
     let per=null;
-    if(CONFIG.endpoint) try{const r=await postMaestro({aleatorio:true,departamento:dep||""});if(r.ok&&r.item) per=r.item}catch(e){}
+    let motivo="";
+    if(CONFIG.endpoint) for(let k=0;k<3&&!per;k++){
+      try{const r=await postMaestro(dep?{aleatorio:true,departamento:dep}:{codigo:DEMO_COLABORADOR});if(r.ok&&r.item) per={...r.item,codigo:r.item.codigo||DEMO_COLABORADOR};else motivo=r.error||"sin datos"}catch(e){motivo=String(e.message||e)}
+      if(!per) await demoTick(1500);
+    }
+    if(CONFIG.endpoint&&!per){toast("No se pudo leer a la persona del ejemplo desde la base ("+motivo+"). Intenta de nuevo.");bs.forEach(b=>{b.disabled=false;b.textContent=b.dataset.t});return null}
     per=per||{codigo:"0000012345",nombre:"Ana Lucía Torres",puesto:"Analista de Selección",departamento:"GERENCIA DE TALENTO Y CULTURA",area:"Atracción de Talento",seccion:"Selección"};
     dset("movimiento",mov);await demoTick(200);
     if(!$("cargoCliente").value) dset("cargoCliente","Subgerente de Talento y Cultura");
