@@ -1236,13 +1236,12 @@ async function doSubmit(){
 function showDone(rec,sent,err){
   lastRec=rec;
   ["form","stepper","actionsBar","errSummary"].forEach(id=>$(id).classList.add("hidden"));
-  const msg=!sent?`No se pudo enviar al servidor (${esc(err)}). Descarga el archivo y envíalo a tu Business Partner.`
+  const msg=!sent?`No se pudo enviar al servidor (${esc(err)}). Intenta de nuevo en unos minutos; tu borrador sigue guardado en este equipo.`
     :CONFIG.endpoint?(rec.bpAsignado?`Tu solicitud fue enviada a tu Business Partner: ${esc(rec.bpAsignado)}.`:"Tu solicitud fue registrada; aún no hay un Business Partner configurado para tu departamento y se derivó al coordinador.")
-    :"Tu solicitud quedó guardada en este equipo. Descarga el archivo y envíalo a tu Business Partner.";
+    :"Tu solicitud quedó guardada en este equipo. Descarga el Excel y envíalo a tu Business Partner.";
   $("done").classList.remove("hidden");
-  $("done").innerHTML=`<h2>${sent?"✔ Solicitud registrada":"⚠ Solicitud guardada, falta enviarla"}</h2><p>${msg}</p><dl class="sum"><dt>Código de seguimiento</dt><dd><b>${esc(rec.id)}</b></dd><dt>Movimiento</dt><dd>${esc(rec.data.movimiento)}</dd><dt>Índice de preparación</dt><dd>${rec.evaluation.score}/100 · ${esc(rec.evaluation.label)}</dd></dl><div class="inline" style="margin-top:16px"><button type="button" id="dlXls">Descargar Excel</button><button type="button" class="secondary" id="dlJson">Descargar solicitud (.json)</button><button type="button" class="secondary" id="newReq">Nueva solicitud</button></div>`;
+  $("done").innerHTML=`<h2>${sent?"✔ Solicitud registrada":"⚠ Solicitud guardada, falta enviarla"}</h2><p>${msg}</p><dl class="sum"><dt>Código de seguimiento</dt><dd><b>${esc(rec.id)}</b></dd><dt>Movimiento</dt><dd>${esc(rec.data.movimiento)}</dd><dt>Índice de preparación</dt><dd>${rec.evaluation.score}/100 · ${esc(rec.evaluation.label)}</dd></dl><div class="inline" style="margin-top:16px"><button type="button" id="dlXls">Descargar Excel</button><button type="button" class="secondary" id="newReq">Nueva solicitud</button></div>`;
   $("dlXls").onclick=()=>exportCase(rec);
-  $("dlJson").onclick=()=>download(`Solicitud_${rec.id}.json`,JSON.stringify(rec,null,2));
   $("newReq").onclick=resetForm;
   if(BP_MODE) renderHistory();
   window.scrollTo({top:0});

@@ -219,4 +219,5 @@ ok('el receptor web acepta una solicitud casi vacia (solo correo, departamento y
   const r = post({ token: TOKEN, rec: w }); assert.ok(r.ok, JSON.stringify(r));
   const fila = ss.getSheetByName('Entradas').rows.find(x => x[0] === 'VACIA1'); assert.strictEqual(fila[6].length, 10); assert.strictEqual(fila[9], 'No indicada');
 });
+ok('el ruteo de prueba deja Gerencia de Talento y Cultura con Claudia', () => { const r = ss.getSheetByName('Ruteo').rows.find(x => x[0] === 'GERENCIA DE TALENTO Y CULTURA'); assert.strictEqual(r[2], 'Claudia Muñoz'); });
 console.log('\n' + n + ' pruebas OK');
