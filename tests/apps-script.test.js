@@ -99,7 +99,7 @@ ok('rechaza departamento, movimiento, fecha y matrícula inválidos', () => {
 ok('otro usuario no puede pisar una solicitud ajena', () => { const w = web(); w.data.emailCliente = 'intruso@usil.edu.pe'; assert.strictEqual(post({ token: TOKEN, rec: w }).error, 'ID ya registrado por otro usuario'); });
 ok('limpia caracteres de control y no deja saltos en el asunto del correo', () => { const w = web(); w.id = 'X6'; w.data.cliente = 'Ana\u0000\u0007 Perez'; w.data.colaborador = 'x'; w.data.area = 'Con\r\ntratos'; assert.ok(post({ token: TOKEN, rec: w }).ok); const fila = ent.rows.find(r => r[0] === 'X6'); assert.ok(!/[\u0000\u0007]/.test(fila[7])); assert.ok(mails.filter(m => /X6/.test(m.subject || '')).every(m => !/[\r\n]/.test(m.subject))); });
 ok('rechaza solicitudes demasiado grandes', () => assert.ok(/demasiado grande/.test(JSON.parse(F.doPost({ postData: { contents: '{}', length: 999999 } }).t).error)));
-ok('límite por correo y hora (anti-spam)', () => { let ultimo; for (let i = 0; i < 12; i++) { const w = web(); w.id = 'R' + i; w.data.emailCliente = 'spam@usil.edu.pe'; ultimo = post({ token: TOKEN, rec: w }); } assert.ok(/Demasiados envíos/.test(ultimo.error)); });
+ok('límite por correo y hora (anti-spam)', () => { let ultimo; for (let i = 0; i < F.CONFIG.MAX_POR_CORREO_HORA + 2; i++) { const w = web(); w.id = 'R' + i; w.data.emailCliente = 'spam@usil.edu.pe'; ultimo = post({ token: TOKEN, rec: w }); } assert.ok(/Demasiados envíos/.test(ultimo.error)); });
 ok('límite global por día', () => { F.CONFIG.MAX_GLOBAL_DIA = 1; const w = web(); w.id = 'G1'; w.data.emailCliente = 'otro@usil.edu.pe'; const r = post({ token: TOKEN, rec: w }); assert.ok(/límite diario/.test(r.error), JSON.stringify(r)); F.CONFIG.MAX_GLOBAL_DIA = 300; });
 
 console.log('Exportación');
@@ -213,4 +213,5 @@ ok('cargarRuteoDePrueba reparte los 16 departamentos entre los 4 BP (4 cada uno)
   const porBP = {}; filas.forEach(r => { porBP[r[2]] = (porBP[r[2]] || 0) + 1; });
   assert.deepStrictEqual(Object.values(porBP), [4, 4, 4, 4]); assert.strictEqual(Object.keys(porBP).length, 4);
 });
+ok('demo: la persona al azar respeta el departamento pedido', () => { const r = mq({ aleatorio: true, departamento: 'GERENCIA LEGAL' }); assert.strictEqual(r.item.departamento, 'GERENCIA LEGAL'); });
 console.log('\n' + n + ' pruebas OK');

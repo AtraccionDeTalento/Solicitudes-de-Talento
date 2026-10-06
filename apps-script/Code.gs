@@ -30,7 +30,7 @@ const CONFIG = {
   COORDINADOR: "creyess@usil.edu.pe",   // César Reyes (Subgerente de Talento y Cultura): recibe lo «Sin asignar» y las fallas de envío
   TOKEN: "e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2",   // clave que debe enviar la app web (debe coincidir con CONFIG.token de index.html)
   DOMINIOS_PERMITIDOS: ["usil.edu.pe"],   // la app web solo acepta correos de estos dominios
-  MAX_POR_CORREO_HORA: 10,         // límite de envíos por correo y por hora (anti-spam)
+  MAX_POR_CORREO_HORA: 30,         // límite de envíos por correo y por hora (anti-spam)
   MAX_CONSULTAS_HORA: 60,          // consultas al maestro por correo y hora
   MAX_CONSULTAS_DIA: 3000,         // consultas al maestro por día en total
   MAX_GLOBAL_DIA: 300,             // límite total de envíos web por día
@@ -2335,7 +2335,7 @@ function consultaMaestro_(e) {
     const hoja = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID")).getSheetByName("Maestro");
     if (!hoja) return json_({ ok: true, item: null });
     let fila = null;
-    if (body.aleatorio) fila = filaAleatoriaMaestro_(hoja);          // solo para el modo demo
+    if (body.aleatorio) fila = filaAleatoriaMaestro_(hoja, body.departamento);          // solo para el modo demo
     else if (body.lider) fila = buscarFilaMaestro_(hoja, 8, email);
     else {
       const c = String(body.codigo || "");
@@ -2349,8 +2349,11 @@ function consultaMaestro_(e) {
 }
 
 /** Una persona ACTIVA con departamento, área y sección completos, al azar (modo demo). */
-function filaAleatoriaMaestro_(hoja) {
-  const v = hoja.getDataRange().getValues().slice(1).filter(f => normalizar_(f[3]) === "activo" && f[4] && f[5] && f[6]);
+function filaAleatoriaMaestro_(hoja, departamento) {
+  const todas = hoja.getDataRange().getValues().slice(1).filter(f => normalizar_(f[3]) === "activo");
+  const dep = normalizar_(departamento), deDep = dep ? todas.filter(f => normalizar_(f[4]) === dep) : todas;
+  const completas = deDep.filter(f => f[4] && f[5] && f[6]);
+  const v = completas.length ? completas : deDep.length ? deDep : todas;
   return v.length ? v[Math.floor(Math.random() * v.length)] : null;
 }
 

@@ -142,7 +142,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 </div></header>
 
 <main class="wrap">
-  <div id="demoBar" class="hidden" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button type="button" id="demoFill">✨ Rellenar todo con un ejemplo</button><span class="muted" style="font-size:13px">Modo prueba: carga una persona al azar y completa los 7 pasos; solo falta pulsar «Enviar solicitud».</span></div>
+  <div id="demoBar" class="hidden" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button type="button" id="demoFill">✨ Rellenar con un ejemplo</button><button type="button" id="demoSend">🚀 Rellenar y enviar</button><button type="button" class="secondary" id="demoBatch">📨 Generar 16 registros</button><span class="muted" style="font-size:13px">Modo prueba: rellenar deja listo para enviar; «Rellenar y enviar» crea un registro real para el BP; «Generar 16» envía uno por departamento (4 por BP).</span></div>
   <nav id="stepper" aria-label="Pasos de la solicitud"></nav>
   <div id="errSummary" class="alert hidden" role="alert"></div>
 
@@ -1344,13 +1344,13 @@ function demoAuto(step){
     if(v!==undefined){el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}))}
   });
 }
-async function demoFill(){
-  const b=$("demoFill");b.disabled=true;b.textContent="Rellenando…";
+async function demoFill(enviar,dep,mov0){
+  const bs=["demoFill","demoSend","demoBatch"].map($);bs.forEach(b=>{b.dataset.t=b.dataset.t||b.textContent;b.disabled=true});$("demoFill").textContent="Rellenando…";
   try{
     resetForm();
-    const mov=MOVS[Math.floor(Math.random()*MOVS.length)];
+    const mov=mov0||MOVS[Math.floor(Math.random()*MOVS.length)];
     let per=null;
-    if(CONFIG.endpoint) try{const r=await postMaestro({aleatorio:true});if(r.ok&&r.item) per=r.item}catch(e){}
+    if(CONFIG.endpoint) try{const r=await postMaestro({aleatorio:true,departamento:dep||""});if(r.ok&&r.item) per=r.item}catch(e){}
     per=per||{codigo:"0000012345",nombre:"Ana Lucía Torres",puesto:"Analista de Selección",departamento:"GERENCIA DE TALENTO Y CULTURA",area:"Atracción de Talento",seccion:"Selección"};
     dset("movimiento",mov);await demoTick(200);
     if(!$("cargoCliente").value) dset("cargoCliente","Subgerente de Talento y Cultura");
@@ -1367,8 +1367,20 @@ async function demoFill(){
     const faltan=[0,1,2,3,4,5].reduce((n,i)=>n+validate(i).length,0);
     toast(faltan?`Ejemplo cargado (${mov}); ${faltan} campo(s) pendiente(s): revisa los pasos.`:`Ejemplo cargado (${mov}). Pulsa «Enviar solicitud».`);
     afterAuto();
+    if(enviar&&!faltan){await submit();bs.forEach(b=>{b.disabled=false;b.textContent=b.dataset.t});return lastRec}
   }catch(e){toast("No se pudo rellenar el ejemplo: "+(e.message||e))}
-  b.disabled=false;b.textContent="✨ Rellenar todo con un ejemplo";
+  bs.forEach(b=>{b.disabled=false;b.textContent=b.dataset.t});
+}
+// Un registro real por departamento (16): cada BP recibe los de sus departamentos.
+async function demoLote(){
+  if(!confirm("Se enviarán "+DEPARTAMENTOS.length+" solicitudes de ejemplo REALES (una por departamento) a los Business Partner. ¿Continuar?")) return;
+  const por={};let ok=0,fallo=0;
+  for(let i=0;i<DEPARTAMENTOS.length;i++){
+    $("demoBatch").textContent=`Enviando ${i+1}/${DEPARTAMENTOS.length}…`;
+    try{const rec=await demoFill(true,DEPARTAMENTOS[i],MOVS[i%MOVS.length]);const bp=rec&&rec.bpAsignado||"Sin asignar";por[bp]=(por[bp]||0)+1;rec&&rec.id?ok++:fallo++}catch(e){fallo++}
+  }
+  $("demoBatch").textContent=$("demoBatch").dataset.t;
+  alert(`Listo: ${ok} enviadas, ${fallo} con problema. Por Business Partner: `+Object.entries(por).map(([k,v])=>`${k}: ${v}`).join(" · "));
 }
 
 // ---------- Arranque ----------
@@ -1462,7 +1474,9 @@ function setupLogin(){
   });
   $("logoutBtn").onclick=()=>logout(true);
   $("demoLogin").onclick=e=>{e.preventDefault();SESSION={name:DEMO_LIDER.name,email:DEMO_LIDER.email,role:"jefe",demo:true,last:Date.now()};saveSession();enter()};
-  $("demoFill").onclick=demoFill;
+  $("demoFill").onclick=()=>demoFill();
+  $("demoSend").onclick=()=>demoFill(true);
+  $("demoBatch").onclick=demoLote;
   ["click","keydown","input"].forEach(ev=>document.addEventListener(ev,touch,{passive:true}));
   setInterval(()=>{if(SESSION&&Date.now()-SESSION.last>CONFIG.sessionMinutes*60000){logout(false);toast("Sesión cerrada por inactividad. Tu borrador se conservó.")}},30000);
 }
