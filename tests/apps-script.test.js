@@ -13,7 +13,7 @@ class Item {
   createChoice(v, nav) { return { value: v, nav }; } setGoToPage(p) { this.o.goTo = p; return this; }
 }
 const mk = k => { const i = new Item(k); items.push(i); return i; };
-const vb = () => { const b = { rules: [] }; ['requireTextMatchesPattern', 'requireNumberGreaterThan', 'requireNumberGreaterThanOrEqualTo'].forEach(m => b[m] = x => { b.rules.push([m, x]); return b; }); b.setHelpText = t => { b.help = t; return b; }; b.build = () => b; return b; };
+const vb = () => { const b = { rules: [] }; ['requireTextMatchesPattern', 'requireTextLengthGreaterThanOrEqualTo', 'requireNumberGreaterThan', 'requireNumberGreaterThanOrEqualTo'].forEach(m => b[m] = x => { b.rules.push([m, x]); return b; }); b.setHelpText = t => { b.help = t; return b; }; b.build = () => b; return b; };
 const form = { getId: () => 'FID', getPublishedUrl: () => 'pub', getEditUrl: () => 'edit', addTextItem: () => mk('text'), addParagraphTextItem: () => mk('para'), addListItem: () => mk('list'), addDateItem: () => mk('date'), addPageBreakItem: () => mk('page'), addCheckboxItem: () => mk('check'), getResponses: () => [] };
 ['setDescription', 'setCollectEmail', 'setAllowResponseEdits', 'setProgressBar', 'setShowLinkToRespondAgain', 'setConfirmationMessage', 'setRequireLogin', 'setLimitOneResponsePerUser'].forEach(n => form[n] = () => form);
 class Sheet {
@@ -23,7 +23,7 @@ class Sheet {
   createTextFinder(t) { const s = this; return { matchEntireCell() { return this; }, findNext() { for (let i = 0; i < s.rows.length; i++) for (let j = 0; j < s.rows[i].length; j++) if (String(s.rows[i][j]) === t) return { getRow: () => i + 1, getColumn: () => j + 1 }; return null; } }; }
   getRange(a, b, c, d) {
     const s = this; if (typeof a === 'string') return { setValue() { return this; }, getValues() { return []; } };
-    const g = { setNumberFormat() { return g; }, setFontWeight() { return g; }, setBackground() { return g; }, setFontColor() { return g; }, createFilter() {}, setDataValidation() { return g; }, setFormula() {}, setFormulas() { return g; },
+    const g = { setNumberFormat() { return g; }, setFontWeight() { return g; }, setBackground() { return g; }, setFontColor() { return g; }, createFilter() {}, setDataValidation() { return g; }, setFormula() {}, setFormulas() { return g; }, setValue(v) { s.rows[a - 1][b - 1] = v; return g; },
       setValues(v) { v.forEach((row, i) => { s.rows[a - 1 + i] = s.rows[a - 1 + i] || []; row.forEach((x, j) => s.rows[a - 1 + i][b - 1 + j] = x); }); return g; },
       getValues() { return s.rows.slice(a - 1, a - 1 + (c || 1)).map(r => (r || []).slice(b - 1, b - 1 + (d || 1))); } };
     return g;
@@ -42,12 +42,12 @@ const ctx = {
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   Utilities: { formatDate: (d, tz, f) => { const z = x => String(x).padStart(2, '0'), iso = d.toISOString(); const [Y, M, D, H] = [iso.slice(0, 4), iso.slice(5, 7), iso.slice(8, 10), iso.slice(11, 13)];
     return f === 'yyMMdd' ? Y.slice(2) + M + D : f === 'yyyyMMddHH' ? Y + M + D + H : f === 'yyyyMMdd' ? Y + M + D : Y + '-' + M + '-' + D + '_' + H + '00'; } },
-  Session: { getScriptTimeZone: () => 'UTC' }, MailApp: { sendEmail: m => mails.push(m.to ? m : { to: m }) },
+  Session: { getScriptTimeZone: () => 'UTC', getActiveUser: () => ({ getEmail: () => ctx.quien }) }, HtmlService: { createHtmlOutputFromFile: f => ({ f, setTitle() { return this; }, addMetaTag() { return this; } }) }, MailApp: { sendEmail: m => mails.push(m.to ? m : { to: m }) },
   ContentService: { createTextOutput: t => ({ t, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
   DriveApp: { getFoldersByName: () => ({ hasNext: () => false }), createFolder: () => ({ createFile: (n, c) => { files.push({ n, c }); return { getUrl: () => n }; } }) }, console
 };
 vm.createContext(ctx);
-vm.runInContext(code + ';this.F={crearFormulario,alEnviar,doPost,exportarEntradas,compartirConBPs,CONFIG,CATALOGO};', ctx);
+vm.runInContext(code + ';this.F={crearFormulario,alEnviar,doPost,exportarEntradas,compartirConBPs,doGet,panelDatos,panelDetalle,panelActualizar,CONFIG,CATALOGO};', ctx);
 const F = ctx.F;
 let n = 0; const ok = (nombre, fn) => { fn(); n++; console.log('  ✓', nombre); };
 
@@ -105,4 +105,63 @@ ok('límite global por día', () => { F.CONFIG.MAX_GLOBAL_DIA = 1; const w = web
 console.log('Exportación');
 ok('exporta JSON y CSV con ambos orígenes', () => { const r = F.exportarEntradas(); const j = JSON.parse(files.find(f => f.n.endsWith('.json')).c); assert.strictEqual(r.total, j.length); assert.ok(j.some(e => e.origen === 'formulario') && j.some(e => e.origen === 'web')); assert.ok(j.every(e => e.data && 'dynamic' in e.data && 'approvals' in e.data)); assert.ok(files.find(f => f.n.endsWith('.csv')).c.startsWith('﻿')); });
 ok('compartirConBPs incluye BP y coordinador', () => { F.compartirConBPs(); ['ana.bp@usil.edu.pe', 'carla.bp@usil.edu.pe', 'coord@usil.edu.pe'].forEach(x => assert.ok(ss.editors.includes(x), x)); });
+console.log('Panel (jefe · BP · gerencia)');
+F.CONFIG.GERENTES = ['karla@usil.edu.pe'];
+ss.getSheetByName('BPs').rows.push(['Beto BP', 'beto.bp@usil.edu.pe', 'Socio de Negocio']);
+const como = (mail, fn) => { ctx.quien = mail; return fn(); };
+const falla = (fn, re) => assert.throws(fn, re);
+ok('doGet sirve Panel.html y el archivo existe', () => { assert.strictEqual(F.doGet().f, 'Panel'); assert.ok(fs.existsSync(path.join(__dirname, '..', 'apps-script', 'Panel.html'))); });
+ok('sin sesión de Google o con otro dominio: sin acceso', () => { falla(() => como('', () => F.panelDatos('jefe')), /Inicia sesión/); falla(() => como('x@gmail.com', () => F.panelDatos('jefe')), /institucional/); });
+ok('jefe ve solo lo suyo y no entra a BP ni Gerencia', () => {
+  const d = como('jefe1@usil.edu.pe', () => F.panelDatos('jefe')); assert.strictEqual(d.vistas.join(), 'jefe'); assert.ok(d.filas.length >= 1 && d.filas.every(f => f.enviadoPor === 'jefe1@usil.edu.pe'));
+  assert.ok(!('_dyn' in d.filas[0]) && !('editUrl' in d.filas[0]));
+  falla(() => como('jefe1@usil.edu.pe', () => F.panelDatos('bp')), /Sin acceso/); falla(() => como('jefe1@usil.edu.pe', () => F.panelDatos('gerencia')), /Sin acceso/);
+});
+ok('BP ve solo las solicitudes que le tocan', () => { const d = como('beto.bp@usil.edu.pe', () => F.panelDatos('bp')); assert.strictEqual(d.vistas.join(), 'jefe,bp'); assert.strictEqual(d.filas.length, 1); assert.strictEqual(d.filas[0].bp, 'Beto BP'); });
+ok('Gerencia solo ve lo que el BP le pasó (al inicio, nada)', () => assert.strictEqual(como('karla@usil.edu.pe', () => F.panelDatos('gerencia')).filas.length, 0));
+ok('detalle con títulos de preguntas; ajeno no disponible', () => {
+  const id = como('jefe1@usil.edu.pe', () => F.panelDatos('jefe')).filas[0].id;
+  const t = como('jefe1@usil.edu.pe', () => F.panelDetalle(id, 'jefe')); assert.ok(t.levantamiento.some(x => x[0] === '¿Qué posición requiere ser reemplazada?'));
+  falla(() => como('jefe2@usil.edu.pe', () => F.panelDetalle(id, 'jefe')), /no disponible/);
+});
+ok('BP actualiza estado de lo suyo, no decide Aprobado ni toca lo ajeno', () => {
+  const id = como('beto.bp@usil.edu.pe', () => F.panelDatos('bp')).filas[0].id;
+  como('beto.bp@usil.edu.pe', () => F.panelActualizar(id, 'bp', 'En revisión BP', 'ok')); assert.strictEqual(como('beto.bp@usil.edu.pe', () => F.panelDatos('bp')).filas[0].estado, 'En revisión BP');
+  falla(() => como('beto.bp@usil.edu.pe', () => F.panelActualizar(id, 'bp', 'Aprobado', '')), /Estado no permitido/);
+  const ajeno = ent.rows.find(r => r[iBP] === 'Ana BP')[0];
+  falla(() => como('beto.bp@usil.edu.pe', () => F.panelActualizar(ajeno, 'bp', 'En revisión BP', '')), /no disponible/);
+});
+ok('flujo: BP pasa a Gerencia → Gerencia decide; el BP ya no puede tocarlo; llegan los correos', () => {
+  const id = como('beto.bp@usil.edu.pe', () => F.panelDatos('bp')).filas[0].id;
+  como('beto.bp@usil.edu.pe', () => F.panelActualizar(id, 'bp', 'Enviado a Gerencia', 'Listo'));
+  assert.ok(mails.some(m => /karla@usil.edu.pe/.test(m.to) && /Enviado a Gerencia/.test(m.subject)));
+  falla(() => como('beto.bp@usil.edu.pe', () => F.panelActualizar(id, 'bp', 'En revisión BP', '')), /ya no está en tu etapa/);
+  const g = como('karla@usil.edu.pe', () => F.panelDatos('gerencia')); assert.strictEqual(g.filas.length, 1);
+  como('karla@usil.edu.pe', () => F.panelActualizar(id, 'gerencia', 'Aprobado', 'Va'));
+  const f = como('karla@usil.edu.pe', () => F.panelDatos('gerencia')).filas[0]; assert.strictEqual(f.estado, 'Aprobado'); assert.strictEqual(f.comentarioGerencia, 'Va'); assert.strictEqual(f.comentarioBP, 'Listo');
+  assert.ok(mails.some(m => /jefe1@usil.edu.pe/.test(m.to) && /Aprobado/.test(m.subject)));
+  falla(() => como('jefe1@usil.edu.pe', () => F.panelActualizar(id, 'gerencia', 'Rechazado', '')), /Sin acceso/);
+});
+ok('Gerencia puede devolver al BP', () => {
+  const id = como('karla@usil.edu.pe', () => F.panelDatos('gerencia')).filas[0].id;
+  falla(() => como('karla@usil.edu.pe', () => F.panelActualizar(id, 'gerencia', 'Devuelto al jefe', '')), /Estado no permitido/);
+  como('karla@usil.edu.pe', () => F.panelActualizar(id, 'gerencia', 'En revisión BP', 'Falta detalle'));
+  assert.strictEqual(como('karla@usil.edu.pe', () => F.panelDatos('gerencia')).filas.length, 0);
+  assert.strictEqual(como('beto.bp@usil.edu.pe', () => F.panelDatos('bp')).filas[0].estado, 'En revisión BP');
+});
+ok('la app web envía puntaje y alertas y el panel los muestra (acotados)', () => {
+  const w = web(); w.id = 'EV1'; w.data.emailCliente = 'evaluado@usil.edu.pe'; w.evaluation = { score: 250, label: 'Caso bien preparado', strengths: ['Tiene presupuesto'], alerts: ['Falta evidencia'], recommendation: 'Pasar a Compensaciones' };
+  F.CONFIG.MAX_GLOBAL_DIA = 300; assert.ok(post({ token: TOKEN, rec: w }).ok);
+  const d = como('evaluado@usil.edu.pe', () => F.panelDetalle('EV1', 'jefe'));
+  assert.strictEqual(d.puntaje, '100'); assert.strictEqual(d.alertas, 'Falta evidencia'); assert.strictEqual(d.clasificacion, 'Caso bien preparado');
+  assert.strictEqual(como('evaluado@usil.edu.pe', () => F.panelDatos('jefe')).filas[0].puntaje, '100');
+});
+ok('BP devuelve al jefe (con correo) y al reenviar vuelve al BP', () => {
+  ss.getSheetByName('BPs').rows.push(['Carla BP', 'carla.bp@usil.edu.pe', 'Socio de Negocio']);
+  como('carla.bp@usil.edu.pe', () => F.panelActualizar('EV1', 'bp', 'Devuelto al jefe', 'Falta evidencia'));
+  assert.ok(mails.some(m => /evaluado@usil.edu.pe/.test(m.to) && /Devuelto al jefe/.test(m.subject)));
+  assert.strictEqual(como('evaluado@usil.edu.pe', () => F.panelDatos('jefe')).filas[0].estado, 'Devuelto al jefe');
+  const w = web(); w.id = 'EV1'; w.data.emailCliente = 'evaluado@usil.edu.pe'; assert.ok(post({ token: TOKEN, rec: w }).ok);
+  assert.strictEqual(como('evaluado@usil.edu.pe', () => F.panelDatos('jefe')).filas[0].estado, 'En revisión BP');
+});
 console.log('\n' + n + ' pruebas OK');

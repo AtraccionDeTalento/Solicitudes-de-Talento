@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<style>
+:root{--navy:#00195A;--line:#D9E1F5;--mut:#5B6A8F;--bg:#F5F7FC}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 Arial,sans-serif;color:#14213D;background:var(--bg)}
+header{background:var(--navy);color:#fff;padding:14px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+header h1{font-size:17px;margin:0}header small{opacity:.8}
+nav button{background:transparent;color:#fff;border:1px solid #fff6;border-radius:6px;padding:7px 14px;margin-left:6px;cursor:pointer}
+nav button.on{background:#fff;color:var(--navy);font-weight:700}
+main{padding:20px;max-width:1300px;margin:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi b{display:block;font-size:26px;color:var(--navy)}.kpi span{color:var(--mut);font-size:12px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px}
+.bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px}.bar i{display:block;height:10px;background:var(--navy);border-radius:5px}.bar span:first-child{width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+input,select,textarea{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:#EEF2FB;position:sticky;top:0;color:var(--navy)}tr.f{cursor:pointer}tr.f:hover{background:#F3F6FD}
+.tag{padding:2px 8px;border-radius:10px;background:#E5EBFA;font-size:12px}
+.Aprobado{background:#D7F3E0}.Rechazado{background:#FBD9D9}.Nuevo{background:#FFF4C2}
+dialog{border:0;border-radius:12px;max-width:760px;width:94vw;padding:20px}dialog::backdrop{background:#0008}
+dl{display:grid;grid-template-columns:200px 1fr;gap:6px 12px}dt{color:var(--mut)}dd{margin:0;white-space:pre-wrap}
+h3{color:var(--navy);margin:16px 0 6px}.err{color:#B00020;padding:20px}.muted{color:var(--mut)}
+button.p{background:var(--navy);color:#fff;border:0;border-radius:6px;padding:8px 16px;cursor:pointer}
+</style></head><body>
+<header><div><h1>Solicitudes de Talento · USIL</h1><small id="quien"></small></div><nav id="tabs"></nav></header>
+<main><div id="err" class="err" hidden></div><div id="app"><p class="muted">Cargando…</p></div></main>
+<dialog id="dlg"></dialog>
+<script>
+const TITULOS={jefe:"Mis solicitudes",bp:"Bandeja del Business Partner",gerencia:"Gerencia · vista final"};
+const ALL=["Nuevo","En revisión BP","Devuelto al jefe","Enviado a Gerencia","Aprobado","Rechazado","En pausa"];
+let D=null,vista=null,filtro={q:"",estado:"",periodo:""};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fail=e=>{$("err").hidden=false;$("err").textContent=(e&&e.message||e)+"";$("app").innerHTML=""};
+
+function cargar(v){
+  vista=v;$("app").innerHTML='<p class="muted">Cargando…</p>';$("err").hidden=true;
+  google.script.run.withFailureHandler(fail).withSuccessHandler(d=>{D=d;pintar()}).panelDatos(v);
+}
+function contar(filas,k){const m={};filas.forEach(f=>{const x=f[k]||"—";m[x]=(m[x]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
+function barras(t,pares){const max=Math.max(1,...pares.map(p=>p[1]));
+  return `<div class="card"><b>${t}</b>${pares.slice(0,8).map(([k,n])=>`<div class="bar"><span title="${esc(k)}">${esc(k)}</span><i style="width:${n/max*100}px"></i><span>${n}</span></div>`).join("")}</div>`}
+function visibles(){const q=filtro.q.toLowerCase();
+  return D.filas.filter(f=>(!filtro.estado||f.estado===filtro.estado)&&(!filtro.periodo||f.periodo===filtro.periodo)&&(!q||Object.values(f).join(" ").toLowerCase().includes(q)))
+    .sort((a,b)=>String(b.enviadoEl).localeCompare(String(a.enviadoEl)))}
+function pintar(){
+  $("quien").textContent=D.email;
+  $("tabs").innerHTML=D.vistas.map(v=>`<button class="${v===vista?"on":""}" data-v="${v}">${TITULOS[v]}</button>`).join("");
+  const F=D.filas,pend=F.filter(f=>(vista==="gerencia"?["Enviado a Gerencia"]:["Nuevo","En revisión BP"]).includes(f.estado||"Nuevo")).length;
+  let h=`<div class="kpis"><div class="card kpi"><b>${F.length}</b><span>Solicitudes</span></div><div class="card kpi"><b>${pend}</b><span>Por revisar</span></div>
+   <div class="card kpi"><b>${F.filter(f=>f.estado==="Aprobado").length}</b><span>Aprobadas</span></div><div class="card kpi"><b>${F.filter(f=>f.estado==="Rechazado").length}</b><span>Rechazadas</span></div></div>`;
+  if(vista==="gerencia")h+=`<div class="row">${barras("Por estado",contar(F,"estado"))}${barras("Por Business Partner",contar(F,"bp"))}${barras("Por movimiento",contar(F,"movimiento"))}${barras("Por departamento",contar(F,"departamento"))}${barras("Por urgencia",contar(F,"urgencia"))}</div>`;
+  const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
+  h+=`<div class="tools"><input id="fq" placeholder="Buscar…" value="${esc(filtro.q)}"><select id="fe"><option value="">Todos los estados</option>${ALL.map(e=>`<option ${e===filtro.estado?"selected":""}>${esc(e)}</option>`).join("")}</select>
+   <select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select></div>`;
+  const V=visibles();
+  h+=`<div class="wrap"><table><tr><th>Fecha</th><th>Movimiento</th><th>Colaborador</th><th>Departamento</th>${vista!=="jefe"?"<th>Líder</th>":""}<th>BP</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th></tr>
+  ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.departamento)}</td>${vista!=="jefe"?`<td>${esc(f.cliente)}</td>`:""}<td>${esc(f.bp)}</td><td>${esc(f.urgencia)}</td><td>${esc(f.puntaje||"—")}</td><td><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span></td></tr>`).join("")||'<tr><td colspan="9" class="muted">Sin solicitudes.</td></tr>'}</table></div>`;
+  $("app").innerHTML=h;
+}
+$("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
+$("app").onclick=e=>{const tr=e.target.closest("tr.f");if(tr)detalle(tr.dataset.id)};
+$("app").oninput=e=>{if(e.target.id==="fq"){filtro.q=e.target.value;const p=e.target.selectionStart;pintar();$("fq").focus();$("fq").setSelectionRange(p,p)}};
+$("app").onchange=e=>{if(e.target.id==="fe"){filtro.estado=e.target.value;pintar()}if(e.target.id==="fp"){filtro.periodo=e.target.value;pintar()}};
+
+function detalle(id){
+  const f=D.filas.find(x=>x.id===id),ed=D.editables.includes(f.estado||"Nuevo");
+  google.script.run.withFailureHandler(fail).withSuccessHandler(d=>{
+    const dl=a=>`<dl>${a.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+    $("dlg").innerHTML=`<h2 style="margin-top:0;color:var(--navy)">${esc(f.movimiento)} · ${esc(f.colaborador)}</h2>
+     ${dl([["ID",f.id],["Líder",f.cliente+" · "+f.cargoCliente],["Departamento / Área",f.departamento+" · "+f.area],["Puesto actual",f.puestoActual],["BP asignado",f.bp],["Presupuesto",f.presupuesto+" · "+f.fuentePresupuesto+" · S/ "+f.montoPresupuesto],["Urgencia / impacto",f.urgencia+" · "+f.impacto],["Consecuencia",f.consecuencia],["Comentario BP",f.comentarioBP],["Comentario gerencia",f.comentarioGerencia]])}
+     <h3>Detalle del impacto</h3><p>${esc(d.impacto)}</p>
+     ${d.puntaje?`<h3>Evaluación automática: ${esc(d.puntaje)}/100 · ${esc(d.clasificacion)}</h3>${d.fortalezas?`<p><b>Fortalezas</b><br>${esc(d.fortalezas).split(" | ").join("<br>")}</p>`:""}${d.alertas?`<p><b>Alertas</b><br>${esc(d.alertas).split(" | ").join("<br>")}</p>`:""}<p class="muted">${esc(d.recomendacion)}</p>`:""}
+     ${d.sustento?`<h3>Sustento ejecutivo</h3><p style="white-space:pre-wrap">${esc(d.sustento)}</p>`:""}
+     <h3>Levantamiento</h3>${dl(d.levantamiento)||""}
+     ${d.aprobaciones.length?`<h3>Aprobaciones</h3>${d.aprobaciones.map(a=>dl([["Nivel",a.level],["Aprobador",a.name+" · "+a.role],["Fecha",a.date],["Evidencia",a.evidence+" "+(a.type||"")]])).join("<hr>")}`:""}
+     ${ed?`<h3>Gestión</h3><div class="tools"><select id="ne">${D.estados.map(e=>`<option ${e===f.estado?"selected":""}>${esc(e)}</option>`).join("")}</select></div>
+       <textarea id="nc" rows="3" style="width:100%" placeholder="Comentario">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>`:""}
+     ${vista==="jefe"&&f.estado==="Devuelto al jefe"&&d.editUrl?`<p><a href="${esc(d.editUrl)}" target="_blank" rel="noopener"><b>Corregir y reenviar</b></a></p>`:vista==="jefe"&&f.estado==="Devuelto al jefe"?"<p><b>Corrige la solicitud desde la app web y vuelve a enviarla.</b></p>":""}
+     <p style="text-align:right"><button class="p" id="cerrar" style="background:#8892AD">Cerrar</button> ${ed?'<button class="p" id="guardar">Guardar</button>':""}</p>`;
+    $("dlg").showModal();$("cerrar").onclick=()=>$("dlg").close();
+    if(ed)$("guardar").onclick=()=>{$("guardar").disabled=true;
+      google.script.run.withFailureHandler(e=>{$("guardar").disabled=false;alert(e.message||e)}).withSuccessHandler(()=>{$("dlg").close();cargar(vista)}).panelActualizar(id,vista,$("ne").value,$("nc").value)};
+  }).panelDetalle(id,vista);
+}
+google.script.run.withFailureHandler(fail).withSuccessHandler(d=>cargar(d.vistas[d.vistas.length-1])).panelDatos("jefe");
+</script></body></html>

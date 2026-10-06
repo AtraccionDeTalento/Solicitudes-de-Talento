@@ -10,6 +10,18 @@ Dos piezas: **la app web** (`index.html`, GitHub Pages) y **el receptor en Googl
 5. Ejecutar `compartirConBPs` (acceso a los BP y al coordinador) y, si se desea, `crearVistasPorBP`.
 6. **Implementar › Nueva implementación › Aplicación web**: ejecutar como *Yo*, acceso *Cualquier usuario*. Copiar la URL `…/exec`.
 
+## 1b. Panel web con tres vistas (jefes · BP · Gerencia)
+1. En el mismo proyecto de Apps Script: **+ › HTML** › nombre exacto `Panel` › pegar `apps-script/Panel.html`.
+2. En `CONFIG.GERENTES` poner el correo de Karla (gerenta). Quien esté ahí ve la vista **Gerencia** (todo + decisión final Aprobado/Rechazado).
+3. Implementar de nuevo (**Administrar implementaciones › editar › Nueva versión**). La URL `…/exec` abierta en el navegador es el panel.
+4. **Flujo:** el jefe envía (Nuevo) → el BP revisa y elige *Devuelto al jefe* (le llega correo con enlace para corregir; al reenviar vuelve al BP) o *Enviado a Gerencia* (le llega correo a los `GERENTES`) → Gerencia elige *Aprobado*, *Rechazado* o *En revisión BP* (lo devuelve al BP). Gerencia solo ve lo que el BP le pasó; el BP no puede tocar una solicitud que ya está en Gerencia.
+5. Roles (según la cuenta Google con la que entra, no un campo de texto):
+   - **Jefe de área**: cualquier `@usil.edu.pe` → *Mis solicitudes* (solo las que envió).
+   - **BP**: correos de la pestaña `BPs` → *Bandeja* (solo lo que Ruteo le asigna); cambia estado y comenta, sin aprobar/rechazar.
+   - **Gerencia**: correos de `CONFIG.GERENTES` → todo, KPIs por estado/BP/movimiento/departamento, decisión final y comentario.
+6. Las solicitudes del **Google Form** y de la **app web** llegan a la misma hoja «Entradas», así que aparecen juntas en el panel.
+7. Requisito: quien abre el panel debe estar con su cuenta USIL en el navegador y el dueño del script en el mismo Workspace; si no, Google no entrega el correo y el panel pide iniciar sesión.
+
 ## 2. App web (GitHub Pages)
 1. En `index.html`, `CONFIG.endpoint` = URL `…/exec` del paso 1.6. Subir el cambio.
 2. GitHub › Settings › Pages › *Deploy from a branch* › `main` / `(root)`.

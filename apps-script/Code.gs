@@ -34,6 +34,7 @@ const CONFIG = {
   MAX_GLOBAL_DIA: 300,             // límite total de envíos web por día
   MAX_BYTES: 60000,                // tamaño máximo de una solicitud web
   ENVIAR_CORREOS: true,
+  GERENTES: [],                    // correos con la vista de Gerencia (Karla, gerenta): ve todo y da la decisión final. COMPLETAR antes de publicar.
   CARPETA_EXPORT: "Exportaciones BP",
   HOJA_ENTRADAS: "Entradas",
   HOJA_RUTEO: "Ruteo",
@@ -1773,12 +1774,13 @@ function configurar_(form) {
 
 function agregar_(form, q) {
   let it;
-  const lim = (q.min != null) ? "Entre " + q.min + " y " + q.max + " caracteres." : "";
+  const lim = (q.min != null) ? (q.tipo === "textarea" ? "Mínimo " + q.min + " caracteres (máximo recomendado " + q.max + ")." : "Entre " + q.min + " y " + q.max + " caracteres.") : "";
   switch (q.tipo) {
     case "textarea":
       it = form.addParagraphTextItem();
+      // Google Forms rechaza la regex de longitud en párrafos: se exige el mínimo con la regla nativa y el máximo queda como guía.
       it.setValidation(FormApp.createParagraphTextValidation().setHelpText(lim)
-        .requireTextMatchesPattern("[\\s\\S]{" + q.min + "," + q.max + "}").build());
+        .requireTextLengthGreaterThanOrEqualTo(q.min).build());
       break;
     case "text":
       it = form.addTextItem();
@@ -1816,9 +1818,17 @@ const COLS = [
   ["BP asignado", "bp"], ["Correo BP", "bpCorreo"], ["¿Aprobación previa?", "tieneAprobacion"], ["Presupuesto", "presupuesto"],
   ["Fuente de presupuesto", "fuentePresupuesto"], ["Quién valida", "validaPresupuesto"], ["Monto (S/)", "montoPresupuesto"], ["Urgencia", "urgencia"],
   ["Impacto", "impacto"], ["Consecuencia", "consecuencia"], ["Detalle del impacto", "impactoDetalle"], ["Sustento ejecutivo", "solicitudConcreta"],
-  ["Levantamiento (JSON)", "_dyn"], ["Aprobaciones (JSON)", "_apr"], ["Estado", "estado"], ["Comentario BP", "comentarioBP"], ["Enlace de edición", "editUrl"]
+  ["Levantamiento (JSON)", "_dyn"], ["Aprobaciones (JSON)", "_apr"], ["Estado", "estado"], ["Comentario BP", "comentarioBP"], ["Enlace de edición", "editUrl"], ["Comentario gerencia", "comentarioGerencia"],
+  ["Puntaje (0-100)", "puntaje"], ["Clasificación", "clasificacion"], ["Fortalezas", "fortalezas"], ["Alertas", "alertas"], ["Recomendación", "recomendacion"]   // solo las solicitudes de la app web los traen
 ];
-const TOP = ["id", "enviadoEl", "enviadoPor", "origen", "periodo", "bpCorreo", "estado", "comentarioBP", "editUrl"];
+const TOP = ["id", "enviadoEl", "enviadoPor", "origen", "periodo", "bpCorreo", "estado", "comentarioBP", "editUrl", "comentarioGerencia"];
+// Flujo: Jefe envía (Nuevo) → BP revisa → «Devuelto al jefe» (corrige y reenvía) o «Enviado a Gerencia» → Gerencia: Aprobado / Rechazado / vuelve al BP.
+const ESTADOS = ["Nuevo", "En revisión BP", "Devuelto al jefe", "Enviado a Gerencia", "Aprobado", "Rechazado", "En pausa"];
+const ESTADOS_BP = ["En revisión BP", "Devuelto al jefe", "Enviado a Gerencia", "En pausa"];   // opciones que elige el BP
+const EDITABLE_BP = ["Nuevo", "En revisión BP", "Devuelto al jefe", "En pausa"];             // estados en los que el BP puede actuar
+const ESTADOS_GER = ["Enviado a Gerencia", "Aprobado", "Rechazado", "En revisión BP"];       // opciones de Gerencia («En revisión BP» = devolver al BP)
+const EDITABLE_GER = ["Enviado a Gerencia", "Aprobado", "Rechazado"];
+const VISIBLE_GER = EDITABLE_GER;                                                            // Gerencia solo ve lo que el BP le pasó
 const colIdx_ = clave => COLS.findIndex(c => c[1] === clave);
 
 function prepararHoja_(sh) {
@@ -1828,7 +1838,7 @@ function prepararHoja_(sh) {
   sh.setFrozenRows(1); sh.setFrozenColumns(6);
   sh.getRange(1, 1, 1, COLS.length).createFilter();
   sh.getRange(2, colIdx_("estado") + 1, 2000, 1).setDataValidation(SpreadsheetApp.newDataValidation()
-    .requireValueInList(["Nuevo", "En revisión BP", "Enviado a Compensaciones", "Aprobado", "Rechazado", "En pausa"], true).build());
+    .requireValueInList(ESTADOS, true).build());
 }
 
 function valorCol_(rec, clave) {
@@ -1853,6 +1863,8 @@ function guardarFila_(rec) {
     const previo = sh.getRange(r, 1, 1, COLS.length).getValues()[0];
     if (String(previo[colIdx_("enviadoPor")]).toLowerCase() !== String(rec.enviadoPor).toLowerCase()) throw new Error("ID ya registrado por otro usuario");
     fila[e] = previo[e] || "Nuevo"; fila[c] = previo[c] || "";
+    if (fila[e] === "Devuelto al jefe") fila[e] = "En revisión BP";   // el jefe corrigió y reenvió: vuelve al BP
+    fila[colIdx_("comentarioGerencia")] = previo[colIdx_("comentarioGerencia")] || "";
     sh.getRange(r, 1, 1, COLS.length).setValues([fila]);
   } else {
     fila[colIdx_("estado")] = rec.estado || "Nuevo";
@@ -2015,7 +2027,7 @@ function aRegistro_(resp) {
   }
   const ts = resp.getTimestamp();
   return {
-    id: "ENT-" + Utilities.formatDate(ts, "UTC", "yyMMdd") + "-" + String(resp.getId()).slice(-10),
+    id: "ENT-" + String(resp.getId()).slice(-14),
     enviadoEl: ts.toISOString(), enviadoPor: d.emailCliente, origen: "formulario",
     periodo: (d.fechaSolicitud || "").slice(0, 7), data: d, editUrl: resp.getEditResponseUrl()
   };
@@ -2079,6 +2091,9 @@ function desdeWeb_(w) {
   d.montoPresupuesto = String(Number(src.montoPresupuesto) >= 0 ? Number(src.montoPresupuesto) : "");
   d.impactoDetalle = limpiar_(src.impactoDetalle, 1000);
   d.solicitudConcreta = limpiar_(src.solicitudConcreta, 3000);
+  const ev = w.evaluation || {}, lista = x => (Array.isArray(x) ? x : []).slice(0, 10).map(t => unaLinea_(t, 250)).join(" | ");
+  d.puntaje = ev.score == null ? "" : String(Math.max(0, Math.min(100, Math.round(Number(ev.score) || 0))));
+  d.clasificacion = unaLinea_(ev.label, 80); d.fortalezas = lista(ev.strengths); d.alertas = lista(ev.alerts); d.recomendacion = limpiar_(ev.recommendation, 500);
   d.movimiento = m.nombre;
   if (m.sinMatricula) { d.codigo = "No aplica"; d.colaborador = m.colaboradorFijo; d.puestoActual = "No aplica"; }
   else if (/^\d+$/.test(d.codigo)) d.codigo = ("0000000000" + d.codigo).slice(-10);
@@ -2150,4 +2165,102 @@ function exportarEntradas(periodo) {
   const csv = carpeta.createFile("entradas_" + sello + ".csv", "﻿" + csvRows.map(f => f.map(esc).join(",")).join("\r\n"), "text/csv");
   Logger.log(recs.length + " entradas exportadas.\nJSON: " + json.getUrl() + "\nCSV: " + csv.getUrl());
   return { total: recs.length, json: json.getUrl(), csv: csv.getUrl() };
+}
+
+// ============================================================ PANEL WEB (jefes de área · BP · Gerencia)
+// Se sirve desde la misma implementación web (doGet + Panel.html). La identidad sale de la cuenta Google, no de un campo de texto.
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile("Panel").setTitle("Solicitudes de Talento · USIL")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1");
+}
+
+function quien_() {
+  const email = String(Session.getActiveUser().getEmail() || "").toLowerCase();
+  if (!email) throw new Error("Inicia sesión en Google con tu cuenta institucional y recarga la página.");
+  if (CONFIG.DOMINIOS_PERMITIDOS.length && CONFIG.DOMINIOS_PERMITIDOS.indexOf(email.split("@")[1]) < 0) throw new Error("Usa tu cuenta institucional.");
+  const ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SS_ID"));
+  const bps = {};
+  CONFIG.BPS_DIRECTORIO.forEach(b => { bps[b[1].toLowerCase()] = 1; });
+  const hoja = ss.getSheetByName("BPs");
+  if (hoja) hoja.getDataRange().getValues().slice(1).forEach(r => { if (r[1]) bps[String(r[1]).trim().toLowerCase()] = 1; });
+  const vistas = ["jefe"];
+  if (bps[email]) vistas.push("bp");
+  if (CONFIG.GERENTES.some(g => g.toLowerCase() === email)) vistas.push("gerencia");
+  return { email, vistas };
+}
+
+function filasVista_(q, vista) {
+  if (q.vistas.indexOf(vista) < 0) throw new Error("Sin acceso a esta vista");
+  const clave = vista === "jefe" ? colIdx_("enviadoPor") : colIdx_("bpCorreo");
+  return hojaEntradas_().getDataRange().getValues().slice(1)
+    .filter(f => f[0] && (vista === "gerencia" ? VISIBLE_GER.indexOf(f[colIdx_("estado")]) >= 0 : String(f[clave]).toLowerCase() === q.email));
+}
+
+function panelDatos(vista) {
+  const q = quien_();
+  const filas = filasVista_(q, vista).map(f => {
+    const o = {};
+    COLS.forEach((c, i) => { if (["_dyn", "_apr", "editUrl"].indexOf(c[1]) < 0) o[c[1]] = f[i]; });
+    return o;
+  });
+  return { email: q.email, vistas: q.vistas, vista, filas, estados: vista === "bp" ? ESTADOS_BP : ESTADOS_GER, editables: vista === "bp" ? EDITABLE_BP : vista === "gerencia" ? EDITABLE_GER : [] };
+}
+
+/** Detalle de una solicitud (levantamiento con los títulos de las preguntas y aprobaciones). Solo si la vista la puede ver. */
+function panelDetalle(id, vista) {
+  const f = filasVista_(quien_(), vista).find(x => x[0] === id);
+  if (!f) throw new Error("Solicitud no disponible");
+  const rec = filaARegistro_(f);
+  const m = CATALOGO.movs.find(x => x.nombre === rec.data.movimiento);
+  const titulo = {};
+  if (m) m.secciones.forEach(s => s.preguntas.forEach(p => { titulo[p.id] = p.t; }));
+  return {
+    puntaje: rec.data.puntaje, clasificacion: rec.data.clasificacion, fortalezas: rec.data.fortalezas, alertas: rec.data.alertas, recomendacion: rec.data.recomendacion,
+    sustento: rec.data.solicitudConcreta, impacto: rec.data.impactoDetalle, editUrl: rec.editUrl,
+    levantamiento: Object.keys(rec.data.dynamic).filter(k => rec.data.dynamic[k] !== "").map(k => [titulo[k] || k, rec.data.dynamic[k]]),
+    aprobaciones: rec.data.approvals
+  };
+}
+
+/** BP: cambia estado/comentario de SUS solicitudes. Gerencia: de cualquiera, con decisión final. */
+function panelActualizar(id, vista, estado, comentario) {
+  if (vista !== "bp" && vista !== "gerencia") throw new Error("Vista no válida");
+  const q = quien_();
+  if ((vista === "bp" ? ESTADOS_BP : ESTADOS_GER).indexOf(estado) < 0) throw new Error("Estado no permitido");
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const fila = filasVista_(q, vista).find(f => f[0] === id);
+    if (!fila) throw new Error("Solicitud no disponible");
+    if ((vista === "bp" ? EDITABLE_BP : EDITABLE_GER).indexOf(fila[colIdx_("estado")] || "Nuevo") < 0) throw new Error("Esta solicitud ya no está en tu etapa");
+    const sh = hojaEntradas_();
+    const hit = sh.createTextFinder(id).matchEntireCell(true).findNext();
+    if (!hit || hit.getColumn() !== 1) throw new Error("Solicitud no encontrada");
+    const r = hit.getRow();
+    sh.getRange(r, colIdx_("estado") + 1).setValue(estado);
+    sh.getRange(r, colIdx_(vista === "bp" ? "comentarioBP" : "comentarioGerencia") + 1).setValue(limpiar_(comentario, 1000));
+    avisarCambio_(filaARegistro_(fila), estado, limpiar_(comentario, 1000));
+    return { ok: true };
+  } finally { lock.releaseLock(); }
+}
+
+/** Correo en cada paso del flujo: devuelto → jefe; enviado a Gerencia → gerentes; decisión → jefe y BP; devuelto por Gerencia → BP. */
+function avisarCambio_(rec, estado, comentario) {
+  if (!CONFIG.ENVIAR_CORREOS) return;
+  const d = rec.data, tema = unaLinea_(d.movimiento + " · " + (d.colaborador || d.area) + " · " + rec.id, 160);
+  const destinos = { "Devuelto al jefe": [rec.enviadoPor], "Enviado a Gerencia": CONFIG.GERENTES, "Aprobado": [rec.enviadoPor, rec.bpCorreo], "Rechazado": [rec.enviadoPor, rec.bpCorreo], "En revisión BP": [rec.bpCorreo] }[estado] || [];
+  const to = destinos.filter(Boolean).join(",");
+  if (!to) return;
+  const corregir = estado === "Devuelto al jefe" && rec.editUrl ? "<p><a href='" + h_(rec.editUrl) + "'>Corregir y reenviar</a></p>" : "";
+  try {
+    MailApp.sendEmail({ to, subject: "[" + estado + "] " + tema,
+      htmlBody: "<p>Estado: <b>" + h_(estado) + "</b> · BP: " + h_(d.bp) + "</p>" + (comentario ? "<p>Comentario: " + h_(comentario) + "</p>" : "") + corregir + "<p>Revísala en el panel de Solicitudes de Talento.</p>" });
+  } catch (e) { log_("Aviso " + rec.id, e); }
+}
+
+/** Si agregas columnas nuevas a COLS después de crear la hoja: ejecútala una vez para escribir los encabezados faltantes (no borra datos). */
+function actualizarEncabezados() {
+  const sh = hojaEntradas_();
+  sh.getRange(1, 1, 1, COLS.length).setValues([COLS.map(c => c[0])]).setFontWeight("bold").setBackground("#00195A").setFontColor("#FFFFFF");
+  sh.getRange(2, 1, sh.getMaxRows() - 1, COLS.length).setNumberFormat("@");
+  sh.getRange(2, colIdx_("estado") + 1, 2000, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(ESTADOS, true).build());   // lista de estados del flujo
 }

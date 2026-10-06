@@ -8,6 +8,7 @@ Cada solicitud llega **automáticamente al Business Partner** del departamento d
 |---|---|
 | `index.html` | App web (una sola página, sin build): inicio de sesión, 7 pasos guiados, puntaje de preparación y sustento ejecutivo. |
 | `apps-script/Code.gs` | Google Apps Script: crea el Google Form completo, la hoja «Entradas», el ruteo Departamento → BP, los correos y el receptor de la app web. |
+| `apps-script/Panel.html` | Panel con 3 vistas por rol: jefes de área, Business Partners y Gerencia (Karla). Lee la misma hoja «Entradas» (Google Form + app web). |
 | `docs/` | Guía de despliegue, lista de preguntas y plantilla de ruteo. |
 
 ## Puesta en marcha

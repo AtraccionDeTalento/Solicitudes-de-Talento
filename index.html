@@ -132,7 +132,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
   </div>
 </div>
 <header><div class="hwrap">
-  <div class="userchip hidden" id="userChip"><span id="userName"></span><button type="button" id="logoutBtn">Cerrar sesión</button></div>
+  <div class="userchip hidden" id="userChip"><a id="panelLink" class="hidden" target="_blank" rel="noopener" style="color:#fff;margin-right:12px;font-weight:700">Panel de revisión ↗</a><span id="userName"></span><button type="button" id="logoutBtn">Cerrar sesión</button></div>
   <h1>Solicitud de Movimiento de Talento</h1>
   <p>Responde todas las preguntas con hechos concretos: el resumen que verá el Comité se arma con tus respuestas. <span id="modeTag"></span></p>
   <div class="pbar"><div id="barfill"></div></div><div id="barTxt"></div>
@@ -200,12 +200,12 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
   <section id="bpPanel" class="panel hidden" style="margin-top:28px">
     <h2>Panel BP / administrador</h2>
     <p class="muted">Visible solo para correos con rol BP. La base maestra y los casos viven en este navegador.</p>
-    <h3>Base maestra</h3>
+<div hidden>    <h3>Base maestra</h3>
     <div class="grid">
       <div><label for="masterFile">Maestro BPs (.xlsx / .xls)</label><input id="masterFile" type="file" accept=".xlsx,.xls"></div>
       <div><label for="masterStatus">Base activa</label><input id="masterStatus" readonly value="Sin base cargada"></div>
     </div>
-    <div class="inline" style="margin-top:10px"><button id="loadMaster" type="button">Cargar / actualizar base</button><span id="masterDetail" class="muted"></span></div>
+    <div class="inline" style="margin-top:10px"><button id="loadMaster" type="button">Cargar / actualizar base</button><span id="masterDetail" class="muted"></span></div></div>
     <h3>Casos recibidos</h3>
     <div class="inline" style="justify-content:space-between;margin-bottom:10px">
       <div><b id="historyTitle"></b> <input id="histPeriod" type="month" style="width:auto;margin-left:8px"></div>
@@ -230,7 +230,8 @@ const $ = id => document.getElementById(id);
 // Si está vacío, la solicitud se guarda en este navegador y se ofrece la descarga del archivo.
 const APP_VERSION="2.0.0";
 const CONFIG = {
-  endpoint:"",                         // URL del receptor (Apps Script «aplicación web» de Code.gs). Vacío = guardado local + descarga.
+  endpoint:"https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",                         // URL del receptor (Apps Script «aplicación web» de Code.gs). Vacío = guardado local + descarga.
+  panelUrl:"https://script.google.com/macros/s/AKfycbzMjJIE7F3ey1Eyj-O1YTaBfMwPZ00OhIG_zF3fG4mMm0Yc9AbckCj6UuQft7hdwSwoPQ/exec",                         // URL del panel de revisión (la misma «aplicación web» …/exec). Muestra el enlace «Panel de revisión» a jefes, BP y Gerencia.
   token:"e65ae68ed6fbada050fd17c9203b8a19a2c915b3959b4fe2",   // Misma clave que CONFIG.TOKEN de Code.gs (no es secreta: la página es pública; solo frena envíos casuales).
   bpEmails:["msalazar@usil.edu.pe","mhiga@usil.edu.pe","lreyes@usil.edu.pe","cmunozse@usil.edu.pe","creyess@usil.edu.pe"],   // BP de Talento y Cultura + su Subgerente (ven el panel de casos, maestro y exportación).
   allowedDomains:["usil.edu.pe"],      // Dominios de correo que pueden ingresar.
@@ -1379,6 +1380,7 @@ function enter(){
   $("login").classList.add("hidden");$("userChip").classList.remove("hidden");
   $("userName").textContent=`${SESSION.name} · ${BP_MODE?"BP":"Líder"}`;
   $("bpPanel").classList.toggle("hidden",!BP_MODE);$("modeTag").textContent=BP_MODE?"· Modo BP":"";
+  if(CONFIG.panelUrl){$("panelLink").href=CONFIG.panelUrl;$("panelLink").classList.remove("hidden")}
   if(BP_MODE) renderHistory();
   const dr=load(draftKey(),null);
   editingCaseId=null;reached=0;showShell();
