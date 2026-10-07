@@ -1016,7 +1016,7 @@ function showDone(rec,sent,err){
   if(BP_MODE) renderHistory();
   window.scrollTo({top:0});
 }
-function baseData(){return {fechaSolicitud:today(),cliente:SESSION?SESSION.name:"",emailCliente:SESSION?SESSION.email:""}}
+function baseData(){return {fechaSolicitud:today(),cliente:SESSION?SESSION.name:""}}
 function showShell(){
   ["form","stepper","actionsBar"].forEach(id=>$(id).classList.remove("hidden"));
   $("done").classList.add("hidden");
@@ -1260,6 +1260,7 @@ function onAny(e){
 function init(){
   $("g0a").innerHTML=G0A.map(qHTML).join("");
   $("g0b").innerHTML=G0B.map(qHTML).join("");
+  $("emailCliente").closest(".q").classList.add("hidden");   // el sistema no maneja correos: la identidad es opaca
   $("g0c").innerHTML=CODE_HTML+G0C.map(qHTML).join("");
   $("g2").innerHTML=qHTML(["tieneAprobacion","¿Cuenta con alguna aprobación previa?","select",SN]);
   $("g3").innerHTML=G3.map(qHTML).join("");
@@ -1311,28 +1312,18 @@ function readSession(){
 let lastSave=0;
 function touch(){if(!SESSION) return;SESSION.last=Date.now();if(Date.now()-lastSave>15000){lastSave=Date.now();saveSession()}}
 function setupLogin(){
-  $("lgGoogle").onclick=async()=>{
-    const err=$("lgErr"),b=$("lgGoogle");err.textContent="";b.disabled=true;
-    try{const u=await (await FBp).entrarGoogle();SESSION={name:u.displayName||u.email,email:u.email.toLowerCase(),role:"jefe",last:Date.now()};saveSession();enter()}
-    catch(e){err.textContent=e.code==="auth/popup-closed-by-user"||e.code==="auth/cancelled-popup-request"?"":(e.message||"No se pudo iniciar sesión.")}
-    b.disabled=false;
-  };
-  // Un solo formulario: con clave = Business Partner/Gerencia (van a su panel); sin clave = jefe de área, solo en modo prueba (correo sin verificar).
-  $("lgStaff").onclick=async()=>{
-    const err=$("lgErr2"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),clave=$("lgPass").value,name=$("lgNombre").value.trim().replace(/\s+/g," ");
-    err.textContent="";
-    if(!mail) return void(err.textContent="Ingresa tu correo institucional.");
-    if(!clave&&!CONFIG.modoPrueba) return void(err.textContent="Jefes de área: usa «Entrar con Google». Business Partner y Gerencia: agrega tu clave.");
-    if(!clave&&(name.length<5||!name.includes(" "))) return void(err.textContent="Ingresa tu nombre y apellido.");
+  $("loginForm").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const err=$("lgErr"),b=$("lgEntrar"),dni=$("lgDni").value,F=await FBp;err.textContent="";
+    if(!F.dniValido(dni)) return void(err.textContent="Ingresa un DNI válido (8 dígitos).");
     b.disabled=true;
     try{
-      const F=await FBp;
-      if(clave){await F.entrarClave(mail,clave);location.href=CONFIG.panelUrl;return}
-      await F.entrarCorreo(mail);SESSION={name,email:mail,role:"jefe",anon:true,last:Date.now()};saveSession();enter();
-    }catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
-    b.disabled=false;
-  };
-  $("loginForm").addEventListener("submit",e=>{e.preventDefault();$("lgStaff").click()});
+      const p=await F.entrarDni(dni);
+      if(p.rol==="staff") return void(location.href=CONFIG.panelUrl);   // HRBP o Gerencia: directo a su panel
+      SESSION={name:p.nombre,email:p.id,role:"jefe",last:Date.now()};saveSession();enter();
+    }catch(e2){err.textContent=e2.message||"No se pudo ingresar."}
+    $("lgDni").value="";b.disabled=false;
+  });
   $("form").addEventListener("submit",e=>e.preventDefault());
   document.querySelector("#login video").addEventListener("error",e=>{e.target.style.display="none"});
   $("logoutBtn").onclick=()=>logout(true);
@@ -1344,18 +1335,16 @@ function setupLogin(){
 }
 async function boot(){
   try{
-    const F=await Promise.race([FBp,new Promise((_,no)=>setTimeout(()=>no(new Error("sin Firebase")),10000))]),u=await F.sesion(),s=readSession();
-    if(s&&u&&(u.isAnonymous?s.anon:s.email===u.email.toLowerCase())){SESSION=s;return enter()}
-    if(u) await F.salir();   // sesión de Firebase sin sesión de pantalla vigente (venció por inactividad)
-    else if(await F.personal()) return location.replace(CONFIG.panelUrl);   // HRBP o Gerencia ya con sesión: directo a su panel
+    const F=await Promise.race([FBp,new Promise((_,no)=>setTimeout(()=>no(new Error("sin Firebase")),10000))]),p=await F.perfil(),sv=readSession();
+    if(p&&p.rol==="staff") return location.replace(CONFIG.panelUrl);   // HRBP o Gerencia ya con sesión: directo a su panel
+    if(p&&sv&&sv.email===p.id){SESSION=sv;return enter()}
+    if(p) await F.salir();   // sesión de Firebase sin sesión de pantalla vigente (venció por inactividad)
   }catch(e){}
   showLogin();
 }
 function showLogin(){
   $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
-  $("lgNombreWrap").classList.toggle("hidden",!CONFIG.modoPrueba);
-  $("lgAyuda").textContent=CONFIG.modoPrueba?"Modo prueba: sin clave entras como jefe de área con tu correo (sin verificar). Business Partner y Gerencia: agrega la clave que te entregaron.":"Business Partner y Gerencia: ingresa con tu correo y la clave que te entregaron.";
-  $("lgErr").textContent="";$("lgErr2").textContent="";$("lgPass").value="";
+  $("lgErr").textContent="";$("lgDni").value="";
 }
 function enter(){
   BP_MODE=SESSION.role==="bp";

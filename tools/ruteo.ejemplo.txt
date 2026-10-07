@@ -1,7 +1,7 @@
 Copia este archivo como tools/ruteo.local.json (queda fuera de GitHub). Una entrada por departamento (los 16 de tools/departamentos.js):
 
 {
-  "RECTORADO": { "nombre": "Nombre del HRBP", "correo": "hrbp@usil.edu.pe" }
+  "RECTORADO": { "nombre": "Nombre del HRBP", "dni": "12345678" }
 }
 
-El correo va sin tildes ni ñ y debe ser el mismo que tiene el HRBP en tools/usuarios.json.
+El DNI debe ser el mismo que tiene el HRBP en tools/usuarios.json. No se guarda: solo se usa para calcular su identificador opaco.

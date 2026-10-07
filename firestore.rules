@@ -1,42 +1,37 @@
 rules_version = '2';
-// Modelo: los jefes entran con Google institucional (@usil.edu.pe verificado): crean y leen SUS solicitudes. HRBP y Gerencia entran con
-// correo y clave: su rol vive en roles/{correo}. Entrada anónima (solo correo, sin verificar) SOLO mientras config/app.modoPrueba sea true:
-// en producción (modoPrueba=false) queda cerrada sola. El maestro solo se lee por matrícula (get); la lista solo en modo prueba (config/app.modoPrueba).
+// Modelo: toda persona entra con su DNI, convertido en una cuenta opaca de Firebase (ver dni.mjs). Solo existen cuentas creadas por el
+// administrador y solo valen si tienen un documento en lideres/ (jefes) o roles/ (HRBP y Gerencia): una cuenta creada por un tercero no accede a nada.
+// No hay correos en la base. El maestro solo se lee por matrícula (get); la lista, únicamente con config/app.modoPrueba = true.
 service cloud.firestore {
   match /databases/{db}/documents {
-    function usil() { return request.auth != null && request.auth.token.email_verified == true && request.auth.token.email.matches('.+@usil[.]edu[.]pe'); }
-    function jefe() { return usil() && request.auth.token.firebase.sign_in_provider == 'google.com'; }
-    function personal() { return usil() && request.auth.token.firebase.sign_in_provider == 'password'; }
-    function dentro() { return jefe() || personal() || anonimo(); }
     function yo() { return 'email' in request.auth.token ? request.auth.token.email : '-'; }
-    function prueba() { return get(/databases/$(db)/documents/config/app).data.modoPrueba == true; }
-    function anonimo() { return request.auth != null && request.auth.token.firebase.sign_in_provider == 'anonymous' && prueba(); }
+    function cuenta() { return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password' && request.auth.token.email_verified == true; }
+    function activo() {
+      return cuenta() && (exists(/databases/$(db)/documents/lideres/$(yo())) || exists(/databases/$(db)/documents/roles/$(yo())));
+    }
     function tieneRol(r) {
-      return personal() && exists(/databases/$(db)/documents/roles/$(yo()))
+      return cuenta() && exists(/databases/$(db)/documents/roles/$(yo()))
         && r in get(/databases/$(db)/documents/roles/$(yo())).data.roles;
     }
 
-    match /roles/{correo} { allow get: if personal() && correo == yo(); }
-    match /ruteo/{dep}    { allow get: if dentro(); }
-    match /lideres/{correo} { allow get: if dentro() && correo == yo(); }   // cada quien lee solo su propio cargo: no se pueden probar correos ajenos
+    match /roles/{id}   { allow get: if cuenta() && id == yo(); }
+    match /lideres/{id} { allow get: if cuenta() && id == yo(); }   // cada quien lee solo su propio registro
+    match /ruteo/{dep}  { allow get: if activo(); }
     match /maestro/{mat} {
-      allow get: if dentro();
-      allow list: if dentro() && request.query.limit <= 50
+      allow get: if activo();
+      allow list: if activo() && request.query.limit <= 50
         && get(/databases/$(db)/documents/config/app).data.modoPrueba == true;
     }
 
     match /solicitudes/{id} {
-      // ponytail: sin Cloud Functions no hay límite de envíos por usuario; si hace falta, activar App Check o pasar a plan Blaze.
-      allow create: if nueva(id, request.resource.data)
-        && ((jefe() && request.resource.data.enviadoPor == yo())
-            || (anonimo() && request.resource.data.enviadoPor.matches('.+@usil[.]edu[.]pe')));
-      allow get, list: if dentro() && (
-        (resource.data.enviadoPor == yo() && jefe())
-        || (anonimo() && resource.data.uid == request.auth.uid)
+      // ponytail: sin Cloud Functions no hay límite de envíos por persona; si hace falta, activar App Check o pasar a plan Blaze.
+      allow create: if activo() && request.resource.data.enviadoPor == yo() && nueva(id, request.resource.data);
+      allow get, list: if
+        (resource.data.enviadoPor == yo() && activo())
         || (tieneRol('bp') && resource.data.bpCorreo == yo())
-        || (tieneRol('gerencia') && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']));
-      allow update: if
-        (tieneRol('bp') && resource.data.bpCorreo == yo()
+        || (tieneRol('gerencia') && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']);
+      allow update:
+        if (tieneRol('bp') && resource.data.bpCorreo == yo()
           && resource.data.estado in ['Nuevo', 'En revisión BP', 'Devuelto al jefe', 'En pausa']
           && request.resource.data.estado in ['En revisión BP', 'Devuelto al jefe', 'Enviado a Gerencia', 'En pausa']
           && gestion(['comentarioBP']))
@@ -58,7 +53,6 @@ service cloud.firestore {
       return d.id == id && d.uid == request.auth.uid && d.estado == 'Nuevo'
         && d.bpCorreo == rt.correo && d.bp == rt.nombre
         && d.comentarioBP == '' && d.comentarioGerencia == '' && !('gestionadoPor' in d)
-        && d.enviadoPor.size() < 120
         && d.movimiento in ['Promoción', 'Encargatura', 'Reemplazo', 'Puesto nuevo', 'Incremento salarial', 'Movimiento lateral', 'Movimiento horizontal', 'Reestructuración de área', 'Revalorización de puesto', 'Convenio / caso especial', 'Otro']
         && d.impactoDetalle.size() <= 1000 && d.solicitudConcreta.size() <= 3000 && d.keys().size() < 60;
     }

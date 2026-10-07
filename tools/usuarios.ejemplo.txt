@@ -1,8 +1,7 @@
-Copia este archivo como tools/usuarios.json (queda fuera de GitHub). Una entrada por persona que entra al panel.
-El correo se escribe sin tildes ni ñ (cmunozse, no cmuñozse). La clave debe tener 6 caracteres o más.
-roles: "bp" (HRBP) y/o "gerencia".
+Copia este archivo como tools/usuarios.json (queda fuera de GitHub). Una entrada por persona que entra a un PANEL, con su DNI como clave.
+roles: "bp" (Business Partner) y/o "gerencia". Los jefes de área NO van aquí: entran todos los activos del Maestro.
 
 {
-  "hrbp1@usil.edu.pe": { "nombre": "Nombre del HRBP 1", "clave": "CAMBIAR", "roles": ["bp"] },
-  "ger1@usil.edu.pe":  { "nombre": "Nombre de Gerencia", "clave": "CAMBIAR", "roles": ["gerencia"] }
+  "12345678": { "nombre": "Nombre del HRBP 1", "roles": ["bp"] },
+  "87654321": { "nombre": "Nombre de Gerencia", "roles": ["gerencia"] }
 }

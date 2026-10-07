@@ -4,7 +4,8 @@ const raiz = path.join(__dirname, '..');
 const leer = f => fs.readFileSync(path.join(raiz, f), 'utf8');
 const html = leer('index.html'), panelHtml = leer('panel.html'), rules = leer('firestore.rules'), fbjs = leer('firebase.js');
 const js = leer('app.js'), panel = leer('panel.js');   // los scripts van en archivos propios: la CSP no permite scripts inline
-let n = 0; const ok = (t, f) => { f(); n++; console.log('  ✓', t); };
+let n = 0; const pend = [];
+const ok = (t, f) => { const r = f(); const fin = () => { n++; console.log('  ✓', t); }; if (r && r.then) pend.push(r.then(fin)); else fin(); };
 const versionados = () => execSync('git ls-files', { cwd: raiz }).toString().split('\n').filter(Boolean).filter(f => fs.existsSync(path.join(raiz, f)));
 const csp = h => /Content-Security-Policy" content="([^"]+)"/.exec(h)[1];
 
@@ -54,11 +55,6 @@ ok('los estados que usa el panel coinciden con las reglas', () => {
   const estados = [...panel.matchAll(/"(Nuevo|En revisión BP|Devuelto al jefe|Enviado a Gerencia|Aprobado|Rechazado|En pausa)"/g)].map(x => x[1]);
   estados.forEach(e => assert.ok(rules.includes("'" + e + "'"), e + ' no está en firestore.rules'));
 });
-ok('las reglas exigen Google institucional verificado; el anónimo solo existe con modoPrueba', () => {
-  assert.ok(/email_verified == true/.test(rules) && /sign_in_provider == 'google\.com'/.test(rules) && /usil\[\.\]edu\[\.\]pe/.test(rules));
-  assert.ok(/function anonimo()[^}]*&& prueba()/.test(rules), 'el acceso anónimo debe depender de modoPrueba');
-  assert.ok(/function prueba()[^}]*modoPrueba == true/.test(rules));
-});
 ok('Vercel: las cabeceras repiten la CSP de las páginas, sin frame, y publican solo el sitio', () => {
   const v = JSON.parse(leer('vercel.json')).headers[0].headers, h = k => (v.find(x => x.key === k) || {}).value;
   assert.strictEqual(h('Content-Security-Policy'), csp(html) + "; frame-ancestors 'none'"); assert.strictEqual(csp(html), csp(panelHtml));
@@ -66,10 +62,23 @@ ok('Vercel: las cabeceras repiten la CSP de las páginas, sin frame, y publican 
   assert.ok(/same-origin-allow-popups/.test(h('Cross-Origin-Opener-Policy')), 'COOP debe permitir el popup de Google');
   const ign = leer('.vercelignore').split('\n'); ['tools', 'tests', 'docs', 'firestore.rules', 'package.json'].forEach(x => assert.ok(ign.includes(x), x));
 });
-ok('la validación de correo usa expresiones correctas (acepta correos con «s»)', () => {
-  const m = /entrarCorreo\(email\) \{\s*if \(!(\/[^\n]+?\/i)\.test\(email\)\)/.exec(fbjs);
-  assert.ok(m, 'no se encontró la validación'); const re = vm.runInNewContext(m[1]);
-  assert.ok(re.test('susana.sosa@usil.edu.pe') && !re.test('x@gmail.com') && !re.test('a b@usil.edu.pe') && !re.test('x@usilXeduYpe'));
-  assert.ok(!/replace\(\/s\+\//.test(js + fbjs), 'falta la barra en /\\s+/');
+ok('el DNI se convierte en una identidad opaca: mismo DNI, misma cuenta; nada legible', async () => {
+  const { derivar, dniValido } = require('../dni.mjs');
+  const a = await derivar('12345678'), b = await derivar(' 12.345.678 '), c = await derivar('12345679');
+  assert.deepStrictEqual(a, b); assert.notStrictEqual(a.email, c.email);
+  assert.ok(/^[0-9a-f]{32}@dni\.invalid$/.test(a.email) && /^[0-9a-f]{32}$/.test(a.clave) && !a.email.includes('12345678') && !a.clave.includes('12345678'));
+  assert.strictEqual(a.email, 'd0c6a5978384dfb867b6267cc0eac234@dni.invalid');   // vector fijo: si cambia la fórmula se rompen todas las cuentas
+  assert.ok(dniValido('12345678') && dniValido('001234567') && !dniValido('1234') && !dniValido('') && !dniValido('12345678901234'));
 });
-console.log('\n' + n + ' pruebas OK');
+ok('las reglas solo aceptan cuentas de DNI con registro; sin Google, sin anónimos', () => {
+  assert.ok(/sign_in_provider == 'password'/.test(rules) && /email_verified == true/.test(rules));
+  assert.ok(/function activo\(\)[\s\S]*?exists\([^\n]*lideres[^\n]*exists\([^\n]*roles/.test(rules));
+  assert.ok(!/google\.com|anonymous|modoPrueba == true[^;]*create/.test(rules) && !/usil/.test(rules.replace(/\/\/.*/g, '')));
+});
+ok('la pantalla de entrada tiene un único campo (el DNI), sin correo, clave ni Google', () => {
+  const login = /<div id="login"[\s\S]*?<\/form>/.exec(html)[0];
+  assert.deepStrictEqual([...login.matchAll(/<input id="(\w+)"/g)].map(m => m[1]), ['lgDni']);
+  assert.ok(!/google|Google|correo|clave/i.test(login.replace(/<!--[\s\S]*?-->/g, '')));
+  assert.ok(!/entrarGoogle|entrarCorreo|entrarClave|signInWithPopup|signInAnonymously/.test(js + panel + fbjs));
+});
+Promise.all(pend).then(() => console.log('\n' + n + ' pruebas OK')).catch(e => { console.error(e); process.exit(1); });

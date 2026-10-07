@@ -4,10 +4,9 @@ const VISIBLE_GER=["Enviado a Gerencia","Aprobado","Rechazado"];
 const CFG={bp:{estados:["En revisión BP","Devuelto al jefe","Enviado a Gerencia","En pausa"],editables:["Nuevo","En revisión BP","Devuelto al jefe","En pausa"],campo:"comentarioBP"},
   gerencia:{estados:["Enviado a Gerencia","Aprobado","Rechazado","En revisión BP"],editables:VISIBLE_GER,campo:"comentarioGerencia"}};
 const sesion=async()=>{
-  const u=await FB.usuario();if(!u||!u.providerData.some(x=>x.providerId==="password"))throw new Error("Inicia sesión");
-  const s=await FB.getDoc(FB.doc(FB.db,"roles",u.email));const vistas=s.exists()?(s.data().roles||[]).filter(r=>CFG[r]):[];
-  if(!vistas.length){await FB.signOut(FB.auth);throw new Error("Tu cuenta no tiene un rol asignado.")}
-  return {token:"fb",email:u.email,vistas};
+  const x=await FB.perfil();if(!x||x.rol!=="staff")throw new Error("Ingresa con tu DNI.");
+  const vistas=x.roles.filter(r=>CFG[r]);if(!vistas.length){await FB.salir();throw new Error("Tu DNI no tiene un rol asignado.")}
+  return {token:"fb",email:x.id,nombre:x.nombre,vistas};
 };
 const SIN=new Set(["levantamiento","aprobaciones","uid","gestionadoPor","gestionadoEl"]);
 const plano=(d,extra)=>{const o={};Object.entries(d).forEach(([k,v])=>{if(extra||!SIN.has(k))o[k]=v});return o};
@@ -18,12 +17,12 @@ const filas=async(vista,q)=>{
   return (await FB.getDocs(vista==="bp"?FB.query(c,FB.where("bpCorreo","==",q.email)):FB.query(c,FB.where("estado","in",VISIBLE_GER)))).docs.map(d=>d.data());
 };
 const API={
-  async panelEntrar(email,clave){
-    try{await FB.signInWithEmailAndPassword(FB.auth,FB.normalizar(email),String(clave))}catch(e){throw new Error("Correo o clave incorrectos.")}
-    return sesion();
+  async panelEntrar(dni){
+    if(!FB.dniValido(dni))throw new Error("Ingresa un DNI válido (8 dígitos).");
+    await FB.entrarDni(dni);return sesion();
   },
   panelQuien:sesion,
-  async panelDatos(vista){const q=await sesion();return {email:q.email,vistas:q.vistas,vista,filas:(await filas(vista,q)).map(d=>plano(d)),estados:CFG[vista].estados,editables:CFG[vista].editables}},
+  async panelDatos(vista){const q=await sesion();return {email:q.nombre,vistas:q.vistas,vista,filas:(await filas(vista,q)).map(d=>plano(d)),estados:CFG[vista].estados,editables:CFG[vista].editables}},
   async panelExportar(vista){return (await filas(vista,await sesion())).map(d=>({...plano(d),levantamiento:pares(d),aprobaciones:d.aprobaciones||[]}))},
   async panelDetalle(id,vista){
     await sesion();const s=await FB.getDoc(FB.doc(FB.db,"solicitudes",id));if(!s.exists())throw new Error("Solicitud no disponible");const d=s.data();
@@ -50,9 +49,9 @@ $("salir").onclick=async()=>{await FB.signOut(FB.auth);TOKEN=null;mostrarLogin()
 function mostrarLogin(e){
   $("err").hidden=true;$("tabs").innerHTML="";$("quien").textContent="";$("salir").style.display="none";
   const m=(e&&e.message||"")+"";
-  $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:380px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">Panel de revisión</h3><p class="muted">Ingresa con tu correo institucional y la clave de tu rol (HRBP o Gerencia).</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p><p><input id="lgc" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="usuario@usil.edu.pe" style="width:100%"></p><p><input id="lgk" type="password" autocomplete="current-password" placeholder="Clave" style="width:100%"></p><button class="p" style="width:100%">Entrar</button></form>';
+  $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:380px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">Panel de revisión</h3><p class="muted">Ingresa tu DNI (Business Partner o Gerencia).</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Ingresa con/.test(m)?"":esc(m))+'</p><p><input id="lgc" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="DNI" style="width:100%"></p><button class="p" style="width:100%">Entrar</button></form>';
   $("lg").onsubmit=ev=>{ev.preventDefault();$("lgm").textContent="";
-    google.script.run.withFailureHandler(x=>{$("lgm").textContent=x.message||x}).withSuccessHandler(r=>{TOKEN=r.token;cargar(r.vistas[r.vistas.length-1])}).panelEntrar($("lgc").value,$("lgk").value)};
+    google.script.run.withFailureHandler(x=>{$("lgm").textContent=x.message||x}).withSuccessHandler(r=>{TOKEN=r.token;cargar(r.vistas[r.vistas.length-1])}).panelEntrar($("lgc").value)};
 }
 
 function cargar(v){
