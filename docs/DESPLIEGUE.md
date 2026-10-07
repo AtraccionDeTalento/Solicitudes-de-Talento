@@ -5,7 +5,7 @@ No hay servidor propio: la seguridad la dan `firestore.rules` y el inicio de ses
 
 | Quién | Cómo entra | Qué puede |
 |---|---|---|
-| Jefe de área | **Entrar con Google** (cuenta `@usil.edu.pe` verificada) | Crear solicitudes a su nombre y leer solo las suyas |
+| Jefe de área | **Entrar con Google** (cuenta `@usil.edu.pe` verificada). **Solo en modo prueba** también puede entrar escribiendo su correo, sin verificarlo | Crear solicitudes a su nombre y leer solo las suyas |
 | HRBP | Pantalla de inicio → correo y clave propios (van directo a su panel) | Ver y gestionar solo lo que llega a su correo |
 | Gerencia | Pantalla de inicio → correo y clave propios (van directo a su panel) | Ver lo que los HRBP le pasan y decidir |
 
@@ -24,7 +24,7 @@ npm run serve        # 3) la app en http://localhost:5000/?emu
 
 ## B. Crear el proyecto en Firebase (una vez)
 1. https://console.firebase.google.com → **Agregar proyecto** (sin Google Analytics).
-2. **Authentication → Método de acceso**: habilita **Google** y **Correo electrónico/contraseña**. **No habilites «Anónimo».**
+2. **Authentication → Método de acceso**: habilita **Google** y **Correo electrónico/contraseña**. «Anónimo» solo si vas a probar el ingreso por correo (modo prueba); **déjalo apagado en producción**.
    En **Configuración → Acciones del usuario**, **desmarca «Habilitar la creación (registro)»**: las cuentas de HRBP y Gerencia las crea solo el script de carga.
 3. **Firestore Database → Crear base de datos** (modo producción; región `southamerica-east1`).
 4. Pestaña **Reglas**: pega todo `firestore.rules` y **Publicar**.
@@ -52,6 +52,8 @@ Es repetible: vuelve a ejecutarlo para cambiar claves o ruteo. `--borrar-solicit
 5. Cada `git push` a `main` publica de nuevo.
 
 ## Salir de pruebas
+- **Modo prueba = ingreso solo con correo.** Mientras `config/app.modoPrueba` sea `true`, quien escriba un correo `@usil.edu.pe` entra sin verificarlo y puede enviar solicitudes a nombre de otro. Úsalo solo con el Maestro de **prueba**, nunca con personas reales cargadas.
+- Al poner `modoPrueba` en `false` las reglas cierran ese ingreso solas: solo queda Google (y correo y clave para HRBP y Gerencia).
 - En Firestore, documento `config/app`: `modoPrueba` → `false` (cierra la lectura en lista del Maestro).
 - En `app.js`: `CONFIG.modoPrueba:false` y `camposObligatorios:true`.
 - Pon el ruteo real en `tools/ruteo.local.json` y cambia las claves de prueba de los HRBP (vuelve a ejecutar la carga).
