@@ -14,3 +14,7 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 !firebase.json
+
+# Datos locales (personas, claves, ruteo real): nunca al repositorio
+tools/ruteo.local.json
+tools/usuarios.json

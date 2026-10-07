@@ -1,0 +1,7 @@
+Copia este archivo como tools/ruteo.local.json (queda fuera de GitHub). Una entrada por departamento (los 16 de tools/departamentos.js):
+
+{
+  "RECTORADO": { "nombre": "Nombre del HRBP", "correo": "hrbp@usil.edu.pe" }
+}
+
+El correo va sin tildes ni ñ y debe ser el mismo que tiene el HRBP en tools/usuarios.json.

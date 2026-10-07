@@ -3,7 +3,6 @@ El correo se escribe sin tildes ni ñ (cmunozse, no cmuñozse). La clave debe te
 roles: "bp" (HRBP) y/o "gerencia".
 
 {
-  "cmunozse@usil.edu.pe": { "nombre": "Claudia Muñoz", "clave": "CAMBIAR", "roles": ["bp"] },
-  "msalazar@usil.edu.pe": { "nombre": "Fátima Salazar", "clave": "CAMBIAR", "roles": ["bp"] },
-  "jlopezp@usil.edu.pe":  { "nombre": "Jefe de pruebas", "clave": "CAMBIAR", "roles": ["gerencia", "bp"] }
+  "hrbp1@usil.edu.pe": { "nombre": "Nombre del HRBP 1", "clave": "CAMBIAR", "roles": ["bp"] },
+  "ger1@usil.edu.pe":  { "nombre": "Nombre de Gerencia", "clave": "CAMBIAR", "roles": ["gerencia"] }
 }

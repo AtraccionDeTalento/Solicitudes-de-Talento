@@ -1,10 +1,12 @@
 rules_version = '2';
-// Modelo: los jefes entran como usuarios anónimos (crean y leen SUS solicitudes). HRBP y Gerencia entran con correo y clave:
-// su rol vive en roles/{correo}. El maestro solo se lee por matrícula (get); la lista solo en modo prueba (config/app.modoPrueba).
+// Modelo: los jefes entran con Google institucional (@usil.edu.pe verificado): crean y leen SUS solicitudes. HRBP y Gerencia entran con
+// correo y clave: su rol vive en roles/{correo}. Nadie entra de forma anónima. El maestro solo se lee por matrícula (get); la lista solo en modo prueba (config/app.modoPrueba).
 service cloud.firestore {
   match /databases/{db}/documents {
-    function dentro() { return request.auth != null; }
-    function personal() { return dentro() && request.auth.token.firebase.sign_in_provider == 'password'; }
+    function usil() { return request.auth != null && request.auth.token.email_verified == true && request.auth.token.email.matches('.+@usil[.]edu[.]pe'); }
+    function jefe() { return usil() && request.auth.token.firebase.sign_in_provider == 'google.com'; }
+    function personal() { return usil() && request.auth.token.firebase.sign_in_provider == 'password'; }
+    function dentro() { return jefe() || personal(); }
     function yo() { return request.auth.token.email; }
     function tieneRol(r) {
       return personal() && exists(/databases/$(db)/documents/roles/$(yo()))
@@ -22,9 +24,9 @@ service cloud.firestore {
 
     match /solicitudes/{id} {
       // ponytail: sin Cloud Functions no hay límite de envíos por usuario; si hace falta, activar App Check o pasar a plan Blaze.
-      allow create: if dentro() && nueva(id, request.resource.data);
+      allow create: if jefe() && nueva(id, request.resource.data);
       allow get, list: if dentro() && (
-        resource.data.uid == request.auth.uid
+        resource.data.enviadoPor == yo()
         || (tieneRol('bp') && resource.data.bpCorreo == yo())
         || (tieneRol('gerencia') && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']));
       allow update: if
@@ -50,7 +52,7 @@ service cloud.firestore {
       return d.id == id && d.uid == request.auth.uid && d.estado == 'Nuevo'
         && d.bpCorreo == rt.correo && d.bp == rt.nombre
         && d.comentarioBP == '' && d.comentarioGerencia == '' && !('gestionadoPor' in d)
-        && d.enviadoPor.matches('.+@usil[.]edu[.]pe')
+        && d.enviadoPor == yo()
         && d.movimiento in ['Promoción', 'Encargatura', 'Reemplazo', 'Puesto nuevo', 'Incremento salarial', 'Movimiento lateral', 'Movimiento horizontal', 'Reestructuración de área', 'Revalorización de puesto', 'Convenio / caso especial', 'Otro']
         && d.impactoDetalle.size() <= 1000 && d.solicitudConcreta.size() <= 3000 && d.keys().size() < 60;
     }

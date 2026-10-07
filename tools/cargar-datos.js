@@ -27,7 +27,10 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
 (async () => {
   const args = process.argv.slice(2), archivo = args.find(a => !a.startsWith("--"));
   await db.doc("config/app").set({ modoPrueba: true });   // en producción: cambiar a false (desde la consola de Firebase)
-  const ruteo = require("./ruteo");
+  const rf = path.join(__dirname, "ruteo.local.json");
+  if (!fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
+  const ruteo = JSON.parse(fs.readFileSync(rf, "utf8")), validos = require("./departamentos");
+  Object.keys(ruteo).forEach(d => { if (!validos.includes(d)) throw new Error("Departamento desconocido en el ruteo: " + d); });
   await lote(Object.entries(ruteo).map(([dep, bp]) => [db.doc("ruteo/" + dep), bp]));
   console.log("ruteo:", Object.keys(ruteo).length, "departamentos");
 
@@ -35,8 +38,8 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   if (fs.existsSync(uf)) {
     for (const [correo, u] of Object.entries(JSON.parse(fs.readFileSync(uf, "utf8")))) {
       const email = norm(correo);
-      try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: u.clave }); }
-      catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: u.clave, displayName: u.nombre }); }
+      try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: u.clave, emailVerified: true }); }
+      catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: u.clave, displayName: u.nombre, emailVerified: true }); }   // emailVerified: las reglas exigen correo verificado
       await db.doc("roles/" + email).set({ nombre: u.nombre, roles: u.roles });
       console.log("usuario:", email, u.roles.join("+"));
     }

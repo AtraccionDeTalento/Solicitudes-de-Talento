@@ -1,27 +1,48 @@
-// Comprobaciones estáticas de la app web y del panel. Ejecutar: node tests/web.test.js
-const fs = require('fs'), path = require('path'), assert = require('assert'), vm = require('vm');
-const leer = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const html = leer('index.html'), panel = leer('panel.html'), rules = leer('firestore.rules'), fbjs = leer('firebase.js');
-const js = html.slice(html.indexOf('<script>\nconst $') + 8, html.lastIndexOf('</script>'));
+// Comprobaciones estáticas de la app, el panel y del contenido del repositorio. Ejecutar: node tests/web.test.js
+const fs = require('fs'), path = require('path'), assert = require('assert'), vm = require('vm'), { execSync } = require('child_process');
+const raiz = path.join(__dirname, '..');
+const leer = f => fs.readFileSync(path.join(raiz, f), 'utf8');
+const html = leer('index.html'), panelHtml = leer('panel.html'), rules = leer('firestore.rules'), fbjs = leer('firebase.js');
+const js = leer('app.js'), panel = leer('panel.js');   // los scripts van en archivos propios: la CSP no permite scripts inline
 let n = 0; const ok = (t, f) => { f(); n++; console.log('  ✓', t); };
+const versionados = () => execSync('git ls-files', { cwd: raiz }).toString().split('\n').filter(Boolean).filter(f => fs.existsSync(path.join(raiz, f)));
+const csp = h => /Content-Security-Policy" content="([^"]+)"/.exec(h)[1];
 
-ok('el JavaScript de la app compila', () => new vm.Script(js));
-ok('el módulo del panel compila', () => {
-  const m = /<script type="module">([\s\S]*?)<\/script>/.exec(panel)[1].replace(/^import .*$/m, '');
-  new vm.Script('(async()=>{' + m + '})');
+ok('el JavaScript de la app y del panel compila', () => {
+  new vm.Script(js);
+  new vm.Script('(async()=>{' + panel.replace(/^import .*$/m, '') + '})');
 });
-ok('la CSP solo permite scripts de jsDelivr y gstatic (Firebase)', () => {
-  const csp = /Content-Security-Policy" content="([^"]+)"/.exec(html)[1];
-  assert.ok(/script-src 'self' 'unsafe-inline' https:\/\/cdn\.jsdelivr\.net https:\/\/www\.gstatic\.com;/.test(csp)); assert.ok(/object-src 'none'/.test(csp));
+ok('la CSP de ambas páginas no permite scripts inline ni orígenes ajenos', () => {
+  [html, panelHtml].forEach(h => {
+    const c = csp(h), script = /script-src ([^;]+)/.exec(c)[1];
+    assert.ok(!/unsafe-inline|unsafe-eval|\*\s|http:/.test(script), script);
+    assert.ok(/object-src 'none'/.test(c) && /base-uri 'none'/.test(c) && !/connect-src[^;]*http:/.test(c));
+    assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/.test(h), 'hay un <script> inline');
+    assert.ok(!/\son(click|error|submit|load|change|input)\s*=/i.test(h), 'hay un manejador inline');
+  });
 });
-ok('la librería de Excel se carga con verificación de integridad (SRI)', () => assert.ok(/sri:"sha384-/.test(js) && /\.integrity=/.test(js) && /integrity="sha384-/.test(panel)));
-ok('no hay datos personales, claves ni URLs de Apps Script en el código', () => {
-  assert.ok(!/\b\d{8}\b/.test(html.replace(/0000002458/g, '')), 'número de 8 dígitos (¿DNI?)');
-  assert.ok(!/(gmail|hotmail|outlook)\.com/i.test(html + panel + fbjs));
-  assert.ok(!/script\.google\.com/.test(html + panel + fbjs), 'quedó una referencia a Apps Script');
+ok('las librerías de Excel se cargan con verificación de integridad (SRI)', () => assert.ok(/sri:"sha384-/.test(js) && /\.integrity=/.test(js) && /integrity="sha384-/.test(panelHtml)));
+ok('index.html y panel.html cargan el mismo firebase.js', () => assert.ok(/from "\.\/firebase\.js"/.test(leer('fb-init.js')) && /from "\.\/firebase\.js"/.test(panel)));
+ok('no hay Apps Script, claves ni tokens en el código', () => {
+  const todo = [html, panelHtml, js, panel, fbjs].join('\n');
+  assert.ok(!/script\.google\.com|PRIVATE KEY|private_key|[a-f0-9]{40,}/.test(todo));
 });
-ok('el ruteo cubre exactamente los 16 departamentos de la app', () => {
-  const a = JSON.parse(/const DEPARTAMENTOS=(\[.*?\]);/.exec(js)[1]), b = Object.keys(require('../tools/ruteo'));
+ok('el repositorio no contiene correos ni nombres de personas reales', () => {
+  const permitidos = /^(usuario|nombre|hrbp\d?|bp\d|ger\d|jefe\d?|otro|otra|x|z)$/;
+  versionados().filter(f => /\.(js|html|rules|md|txt|py|json)$/.test(f) && !/package-lock/.test(f) && f !== 'tests/web.test.js').forEach(f => {
+    for (const m of leer(f).matchAll(/([A-Za-z0-9._-]+)@(usil\.edu\.pe|[a-z0-9.-]+\.[a-z]{2,})/g))
+      assert.ok(permitidos.test(m[1]) || m[2] === 'gmail.com', f + ': ' + m[0]);
+  });
+});
+ok('no hay planillas, CSV ni claves de servicio versionados', () => {
+  const malos = versionados().filter(f => /\.(xlsx|xls|csv)$/.test(f) || /(adminsdk|service-?account|usuarios\.json|ruteo\.local)/i.test(f));
+  assert.deepStrictEqual(malos, []);
+});
+ok('no hay matrículas ni números de 8+ dígitos en el código', () => {
+  assert.ok(!/\b\d{8,}\b/.test(html.replace(/0000001234/g, '') + js.replace(/0000001234|0000012345|\b1\d{12}\b/g, '')), 'número largo (¿DNI o matrícula?)');
+});
+ok('los 16 departamentos de la app y del ruteo coinciden', () => {
+  const a = JSON.parse(/const DEPARTAMENTOS=(\[.*?\]);/.exec(js)[1]), b = require('../tools/departamentos');
   assert.strictEqual(a.length, 16); assert.deepStrictEqual([...a].sort(), [...b].sort());
 });
 ok('los tipos de movimiento coinciden entre la app y las reglas', () => {
@@ -33,6 +54,8 @@ ok('los estados que usa el panel coinciden con las reglas', () => {
   const estados = [...panel.matchAll(/"(Nuevo|En revisión BP|Devuelto al jefe|Enviado a Gerencia|Aprobado|Rechazado|En pausa)"/g)].map(x => x[1]);
   estados.forEach(e => assert.ok(rules.includes("'" + e + "'"), e + ' no está en firestore.rules'));
 });
-ok('index.html y panel.html cargan el mismo firebase.js', () => assert.ok(/from "\.\/firebase\.js"/.test(html) && /from "\.\/firebase\.js"/.test(panel)));
-ok('firebase.js no trae claves de servicio', () => assert.ok(!/private_key|BEGIN PRIVATE/.test(fbjs)));
+ok('las reglas exigen Google institucional verificado y no admiten anónimos', () => {
+  assert.ok(/email_verified == true/.test(rules) && /sign_in_provider == 'google\.com'/.test(rules) && /usil\[\.\]edu\[\.\]pe/.test(rules));
+  assert.ok(!/anonymous/.test(rules + fbjs));
+});
 console.log('\n' + n + ' pruebas OK');
