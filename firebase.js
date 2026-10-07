@@ -4,10 +4,10 @@ import { getAuth, connectAuthEmulator, signInAnonymously, signInWithEmailAndPass
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "PEGAR",
-  authDomain: "PEGAR.firebaseapp.com",
-  projectId: "PEGAR",
-  appId: "PEGAR"
+  apiKey: "AIzaSyCtGKE-2MXLRWugP_tcY6TVnwkQ5iyAh18",
+  authDomain: "solicitudes-mov-piloto.firebaseapp.com",
+  projectId: "solicitudes-mov-piloto",
+  appId: "1:609236024055:web:a50ede2cc006520c21f1f2"
 };
 
 // Prueba local: en localhost la app usa SIEMPRE los emuladores (proyecto «demo-local») y nunca toca la nube. Para probar localhost contra la nube: ?nube

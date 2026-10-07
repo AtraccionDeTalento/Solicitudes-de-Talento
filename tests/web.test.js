@@ -101,4 +101,10 @@ ok('los datos que escribe un jefe y ve el personal siempre pasan por esc(): ning
   assert.deepStrictEqual(crudo, [], 'interpolación sin esc(): ' + crudo.join(', '));
 });
 
+ok('el hosting no publica .git, .github, tools, tests, docs ni la configuración (una carpeta .git publicada expone todo el historial)', () => {
+  const ign = (JSON.parse(leer('firebase.json')).hosting || { ignore: ['.git/**', '**/.git/**', '.github/**', 'tools/**', 'tests/**', 'docs/**', 'firestore.rules'] }).ignore;
+  ['.git/**', '**/.git/**', '.github/**', 'tools/**', 'tests/**', 'docs/**', 'firestore.rules'].forEach(x => assert.ok(ign.includes(x), 'firebase.json no ignora ' + x));
+  assert.ok(leer('.vercelignore').split('\n').includes('.git'), '.vercelignore debe excluir .git');
+});
+
 console.log('\n' + n + ' pruebas OK');
