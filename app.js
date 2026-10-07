@@ -1317,6 +1317,14 @@ function setupLogin(){
     catch(e){err.textContent=e.code==="auth/popup-closed-by-user"||e.code==="auth/cancelled-popup-request"?"":(e.message||"No se pudo iniciar sesión.")}
     b.disabled=false;
   };
+  $("lgStaff").onclick=async()=>{
+    const err=$("lgErr2"),b=$("lgStaff");err.textContent="";
+    if(!$("lgMail").value.trim()||!$("lgPass").value) return void(err.textContent="Ingresa tu correo y tu clave.");
+    b.disabled=true;
+    try{await (await FBp).entrarClave($("lgMail").value,$("lgPass").value);location.href=CONFIG.panelUrl}
+    catch(e){err.textContent=e.message||"No se pudo iniciar sesión.";b.disabled=false}
+  };
+  $("loginForm").addEventListener("submit",e=>{e.preventDefault();$("lgStaff").click()});
   $("form").addEventListener("submit",e=>e.preventDefault());
   document.querySelector("#login video").addEventListener("error",e=>{e.target.style.display="none"});
   $("logoutBtn").onclick=()=>logout(true);
@@ -1331,12 +1339,13 @@ async function boot(){
     const F=await Promise.race([FBp,new Promise((_,no)=>setTimeout(()=>no(new Error("sin Firebase")),10000))]),u=await F.sesion(),s=readSession();
     if(s&&u&&s.email===u.email.toLowerCase()){SESSION=s;return enter()}
     if(u) await F.salir();   // sesión de Firebase sin sesión de pantalla vigente (venció por inactividad)
+    else if(await F.personal()) return location.replace(CONFIG.panelUrl);   // HRBP o Gerencia ya con sesión: directo a su panel
   }catch(e){}
   showLogin();
 }
 function showLogin(){
   $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
-  $("lgErr").textContent="";
+  $("lgErr").textContent="";$("lgErr2").textContent="";$("lgPass").value="";
 }
 function enter(){
   BP_MODE=SESSION.role==="bp";

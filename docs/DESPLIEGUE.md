@@ -6,8 +6,8 @@ No hay servidor propio: la seguridad la dan `firestore.rules` y el inicio de ses
 | Quién | Cómo entra | Qué puede |
 |---|---|---|
 | Jefe de área | **Entrar con Google** (cuenta `@usil.edu.pe` verificada) | Crear solicitudes a su nombre y leer solo las suyas |
-| HRBP | Panel → correo y clave propios | Ver y gestionar solo lo que llega a su correo |
-| Gerencia | Panel → correo y clave propios | Ver lo que los HRBP le pasan y decidir |
+| HRBP | Pantalla de inicio → correo y clave propios (van directo a su panel) | Ver y gestionar solo lo que llega a su correo |
+| Gerencia | Pantalla de inicio → correo y clave propios (van directo a su panel) | Ver lo que los HRBP le pasan y decidir |
 
 ## A. Probar en tu computador (sin nube, sin datos reales)
 Necesitas Node 20+ y Java. Una vez: `npm install`. Luego, en **tres terminales** dentro de la carpeta del proyecto:

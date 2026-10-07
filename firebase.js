@@ -28,6 +28,14 @@ export async function usuario() { await auth.authStateReady(); return auth.curre
 /** Jefe con cuenta de Google institucional vigente, o null (los HRBP/Gerencia entran por el panel con correo y clave). */
 export async function sesion() { const u = await usuario(); return esUsil(u) && u.providerData.some(p => p.providerId === "google.com") ? u : null; }
 export const salir = () => signOut(auth);
+/** HRBP o Gerencia con sesión de correo y clave (verificada) o null: van directo al panel. */
+export async function personal() { const u = await usuario(); return u && u.emailVerified && u.providerData.some(p => p.providerId === "password") ? u : null; }
+/** Entrada con correo y clave que entrega el administrador (sin tildes ni ñ: cmuñozse = cmunozse). */
+export async function entrarClave(email, clave) {
+  try { await signInWithEmailAndPassword(auth, normalizar(email), String(clave)); }
+  catch (e) { throw new Error("Correo o clave incorrectos."); }
+  return personal();
+}
 export async function entrarGoogle() {
   const p = new GoogleAuthProvider();
   p.setCustomParameters({ hd: "usil.edu.pe", prompt: "select_account" });   // «hd» solo sugiere el dominio: lo exigen las reglas
