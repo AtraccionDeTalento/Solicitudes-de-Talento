@@ -28,7 +28,8 @@ npm run serve        # 3) la app en http://localhost:5000/
 ## B. Crear el proyecto en Firebase (una vez)
 1. https://console.firebase.google.com → **Agregar proyecto** (sin Google Analytics).
 2. **Authentication → Método de acceso**: habilita **Anónimo** (sesión del jefe) y **Correo electrónico/contraseña** (HRBP y Gerencia).
-   En **Configuración → Acciones del usuario**, **desmarca «Habilitar la creación (registro)»**: las cuentas de HRBP y Gerencia las crea solo el script de carga.
+   **No desactives «Habilitar la creación (registro)»**: bloquearía también las sesiones anónimas de los jefes. No hace falta: alguien puede registrarse por su cuenta, pero esa cuenta no tiene rol ni correo verificado y las reglas no le dan acceso a nada. Las cuentas de HRBP y Gerencia las crea el script de carga.
+   Desde la línea de comandos (sin consola): `npx firebase projects:create`, `apps:create web`, `firestore:databases:create` y `deploy --only firestore:rules,hosting`. Lo único manual es pulsar **«Comenzar»** en Authentication (activarlo por API exige facturación).
 3. **Firestore Database → Crear base de datos** (modo producción; región `southamerica-east1`).
 4. Pestaña **Reglas**: pega todo `firestore.rules` y **Publicar**.
 5. **⚙ Configuración del proyecto → Tus apps → Web (`</>`)**: copia el bloque `firebaseConfig` a `firebase.js` (no es secreto).

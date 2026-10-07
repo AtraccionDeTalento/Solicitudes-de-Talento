@@ -4,7 +4,7 @@
 //       node cargar-datos.js [Maestro_recortado.csv] [--borrar-solicitudes]
 // El CSV sale de preparar-maestro.py. La clave de servicio y usuarios.json son secretos: nunca al repositorio (.gitignore ya excluye *.json).
 const fs = require("fs"), path = require("path"), crypto = require("crypto"), admin = require("firebase-admin");
-const PRUEBA = process.env.DATOS_PRUEBA === "1";   // emuladores: datos inventados, sin personas reales (ver seed-local.js)
+const PRUEBA = process.env.DATOS_PRUEBA === "1", SOLO_INVENTADOS = process.env.SOLO_INVENTADOS === "1";   // emuladores: datos inventados, sin personas reales (ver seed-local.js)
 admin.initializeApp();
 const db = admin.firestore(), norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
@@ -31,7 +31,7 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   const validos = require("./departamentos"), rf = path.join(__dirname, "ruteo.local.json");
   // En los emuladores, si existen tools/ruteo.local.json y tools/usuarios.json se usan también: así pruebas con tus cuentas reales sin tocar la nube.
   if (!PRUEBA && !fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
-  const ruteo = (PRUEBA && !fs.existsSync(rf)) ? Object.fromEntries(validos.map(d => [d, { nombre: "HRBP de prueba", correo: "hrbp1@usil.edu.pe" }])) : JSON.parse(fs.readFileSync(rf, "utf8"));
+  const ruteo = (PRUEBA && (SOLO_INVENTADOS || !fs.existsSync(rf))) ? Object.fromEntries(validos.map(d => [d, { nombre: "HRBP de prueba", correo: "hrbp1@usil.edu.pe" }])) : JSON.parse(fs.readFileSync(rf, "utf8"));
   Object.keys(ruteo).forEach(d => { if (!validos.includes(d)) throw new Error("Departamento desconocido en el ruteo: " + d); });
 
   const uf = path.join(__dirname, "usuarios.json");
@@ -39,8 +39,8 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   if (PRUEBA) {   // claves al azar, solo para los emuladores
     const clave = () => crypto.randomBytes(9).toString("base64url");
     usuarios = { "hrbp1@usil.edu.pe": { nombre: "HRBP de prueba", clave: clave(), roles: ["bp"] }, "ger1@usil.edu.pe": { nombre: "Gerencia de prueba", clave: clave(), roles: ["gerencia"] } };
-    console.log("Cuentas de prueba del panel (solo emulador):"); Object.entries(usuarios).forEach(([k, v]) => console.log("  " + k + "  clave: " + v.clave));
-    if (fs.existsSync(uf)) { Object.assign(usuarios, JSON.parse(fs.readFileSync(uf, "utf8"))); console.log("  + las cuentas de tools/usuarios.json (con sus claves)"); }
+    console.log("Cuentas de prueba del panel:"); Object.entries(usuarios).forEach(([k, v]) => console.log("  " + k + "  clave: " + v.clave));
+    if (!SOLO_INVENTADOS && fs.existsSync(uf)) { Object.assign(usuarios, JSON.parse(fs.readFileSync(uf, "utf8"))); console.log("  + las cuentas de tools/usuarios.json (con sus claves)"); }
   } else if (fs.existsSync(uf)) usuarios = JSON.parse(fs.readFileSync(uf, "utf8"));
   if (usuarios) {
     for (const [correo, u] of Object.entries(usuarios)) {
