@@ -19,3 +19,4 @@ ui-debug.log
 tools/ruteo.local.json
 tools/usuarios.json
 !vercel.json
+.firebase/
