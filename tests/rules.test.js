@@ -16,6 +16,8 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
     await setDoc(doc(db, 'roles/bp1@usil.edu.pe'), { roles: ['bp'] });
     await setDoc(doc(db, 'roles/bp2@usil.edu.pe'), { roles: ['bp'] });
     await setDoc(doc(db, 'roles/ger1@usil.edu.pe'), { roles: ['gerencia'] });
+    await setDoc(doc(db, 'lideres/jefe1@usil.edu.pe'), { nombre: 'Jefe Uno', puesto: 'JEFE' });
+    await setDoc(doc(db, 'lideres/otro@usil.edu.pe'), { nombre: 'Otro', puesto: 'JEFE' });
     await setDoc(doc(db, 'maestro/0000000001'), { nombre: 'Ana', departamento: DEP, situacion: 'Activo' });
     await setDoc(doc(db, 'solicitudes/S-GER'), nueva('S-GER', 'otro', { estado: 'Enviado a Gerencia', enviadoPor: 'otro@usil.edu.pe' }));
     await setDoc(doc(db, 'solicitudes/S-NUEVA'), nueva('S-NUEVA', 'otro', { enviadoPor: 'otro@usil.edu.pe' }));
@@ -71,6 +73,11 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
   await t('fuera del modo prueba el maestro no se puede listar', async () => {
     await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false }));
     await assertFails(getDocs(query(collection(anon, 'maestro'), limit(30))));
+  });
+  await t('lideres: cada quien lee solo su propio cargo (no se pueden probar correos ajenos)', async () => {
+    await assertSucceeds(getDoc(doc(anon, 'lideres/jefe1@usil.edu.pe')));
+    await assertFails(getDoc(doc(anon, 'lideres/otro@usil.edu.pe')));
+    await assertFails(getDocs(collection(anon, 'lideres')));
   });
   await t('roles: cada quien lee solo el suyo y un anónimo no lee ninguno', async () => {
     await assertSucceeds(getDoc(doc(claudia, 'roles/bp1@usil.edu.pe')));

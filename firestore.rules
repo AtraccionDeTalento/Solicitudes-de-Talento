@@ -15,7 +15,7 @@ service cloud.firestore {
 
     match /roles/{correo} { allow get: if personal() && correo == yo(); }
     match /ruteo/{dep}    { allow get: if dentro(); }
-    match /lideres/{correo} { allow get: if dentro(); }
+    match /lideres/{correo} { allow get: if dentro() && correo == yo(); }   // cada quien lee solo su propio cargo: no se pueden probar correos ajenos
     match /maestro/{mat} {
       allow get: if dentro();
       allow list: if dentro() && request.query.limit <= 50
