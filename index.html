@@ -122,6 +122,13 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
       <p class="sub">Ingresa con tu cuenta de Google institucional (@usil.edu.pe) para continuar.</p>
       <div class="lerr" id="lgErr" role="alert"></div>
       <button type="button" id="lgGoogle">Entrar con Google</button>
+      <div id="loginPrueba" class="hidden">
+        <p class="sub"><b>Modo prueba:</b> entra solo con tu correo (sin verificar). Se apaga al pasar a producción.</p>
+        <div class="f"><label for="lgNombre">Nombre y apellido</label><input id="lgNombre" autocomplete="name" placeholder="Ej. Mariana Torres"></div>
+        <div class="f"><label for="lgSolo">Correo institucional</label><input id="lgSolo" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="email" placeholder="usuario@usil.edu.pe"></div>
+        <div class="lerr" id="lgErr3" role="alert"></div>
+        <button type="button" id="lgSoloBtn">Entrar solo con correo</button>
+      </div>
       <div class="rule"></div>
       <p class="sub">¿Eres Business Partner o de Gerencia? Ingresa con el correo y la clave que te entregaron.</p>
       <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="usuario@usil.edu.pe"></div>

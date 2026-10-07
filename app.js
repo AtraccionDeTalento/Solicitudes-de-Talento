@@ -1317,6 +1317,14 @@ function setupLogin(){
     catch(e){err.textContent=e.code==="auth/popup-closed-by-user"||e.code==="auth/cancelled-popup-request"?"":(e.message||"No se pudo iniciar sesión.")}
     b.disabled=false;
   };
+  $("lgSoloBtn").onclick=async()=>{
+    const err=$("lgErr3"),b=$("lgSoloBtn"),name=$("lgNombre").value.trim().replace(/\s+/g," "),mail=$("lgSolo").value.trim().toLowerCase();err.textContent="";
+    if(name.length<5||!name.includes(" ")) return void(err.textContent="Ingresa tu nombre y apellido.");
+    b.disabled=true;
+    try{await (await FBp).entrarCorreo(mail);SESSION={name,email:mail,role:"jefe",anon:true,last:Date.now()};saveSession();enter()}
+    catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
+    b.disabled=false;
+  };
   $("lgStaff").onclick=async()=>{
     const err=$("lgErr2"),b=$("lgStaff");err.textContent="";
     if(!$("lgMail").value.trim()||!$("lgPass").value) return void(err.textContent="Ingresa tu correo y tu clave.");
@@ -1337,7 +1345,7 @@ function setupLogin(){
 async function boot(){
   try{
     const F=await Promise.race([FBp,new Promise((_,no)=>setTimeout(()=>no(new Error("sin Firebase")),10000))]),u=await F.sesion(),s=readSession();
-    if(s&&u&&s.email===u.email.toLowerCase()){SESSION=s;return enter()}
+    if(s&&u&&(u.isAnonymous?s.anon:s.email===u.email.toLowerCase())){SESSION=s;return enter()}
     if(u) await F.salir();   // sesión de Firebase sin sesión de pantalla vigente (venció por inactividad)
     else if(await F.personal()) return location.replace(CONFIG.panelUrl);   // HRBP o Gerencia ya con sesión: directo a su panel
   }catch(e){}
@@ -1345,7 +1353,8 @@ async function boot(){
 }
 function showLogin(){
   $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
-  $("lgErr").textContent="";$("lgErr2").textContent="";$("lgPass").value="";
+  $("loginPrueba").classList.toggle("hidden",!CONFIG.modoPrueba);
+  $("lgErr").textContent="";$("lgErr3").textContent="";$("lgErr2").textContent="";$("lgPass").value="";
 }
 function enter(){
   BP_MODE=SESSION.role==="bp";

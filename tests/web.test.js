@@ -54,9 +54,10 @@ ok('los estados que usa el panel coinciden con las reglas', () => {
   const estados = [...panel.matchAll(/"(Nuevo|En revisión BP|Devuelto al jefe|Enviado a Gerencia|Aprobado|Rechazado|En pausa)"/g)].map(x => x[1]);
   estados.forEach(e => assert.ok(rules.includes("'" + e + "'"), e + ' no está en firestore.rules'));
 });
-ok('las reglas exigen Google institucional verificado y no admiten anónimos', () => {
+ok('las reglas exigen Google institucional verificado; el anónimo solo existe con modoPrueba', () => {
   assert.ok(/email_verified == true/.test(rules) && /sign_in_provider == 'google\.com'/.test(rules) && /usil\[\.\]edu\[\.\]pe/.test(rules));
-  assert.ok(!/anonymous/.test(rules + fbjs));
+  assert.ok(/function anonimo()[^}]*&& prueba()/.test(rules), 'el acceso anónimo debe depender de modoPrueba');
+  assert.ok(/function prueba()[^}]*modoPrueba == true/.test(rules));
 });
 ok('Vercel: las cabeceras repiten la CSP de las páginas, sin frame, y publican solo el sitio', () => {
   const v = JSON.parse(leer('vercel.json')).headers[0].headers, h = k => (v.find(x => x.key === k) || {}).value;
@@ -64,5 +65,11 @@ ok('Vercel: las cabeceras repiten la CSP de las páginas, sin frame, y publican 
   assert.ok(/max-age=\d{8,}/.test(h('Strict-Transport-Security')) && h('X-Content-Type-Options') === 'nosniff' && h('X-Frame-Options') === 'DENY');
   assert.ok(/same-origin-allow-popups/.test(h('Cross-Origin-Opener-Policy')), 'COOP debe permitir el popup de Google');
   const ign = leer('.vercelignore').split('\n'); ['tools', 'tests', 'docs', 'firestore.rules', 'package.json'].forEach(x => assert.ok(ign.includes(x), x));
+});
+ok('la validación de correo usa expresiones correctas (acepta correos con «s»)', () => {
+  const m = /entrarCorreo\(email\) \{\s*if \(!(\/[^\n]+?\/i)\.test\(email\)\)/.exec(fbjs);
+  assert.ok(m, 'no se encontró la validación'); const re = vm.runInNewContext(m[1]);
+  assert.ok(re.test('susana.sosa@usil.edu.pe') && !re.test('x@gmail.com') && !re.test('a b@usil.edu.pe') && !re.test('x@usilXeduYpe'));
+  assert.ok(!/replace\(\/s\+\//.test(js + fbjs), 'falta la barra en /\\s+/');
 });
 console.log('\n' + n + ' pruebas OK');

@@ -9,6 +9,7 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
 
 (async () => {
   const env = await initializeTestEnvironment({ projectId: 'demo-rules', firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 } });
+  await env.clearFirestore();
   await env.withSecurityRulesDisabled(async c => {
     const db = c.firestore();
     await setDoc(doc(db, 'config/app'), { modoPrueba: true });
@@ -31,10 +32,6 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
   let n = 0; const t = async (nombre, f) => { await f(); n++; console.log('  ✓', nombre); };
 
   await t('sin sesión no lee nada', () => assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'ruteo', DEP))));
-  await t('un anónimo no lee ni escribe nada', async () => {
-    await assertFails(getDoc(doc(anonimo, 'ruteo', DEP))); await assertFails(getDoc(doc(anonimo, 'maestro/0000000001')));
-    await assertFails(setDoc(sol(anonimo, 'N1'), nueva('N1', 'anon1')));
-  });
   await t('Google fuera de usil.edu.pe o sin verificar no entra', async () => {
     await assertFails(getDoc(doc(google('x@gmail.com'), 'ruteo', DEP))); await assertFails(getDoc(doc(google('jefe1@usil.edu.pe', false), 'ruteo', DEP)));
     await assertFails(setDoc(sol(google('x@gmail.com'), 'N2'), nueva('N2', 'u1', { enviadoPor: 'x@gmail.com' })));
@@ -87,6 +84,21 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
   await t('nadie escribe ruteo ni roles', async () => {
     await assertFails(setDoc(doc(claudia, 'ruteo', DEP), { nombre: 'x', correo: 'x' }));
     await assertFails(setDoc(doc(ger, 'roles/z@usil.edu.pe'), { roles: ['gerencia'] }));
+  });
+  // Anónimo (solo correo): únicamente con config/app.modoPrueba = true
+  await t('producción (modoPrueba=false): el anónimo no lee ni escribe nada', async () => {
+    await assertFails(getDoc(doc(anonimo, 'ruteo', DEP))); await assertFails(getDoc(doc(anonimo, 'maestro/0000000001')));
+    await assertFails(setDoc(sol(anonimo, 'N1'), nueva('N1', 'anon1', { enviadoPor: 'otro@usil.edu.pe' })));
+  });
+  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: true }));
+  await t('modo prueba: el anónimo envía con correo escrito y lee solo lo suyo', async () => {
+    await assertSucceeds(setDoc(sol(anonimo, 'N2'), nueva('N2', 'anon1', { enviadoPor: 'otro@usil.edu.pe' })));
+    await assertSucceeds(getDoc(sol(anonimo, 'N2'))); await assertFails(getDoc(sol(anonimo, 'S-NUEVA')));
+    await assertFails(getDocs(collection(anonimo, 'solicitudes'))); await assertFails(updateDoc(sol(anonimo, 'N2'), { estado: 'Aprobado' }));
+  });
+  await t('modo prueba: el anónimo no puede usar correos fuera de usil.edu.pe, ni leer líderes, roles ni correos ajenos', async () => {
+    await assertFails(setDoc(sol(anonimo, 'N3'), nueva('N3', 'anon1', { enviadoPor: 'x@gmail.com' })));
+    await assertFails(getDoc(doc(anonimo, 'lideres/jefe1@usil.edu.pe'))); await assertFails(getDoc(doc(anonimo, 'roles/bp1@usil.edu.pe')));
   });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');
