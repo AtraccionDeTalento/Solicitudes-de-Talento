@@ -119,10 +119,16 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
       <img src="assets/usil-lockup-navy.png" alt="Corporación Educativa USIL" width="190" height="auto">
       <div class="rule"></div>
       <h3 id="loginTitle">Solicitud de Movimiento de Talento</h3>
-      <p class="sub">Ingresa tu DNI para continuar.</p>
-      <div class="f"><label for="lgDni">DNI</label><input id="lgDni" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="8 dígitos"></div>
+      <p class="sub">Ingresa con tu cuenta de Google institucional (@usil.edu.pe) para continuar.</p>
       <div class="lerr" id="lgErr" role="alert"></div>
-      <button type="submit" id="lgEntrar">Ingresar</button>
+      <button type="button" id="lgGoogle">Entrar con Google</button>
+      <div class="rule"></div>
+      <p class="sub" id="lgAyuda"></p>
+      <div class="f" id="lgNombreWrap"><label for="lgNombre">Nombre y apellido</label><input id="lgNombre" autocomplete="name" placeholder="Ej. Mariana Torres"></div>
+      <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="usuario@usil.edu.pe"></div>
+      <div class="f"><label for="lgPass">Clave <small>(solo Business Partner y Gerencia)</small></label><input id="lgPass" type="password" autocomplete="current-password"></div>
+      <div class="lerr" id="lgErr2" role="alert"></div>
+      <button type="button" id="lgStaff">Ingresar</button>
       <p class="fine">Acceso solo para colaboradores USIL. Tu información se usa únicamente para registrar la solicitud.</p>
     </form>
   </div>

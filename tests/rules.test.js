@@ -4,9 +4,8 @@ const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@fir
 const { doc, setDoc, getDoc, getDocs, updateDoc, collection, query, where, limit } = require('firebase/firestore');
 
 const DEP = 'GERENCIA DE TALENTO Y CULTURA';
-const J1 = 'jefe1@dni.invalid', OTRO = 'otro@dni.invalid', BP1 = 'bp1@dni.invalid', BP2 = 'bp2@dni.invalid', GER = 'ger1@dni.invalid', INTRUSO = 'x@dni.invalid';
-const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Uno', bpCorreo: BP1, comentarioBP: '', comentarioGerencia: '',
-  enviadoPor: J1, movimiento: 'Promoción', departamento: DEP, impactoDetalle: 'x', solicitudConcreta: 'y', ...extra });
+const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Uno', bpCorreo: 'bp1@usil.edu.pe', comentarioBP: '', comentarioGerencia: '',
+  enviadoPor: 'jefe1@usil.edu.pe', movimiento: 'Promoción', departamento: DEP, impactoDetalle: 'x', solicitudConcreta: 'y', ...extra });
 
 (async () => {
   const env = await initializeTestEnvironment({ projectId: 'demo-rules', firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 } });
@@ -14,77 +13,92 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
   await env.withSecurityRulesDisabled(async c => {
     const db = c.firestore();
     await setDoc(doc(db, 'config/app'), { modoPrueba: true });
-    await setDoc(doc(db, 'ruteo', DEP), { nombre: 'HRBP Uno', correo: BP1 });
-    await setDoc(doc(db, 'lideres', J1), { nombre: 'Jefe Uno', puesto: 'JEFE' });
-    await setDoc(doc(db, 'lideres', OTRO), { nombre: 'Otro', puesto: 'JEFE' });
-    await setDoc(doc(db, 'roles', BP1), { nombre: 'HRBP Uno', roles: ['bp'] });
-    await setDoc(doc(db, 'roles', BP2), { nombre: 'HRBP Dos', roles: ['bp'] });
-    await setDoc(doc(db, 'roles', GER), { nombre: 'Gerencia', roles: ['gerencia'] });
+    await setDoc(doc(db, 'ruteo', DEP), { nombre: 'HRBP Uno', correo: 'bp1@usil.edu.pe' });
+    await setDoc(doc(db, 'roles/bp1@usil.edu.pe'), { roles: ['bp'] });
+    await setDoc(doc(db, 'roles/bp2@usil.edu.pe'), { roles: ['bp'] });
+    await setDoc(doc(db, 'roles/ger1@usil.edu.pe'), { roles: ['gerencia'] });
+    await setDoc(doc(db, 'lideres/jefe1@usil.edu.pe'), { nombre: 'Jefe Uno', puesto: 'JEFE' });
+    await setDoc(doc(db, 'lideres/otro@usil.edu.pe'), { nombre: 'Otro', puesto: 'JEFE' });
     await setDoc(doc(db, 'maestro/0000000001'), { nombre: 'Ana', departamento: DEP, situacion: 'Activo' });
-    await setDoc(doc(db, 'solicitudes/S-GER'), nueva('S-GER', 'otro', { estado: 'Enviado a Gerencia', enviadoPor: OTRO }));
-    await setDoc(doc(db, 'solicitudes/S-NUEVA'), nueva('S-NUEVA', 'otro', { enviadoPor: OTRO }));
+    await setDoc(doc(db, 'solicitudes/S-GER'), nueva('S-GER', 'otro', { estado: 'Enviado a Gerencia', enviadoPor: 'otro@usil.edu.pe' }));
+    await setDoc(doc(db, 'solicitudes/S-NUEVA'), nueva('S-NUEVA', 'otro', { enviadoPor: 'otro@usil.edu.pe' }));
   });
-  const ctx = (id, extra = {}) => env.authenticatedContext('uid-' + id, { email: id, email_verified: true, firebase: { sign_in_provider: 'password' }, ...extra }).firestore();
-  const jefe = ctx(J1), bp1 = ctx(BP1), bp2 = ctx(BP2), ger = ctx(GER), intruso = ctx(INTRUSO);
+  const google = (mail, verificado = true) => env.authenticatedContext('u1', { email: mail, email_verified: verificado, firebase: { sign_in_provider: 'google.com' } }).firestore();
+  const anon = google('jefe1@usil.edu.pe');   // el jefe: Google institucional verificado
+  const anonimo = env.authenticatedContext('anon1', { firebase: { sign_in_provider: 'anonymous' } }).firestore();
+  const pass = mail => env.authenticatedContext(mail, { email: mail, email_verified: true, firebase: { sign_in_provider: 'password' } }).firestore();
+  const claudia = pass('bp1@usil.edu.pe'), fatima = pass('bp2@usil.edu.pe'), ger = pass('ger1@usil.edu.pe');
   const sol = (db, id) => doc(db, 'solicitudes', id);
   let n = 0; const t = async (nombre, f) => { await f(); n++; console.log('  ✓', nombre); };
-  const uidJefe = 'uid-' + J1;
 
   await t('sin sesión no lee nada', () => assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'ruteo', DEP))));
-  await t('Google, anónimo o sin verificar no entran', async () => {
-    const otro = extra => env.authenticatedContext('u9', extra).firestore();
-    await assertFails(getDoc(doc(otro({ email: 'x@gmail.com', email_verified: true, firebase: { sign_in_provider: 'google.com' } }), 'ruteo', DEP)));
-    await assertFails(getDoc(doc(otro({ firebase: { sign_in_provider: 'anonymous' } }), 'ruteo', DEP)));
-    await assertFails(getDoc(doc(otro({ email: J1, email_verified: false, firebase: { sign_in_provider: 'password' } }), 'ruteo', DEP)));
+  await t('Google fuera de usil.edu.pe o sin verificar no entra', async () => {
+    await assertFails(getDoc(doc(google('x@gmail.com'), 'ruteo', DEP))); await assertFails(getDoc(doc(google('jefe1@usil.edu.pe', false), 'ruteo', DEP)));
+    await assertFails(setDoc(sol(google('x@gmail.com'), 'N2'), nueva('N2', 'u1', { enviadoPor: 'x@gmail.com' })));
   });
-  await t('una cuenta creada por un tercero (sin registro en lideres ni roles) no accede a nada', async () => {
-    await assertFails(getDoc(doc(intruso, 'ruteo', DEP))); await assertFails(getDoc(doc(intruso, 'maestro/0000000001')));
-    await assertFails(setDoc(sol(intruso, 'I1'), nueva('I1', 'uid-' + INTRUSO, { enviadoPor: INTRUSO })));
+  await t('no se puede enviar a nombre de otra persona', () => assertFails(setDoc(sol(anon, 'N3'), nueva('N3', 'u1', { enviadoPor: 'otro@usil.edu.pe' }))));
+  await t('un jefe con Google institucional crea su solicitud', () => assertSucceeds(setDoc(sol(anon, 'A1'), nueva('A1', 'u1'))));
+  await t('rechaza un BP que no es el del ruteo', () => assertFails(setDoc(sol(anon, 'A2'), nueva('A2', 'u1', { bpCorreo: 'bp3@usil.edu.pe' }))));
+    await t('rechaza crearla ya aprobada', () => assertFails(setDoc(sol(anon, 'A4'), nueva('A4', 'u1', { estado: 'Aprobado' }))));
+  await t('rechaza uid ajeno', () => assertFails(setDoc(sol(anon, 'A5'), nueva('A5', 'otro'))));
+  await t('rechaza movimiento inválido', () => assertFails(setDoc(sol(anon, 'A6'), nueva('A6', 'u1', { movimiento: 'Hack' }))));
+  await t('el jefe lee la suya y no las ajenas', async () => { await assertSucceeds(getDoc(sol(anon, 'A1'))); await assertFails(getDoc(sol(anon, 'S-NUEVA'))); });
+  await t('el jefe no puede modificarla', () => assertFails(updateDoc(sol(anon, 'A1'), { estado: 'Aprobado' })));
+  await t('el jefe no lista solicitudes ajenas', () => assertFails(getDocs(collection(anon, 'solicitudes'))));
+  await t('el BP lista solo las suyas', async () => {
+    await assertSucceeds(getDocs(query(collection(claudia, 'solicitudes'), where('bpCorreo', '==', 'bp1@usil.edu.pe'))));
+    await assertFails(getDocs(query(collection(claudia, 'solicitudes'), where('bpCorreo', '==', 'bp2@usil.edu.pe'))));
   });
-  await t('un jefe autorizado crea su solicitud', () => assertSucceeds(setDoc(sol(jefe, 'A1'), nueva('A1', uidJefe))));
-  await t('rechaza un BP que no es el del ruteo', () => assertFails(setDoc(sol(jefe, 'A2'), nueva('A2', uidJefe, { bpCorreo: BP2 }))));
-  await t('no se puede enviar a nombre de otra persona', () => assertFails(setDoc(sol(jefe, 'A3'), nueva('A3', uidJefe, { enviadoPor: OTRO }))));
-  await t('rechaza crearla ya aprobada, con uid ajeno o movimiento inválido', async () => {
-    await assertFails(setDoc(sol(jefe, 'A4'), nueva('A4', uidJefe, { estado: 'Aprobado' })));
-    await assertFails(setDoc(sol(jefe, 'A5'), nueva('A5', 'otro')));
-    await assertFails(setDoc(sol(jefe, 'A6'), nueva('A6', uidJefe, { movimiento: 'Hack' })));
+  await t('otro BP no lee la solicitud ajena', () => assertFails(getDoc(sol(fatima, 'S-NUEVA'))));
+  await t('el BP cambia estado y comentario', () => assertSucceeds(updateDoc(sol(claudia, 'S-NUEVA'), { estado: 'Enviado a Gerencia', comentarioBP: 'ok', gestionadoPor: 'bp1@usil.edu.pe', gestionadoEl: 'hoy' })));
+  await t('el BP no aprueba ni toca otros campos', async () => {
+    await assertFails(updateDoc(sol(claudia, 'A1'), { estado: 'Aprobado', gestionadoPor: 'bp1@usil.edu.pe' }));
+    await assertFails(updateDoc(sol(claudia, 'A1'), { estado: 'En pausa', gestionadoPor: 'bp1@usil.edu.pe', impactoDetalle: 'otro' }));
+    await assertFails(updateDoc(sol(claudia, 'A1'), { estado: 'En pausa', gestionadoPor: 'otra@usil.edu.pe' }));
   });
-  await t('el jefe lee la suya, no las ajenas, no la modifica y no lista', async () => {
-    await assertSucceeds(getDoc(sol(jefe, 'A1'))); await assertFails(getDoc(sol(jefe, 'S-NUEVA')));
-    await assertFails(updateDoc(sol(jefe, 'A1'), { estado: 'Aprobado' })); await assertFails(getDocs(collection(jefe, 'solicitudes')));
-  });
-  await t('el BP lista solo las suyas y otro BP no lee la ajena', async () => {
-    await assertSucceeds(getDocs(query(collection(bp1, 'solicitudes'), where('bpCorreo', '==', BP1))));
-    await assertFails(getDocs(query(collection(bp1, 'solicitudes'), where('bpCorreo', '==', BP2))));
-    await assertFails(getDoc(sol(bp2, 'S-NUEVA')));
-  });
-  await t('el BP cambia estado y comentario, pero no aprueba ni toca otros campos', async () => {
-    await assertSucceeds(updateDoc(sol(bp1, 'S-NUEVA'), { estado: 'Enviado a Gerencia', comentarioBP: 'ok', gestionadoPor: BP1, gestionadoEl: 'hoy' }));
-    await assertFails(updateDoc(sol(bp1, 'A1'), { estado: 'Aprobado', gestionadoPor: BP1 }));
-    await assertFails(updateDoc(sol(bp1, 'A1'), { estado: 'En pausa', gestionadoPor: BP1, impactoDetalle: 'otro' }));
-    await assertFails(updateDoc(sol(bp1, 'A1'), { estado: 'En pausa', gestionadoPor: BP2 }));
-  });
-  await t('Gerencia ve y decide solo lo que le pasaron', async () => {
+  await t('Gerencia ve lo enviado a Gerencia y no lo nuevo', async () => {
     await assertSucceeds(getDocs(query(collection(ger, 'solicitudes'), where('estado', 'in', ['Enviado a Gerencia', 'Aprobado', 'Rechazado']))));
     await assertFails(getDoc(sol(ger, 'A1')));
-    await assertSucceeds(updateDoc(sol(ger, 'S-GER'), { estado: 'Aprobado', comentarioGerencia: 'listo', gestionadoPor: GER, gestionadoEl: 'hoy' }));
-    await assertFails(updateDoc(sol(bp1, 'S-GER'), { estado: 'En pausa', gestionadoPor: BP1 }));
   });
-  await t('maestro: get sí; la lista solo en modo prueba y con límite', async () => {
-    await assertSucceeds(getDoc(doc(jefe, 'maestro/0000000001')));
-    await assertSucceeds(getDocs(query(collection(jefe, 'maestro'), where('departamento', '==', DEP), limit(30))));
-    await assertFails(getDocs(collection(jefe, 'maestro')));
+  await t('Gerencia aprueba con comentario', () => assertSucceeds(updateDoc(sol(ger, 'S-GER'), { estado: 'Aprobado', comentarioGerencia: 'listo', gestionadoPor: 'ger1@usil.edu.pe', gestionadoEl: 'hoy' })));
+  await t('el BP ya no toca lo aprobado', () => assertFails(updateDoc(sol(claudia, 'S-GER'), { estado: 'En pausa', gestionadoPor: 'bp1@usil.edu.pe' })));
+  await t('el maestro: get sí, lista solo con límite en modo prueba', async () => {
+    await assertSucceeds(getDoc(doc(anon, 'maestro/0000000001')));
+    await assertSucceeds(getDocs(query(collection(anon, 'maestro'), where('departamento', '==', DEP), limit(30))));
+    await assertFails(getDocs(collection(anon, 'maestro')));
+  });
+  await t('fuera del modo prueba el maestro no se puede listar', async () => {
     await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false }));
-    await assertFails(getDocs(query(collection(jefe, 'maestro'), limit(30))));
+    await assertFails(getDocs(query(collection(anon, 'maestro'), limit(30))));
   });
-  await t('cada quien lee solo su propio registro (nadie lista ni prueba identificadores ajenos)', async () => {
-    await assertSucceeds(getDoc(doc(jefe, 'lideres', J1))); await assertFails(getDoc(doc(jefe, 'lideres', OTRO))); await assertFails(getDocs(collection(jefe, 'lideres')));
-    await assertSucceeds(getDoc(doc(bp1, 'roles', BP1))); await assertFails(getDoc(doc(bp1, 'roles', GER))); await assertFails(getDoc(doc(jefe, 'roles', BP1)));
+  await t('lideres: cada quien lee solo su propio cargo (no se pueden probar correos ajenos)', async () => {
+    await assertSucceeds(getDoc(doc(anon, 'lideres/jefe1@usil.edu.pe')));
+    await assertFails(getDoc(doc(anon, 'lideres/otro@usil.edu.pe')));
+    await assertFails(getDocs(collection(anon, 'lideres')));
   });
-  await t('nadie escribe ruteo, roles ni lideres', async () => {
-    await assertFails(setDoc(doc(bp1, 'ruteo', DEP), { nombre: 'x', correo: 'x' }));
-    await assertFails(setDoc(doc(ger, 'roles', 'z@dni.invalid'), { roles: ['gerencia'] }));
-    await assertFails(setDoc(doc(jefe, 'lideres', 'z@dni.invalid'), { nombre: 'z' }));
+  await t('roles: cada quien lee solo el suyo y un anónimo no lee ninguno', async () => {
+    await assertSucceeds(getDoc(doc(claudia, 'roles/bp1@usil.edu.pe')));
+    await assertFails(getDoc(doc(claudia, 'roles/ger1@usil.edu.pe')));
+    await assertFails(getDoc(doc(anon, 'roles/bp1@usil.edu.pe')));
+  });
+  await t('nadie escribe ruteo ni roles', async () => {
+    await assertFails(setDoc(doc(claudia, 'ruteo', DEP), { nombre: 'x', correo: 'x' }));
+    await assertFails(setDoc(doc(ger, 'roles/z@usil.edu.pe'), { roles: ['gerencia'] }));
+  });
+  // Anónimo (solo correo): únicamente con config/app.modoPrueba = true
+  await t('producción (modoPrueba=false): el anónimo no lee ni escribe nada', async () => {
+    await assertFails(getDoc(doc(anonimo, 'ruteo', DEP))); await assertFails(getDoc(doc(anonimo, 'maestro/0000000001')));
+    await assertFails(setDoc(sol(anonimo, 'N1'), nueva('N1', 'anon1', { enviadoPor: 'otro@usil.edu.pe' })));
+  });
+  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: true }));
+  await t('modo prueba: el anónimo envía con correo escrito y lee solo lo suyo', async () => {
+    await assertSucceeds(setDoc(sol(anonimo, 'N2'), nueva('N2', 'anon1', { enviadoPor: 'otro@usil.edu.pe' })));
+    await assertSucceeds(getDoc(sol(anonimo, 'N2'))); await assertFails(getDoc(sol(anonimo, 'S-NUEVA')));
+    await assertFails(getDocs(collection(anonimo, 'solicitudes'))); await assertFails(updateDoc(sol(anonimo, 'N2'), { estado: 'Aprobado' }));
+  });
+  await t('modo prueba: el anónimo no puede usar correos fuera de usil.edu.pe, ni leer líderes, roles ni correos ajenos', async () => {
+    await assertFails(setDoc(sol(anonimo, 'N3'), nueva('N3', 'anon1', { enviadoPor: 'x@gmail.com' })));
+    await assertFails(getDoc(doc(anonimo, 'lideres/jefe1@usil.edu.pe'))); await assertFails(getDoc(doc(anonimo, 'roles/bp1@usil.edu.pe')));
   });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');

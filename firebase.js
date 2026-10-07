@@ -1,7 +1,6 @@
-import { derivar } from "./dni.mjs";
 // Capa Firebase compartida por index.html y panel.html. La configuración web de Firebase NO es secreta: la seguridad la dan firestore.rules.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { getAuth, connectAuthEmulator, signInAnonymously, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -17,38 +16,47 @@ if (emu) sessionStorage.setItem("emu", "1");
 const app = initializeApp(emu ? { apiKey: "emulador", authDomain: "localhost", projectId: "demo-local", appId: "emulador" } : firebaseConfig);
 export const auth = getAuth(app), db = getFirestore(app);
 if (emu) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
-export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, signOut };
-export { derivar, dniValido } from "./dni.mjs";
+export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, signInWithEmailAndPassword, signOut };
+
+/** Correo sin tildes ni ñ y en minúsculas (cmuñozse = cmunozse), como se guarda en Auth y en las reglas. */
+export const normalizar = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+const esUsil = u => !!u && u.emailVerified && /@usil\.edu\.pe$/.test(u.email || "");
 
 /** Usuario actual de Firebase (o null). */
 export async function usuario() { await auth.authStateReady(); return auth.currentUser; }
+/** Jefe con cuenta de Google institucional vigente, o null (los HRBP/Gerencia entran por el panel con correo y clave). */
+export async function sesion() { const u = await usuario(); return u && (u.isAnonymous || (esUsil(u) && u.providerData.some(p => p.providerId === "google.com"))) ? u : null; }
+/** SOLO MODO PRUEBA: entrada con el correo escrito, sin verificarlo. Las reglas la rechazan cuando config/app.modoPrueba es false. */
+export async function entrarCorreo(email) {
+  if (!/^[^@\s]+@usil\.edu\.pe$/i.test(email)) throw new Error("Usa tu correo institucional (@usil.edu.pe).");
+  const u = await usuario();
+  return u && u.isAnonymous ? u : (await signInAnonymously(auth)).user;
+}
 export const salir = () => signOut(auth);
-
-/** Perfil de la sesión actual: HRBP/Gerencia (roles/), jefe (lideres/) o null si la cuenta no está autorizada. */
-export async function perfil() {
-  const u = await usuario(); if (!u || !u.email) return null;
-  const r = await getDoc(doc(db, "roles", u.email));
-  if (r.exists()) return { rol: "staff", id: u.email, nombre: r.data().nombre, roles: r.data().roles || [] };
-  const l = await getDoc(doc(db, "lideres", u.email));
-  return l.exists() ? { rol: "jefe", id: u.email, nombre: l.data().nombre, puesto: l.data().puesto } : null;
+/** HRBP o Gerencia con sesión de correo y clave (verificada) o null: van directo al panel. */
+export async function personal() { const u = await usuario(); return u && u.emailVerified && u.providerData.some(p => p.providerId === "password") ? u : null; }
+/** Entrada con correo y clave que entrega el administrador (sin tildes ni ñ: cmuñozse = cmunozse). */
+export async function entrarClave(email, clave) {
+  try { await signInWithEmailAndPassword(auth, normalizar(email), String(clave)); }
+  catch (e) { throw new Error("Correo o clave incorrectos."); }
+  return personal();
 }
-
-/** Entrada con el DNI. Mismo mensaje para «no existe» y «no autorizado»: no revela quién está en la base. */
-export async function entrarDni(dni) {
-  const { email, clave } = await derivar(dni);
-  try { await signInWithEmailAndPassword(auth, email, clave); } catch (e) { throw new Error("DNI no autorizado."); }
-  const p = await perfil();
-  if (!p) { await signOut(auth); throw new Error("DNI no autorizado."); }
-  return p;
+export async function entrarGoogle() {
+  const p = new GoogleAuthProvider();
+  p.setCustomParameters({ hd: "usil.edu.pe", prompt: "select_account" });   // «hd» solo sugiere el dominio: lo exigen las reglas
+  const { user } = await signInWithPopup(auth, p);
+  if (!esUsil(user)) { await signOut(auth); throw new Error("Usa tu cuenta institucional de Google (@usil.edu.pe)."); }
+  return user;
 }
-async function conSesion() { const p = await perfil(); if (!p) throw new Error("Ingresa con tu DNI."); return p; }
+async function conSesion() { const u = await sesion(); if (!u) throw new Error("Inicia sesión con tu cuenta institucional."); return u; }
 
 const aItem = d => ({ nombre: d.nombre, puesto: d.puesto, situacion: d.situacion, departamento: d.departamento, area: d.area, seccion: d.seccion });
 
-/** Consulta al maestro (misma forma que antes): por matrícula, por su propio registro de líder o una persona activa al azar de un departamento (solo modo prueba). */
+/** Consulta al maestro (misma forma que antes): por matrícula, por correo del líder o una persona activa al azar de un departamento (solo modo prueba). */
 export async function maestro(extra) {
   const u = await conSesion();
-  if (extra.lider) { const s = await getDoc(doc(db, "lideres", u.id)); return s.exists() ? aItem(s.data()) : null; }
+  if (extra.lider) { if (u.isAnonymous) return null; const s = await getDoc(doc(db, "lideres", normalizar(u.email))); return s.exists() ? aItem(s.data()) : null; }
   if (extra.aleatorio) {
     const r = await getDocs(query(collection(db, "maestro"), where("departamento", "==", extra.departamento), where("situacion", "==", "Activo"), limit(30)));
     const filas = r.docs.filter(d => d.data().area && d.data().seccion);
@@ -67,6 +75,6 @@ export async function enviar(plano) {
   const rt = await getDoc(doc(db, "ruteo", plano.departamento));
   if (!rt.exists()) throw new Error("Departamento sin Business Partner configurado.");
   const bp = rt.data();
-  await setDoc(doc(db, "solicitudes", plano.id), { ...plano, enviadoPor: u.id, uid: (await usuario()).uid, bp: bp.nombre, bpCorreo: bp.correo, estado: "Nuevo", comentarioBP: "", comentarioGerencia: "" });
+  await setDoc(doc(db, "solicitudes", plano.id), { ...plano, enviadoPor: (u.email || plano.enviadoPor).toLowerCase(), uid: u.uid, bp: bp.nombre, bpCorreo: bp.correo, estado: "Nuevo", comentarioBP: "", comentarioGerencia: "" });
   return { ok: true, bp: bp.nombre };
 }

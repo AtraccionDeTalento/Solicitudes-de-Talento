@@ -6,9 +6,8 @@ Cada solicitud llega **automáticamente al Business Partner** del departamento d
 
 | Archivo | Contenido |
 |---|---|
-| `index.html` + `app.js` | App web (sin build): entrada solo con DNI, 7 pasos guiados, puntaje de preparación y sustento ejecutivo. |
+| `index.html` + `app.js` | App web (sin build): inicio de sesión con Google, 7 pasos guiados, puntaje de preparación y sustento ejecutivo. |
 | `panel.html` + `panel.js` | Panel de HRBP y Gerencia: bandeja, detalle, estados, comentarios y descarga de Excel. |
-| `dni.mjs` | Convierte el DNI en una identidad opaca (no se guarda). |
 | `firebase.js` + `fb-init.js` | Conexión a Firebase (Firestore y Auth), compartida por ambas páginas. |
 | `firestore.rules` | Reglas de seguridad: quién lee y qué cambia cada rol. |
 | `tools/` | Carga inicial de datos (ruteo, usuarios, Maestro) y preparación del Maestro. |
