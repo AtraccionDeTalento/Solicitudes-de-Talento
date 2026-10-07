@@ -10,7 +10,7 @@ const csp = h => /Content-Security-Policy" content="([^"]+)"/.exec(h)[1];
 
 ok('el JavaScript de la app y del panel compila', () => {
   new vm.Script(js);
-  new vm.Script('(async()=>{' + panel.replace(/^import .*$/m, '') + '})');
+  new vm.Script('(async()=>{' + panel.replace(/^import .*$/gm, '') + '})');
 });
 ok('la CSP de ambas páginas no permite scripts inline ni orígenes ajenos', () => {
   [html, panelHtml].forEach(h => {

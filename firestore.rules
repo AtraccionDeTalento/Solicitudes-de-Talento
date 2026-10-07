@@ -36,7 +36,7 @@ service cloud.firestore {
         if (tieneRol('bp') && resource.data.bpId == bpDe()
           && resource.data.estado in ['Nuevo', 'En revisión BP', 'Devuelto al jefe', 'En pausa']
           && request.resource.data.estado in ['En revisión BP', 'Devuelto al jefe', 'Enviado a Gerencia', 'En pausa']
-          && gestion(['comentarioBP']))
+          && gestion(['comentarioBP', 'textoGerencia', 'textoOrigen']))
         || (tieneRol('gerencia')
           && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']
           && request.resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado', 'En revisión BP']
@@ -47,7 +47,8 @@ service cloud.firestore {
     function gestion(comentario) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'gestionadoPor', 'gestionadoEl'].concat(comentario))
         && request.resource.data.gestionadoPor == yo()
-        && request.resource.data.get(comentario[0], '').size() <= 1000;
+        && request.resource.data.get(comentario[0], '').size() <= 1000
+        && request.resource.data.get('textoGerencia', '').size() <= 20000 && request.resource.data.get('textoOrigen', '').size() <= 30;   // texto redactado para Gerencia (solo lo envía el BP al escalar)
     }
 
     function s(d, k, n) { return !(k in d) || (d[k] is string && d[k].size() <= n); }

@@ -973,7 +973,7 @@ function download(name,text,type="application/json"){
 // Registro plano para Firestore: lo que lee el panel (sin tener que reconstruir el formulario).
 function aPlano(rec){
   const d=rec.data,ev=rec.evaluation||{},lista=a=>(a||[]).slice(0,10).join(" | ");
-  const levantamiento=(SETS[d.movimiento]||[]).flatMap(b=>b.q.filter(q=>d.dynamic&&d.dynamic[q[0]]).map(q=>({p:q[1],r:String(d.dynamic[q[0]])})));   // objetos: Firestore no admite arreglos anidados
+  const levantamiento=(SETS[d.movimiento]||[]).flatMap(b=>b.q.filter(q=>d.dynamic&&d.dynamic[q[0]]).map(q=>({i:q[0],b:b.t,p:q[1],r:String(d.dynamic[q[0]])})));   // objetos (Firestore no admite arreglos anidados): id del campo, bloque del cuestionario, pregunta y respuesta; el motor de redacción los usa
   const p={id:rec.id,enviadoEl:new Date().toISOString(),enviadoPor:SESSION.email.toLowerCase(),origen:"web",periodo:d.periodo,levantamiento,aprobaciones:d.approvals||[],
     puntaje:String(ev.score??""),clasificacion:ev.label||"",fortalezas:lista(ev.strengths),alertas:lista(ev.alerts),recomendacion:ev.recommendation||""};
   FIXED.forEach(k=>{if(k!=="emailCliente")p[k]=String(d[k]??"")});

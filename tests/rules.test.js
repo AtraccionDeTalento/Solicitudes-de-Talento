@@ -115,6 +115,17 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertFails(setDoc(sol(anon, 'B6'), nueva('B6', 'u1', { cliente: { a: 1 } })));
     await assertSucceeds(setDoc(sol(anon, 'B7'), nueva('B7', 'u1', { cliente: 'Nombre normal', levantamiento: [{ p: 'a', r: 'b' }], aprobaciones: [{}] })));
   });
+  await t('el texto para Gerencia lo escribe solo el Business Partner al escalar, con tope de tamaño; el jefe y Gerencia no pueden', async () => {
+    await assertSucceeds(setDoc(sol(anon, 'T1'), nueva('T1', 'u1'))); await assertSucceeds(setDoc(sol(anon, 'T2'), nueva('T2', 'u1')));
+    const gestion = extra => ({ estado: 'Enviado a Gerencia', comentarioBP: 'ok', gestionadoPor: BP1, gestionadoEl: 'hoy', ...extra });
+    await assertFails(setDoc(sol(anon, 'T3'), nueva('T3', 'u1', { textoGerencia: 'el jefe no puede escribirlo' })));
+    await assertFails(updateDoc(sol(anon, 'T1'), { textoGerencia: 'x' }));
+    await assertFails(updateDoc(sol(bp1, 'T1'), gestion({ textoGerencia: 'x'.repeat(20001), textoOrigen: 'motor' })));
+    await assertFails(updateDoc(sol(bp1, 'T1'), gestion({ textoGerencia: 'texto', textoOrigen: 'o'.repeat(31) })));
+    await assertFails(updateDoc(sol(bp1, 'T1'), gestion({ textoGerencia: 'texto', otroCampo: 'x' })));
+    await assertSucceeds(updateDoc(sol(bp1, 'T1'), gestion({ textoGerencia: 'SOLICITUD DE PROMOCIÓN\n1. DECISIÓN QUE SE SOLICITA', textoOrigen: 'motor+editado' })));
+    await assertFails(updateDoc(sol(ger, 'S-GER'), { estado: 'Aprobado', comentarioGerencia: 'x', gestionadoPor: GER, gestionadoEl: 'hoy', textoGerencia: 'Gerencia no reescribe el texto del BP' }));
+  });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');
 })().catch(e => { console.error(e); process.exit(1); });

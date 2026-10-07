@@ -1,4 +1,5 @@
 import * as FB from "./firebase.js";
+import { redactar } from "./redactor.mjs";   // motor de redacción ejecutiva (determinista)
 // Panel de HRBP y Gerencia sobre Firestore. Las reglas (firestore.rules) deciden qué ve y qué cambia cada rol; aquí solo se consulta.
 const VISIBLE_GER=["Enviado a Gerencia","Aprobado","Rechazado"];
 const CFG={bp:{estados:["En revisión BP","Devuelto al jefe","Enviado a Gerencia","En pausa"],editables:["Nuevo","En revisión BP","Devuelto al jefe","En pausa"],campo:"comentarioBP"},
@@ -49,11 +50,11 @@ const API={
   async panelExportar(vista){return (await filas(vista,await sesion())).map(d=>({...plano(d),levantamiento:pares(d),aprobaciones:d.aprobaciones||[]}))},
   async panelDetalle(id,vista){
     await sesion();const s=await FB.getDoc(FB.doc(FB.db,"solicitudes",id));if(!s.exists())throw new Error("Solicitud no disponible");const d=s.data();
-    return {puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
+    return {puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
   },
-  async panelActualizar(id,vista,estado,comentario){
+  async panelActualizar(id,vista,estado,comentario,extra){
     const q=await sesion();if(!CFG[vista]||!CFG[vista].estados.includes(estado))throw new Error("Estado no permitido");
-    try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),{estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString()})}
+    try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),{estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString(),...(vista==="bp"&&extra&&typeof extra==="object"?{textoGerencia:String(extra.textoGerencia||"").slice(0,20000),textoOrigen:String(extra.textoOrigen||"").slice(0,30)}:{})})}
     catch(e){throw new Error(e.code==="permission-denied"?"Esta solicitud ya no está en tu etapa.":e.message)}
     return {ok:true};
   }
@@ -253,11 +254,13 @@ function detalle(id){
   const f=D.filas.find(x=>x.id===id),ed=D.editables.includes(f.estado||"Nuevo");
   google.script.run.withFailureHandler(fail).withSuccessHandler(d=>{
     const p=Number(d.puntaje),nivel=p>=85?"alto":p>=60?"medio":"bajo",previos=[["Business Partner",f.comentarioBP],["Gerencia",f.comentarioGerencia]].filter(x=>x[1]);
+    const tg=d.registro&&d.registro.textoGerencia,auto=!tg&&d.registro&&vista==="gerencia"?redactar(d.registro,{comentarioBP:f.comentarioBP}):null;
     $("dlg").innerHTML=`
      <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
        <div class="meta"><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
        <button type="button" class="x" id="cerrarX" aria-label="Cerrar">✕</button></div>
      <div class="db">
+      ${tg||auto?`<section class="sec"><h4>Texto para Gerencia <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Business Partner":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Business Partner"}</span></h4><pre class="texto">${esc(tg||auto.texto)}</pre></section>`:""}
       <section class="sec"><h4>Resumen</h4><div class="grid">
         ${fila("Líder solicitante",f.cliente+" · "+f.cargoCliente)}${fila("Departamento",f.departamento)}${fila("Área",f.area)}${fila("Sección",f.seccion)}
         ${fila("Matrícula",f.codigo)}${fila("Puesto actual",f.puestoActual)}${fila("Business Partner",f.bp)}${fila("Urgencia",f.urgencia)}
@@ -279,13 +282,28 @@ function detalle(id){
     const dlg=$("dlg");dlg.showModal();dlg.scrollTop=0;
     const cerrar=()=>dlg.close();$("cerrarX").onclick=cerrar;$("cerrar").onclick=cerrar;
     dlg.onclick=e=>{if(e.target===dlg)cerrar()};   // clic fuera de la ventana
+    const aplicar=(estado,coment,extra,ok)=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=true);
+      google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=false);aviso(e.message||e)}).withSuccessHandler(()=>{dlg.close();cargar(vista);aviso("✓ "+ok)}).panelActualizar(id,vista,estado,coment,extra)};
+    // Escalar: el BP revisa (y puede editar) el texto que recibirá Gerencia; el motor señala lo que falta o no cuadra.
+    const componer=coment=>{
+      const base=redactar(d.registro,{comentarioBP:coment});
+      dlg.innerHTML=`<div class="dh"><div><span class="mov">Escalar a Gerencia</span><h2>Texto para Gerencia</h2><div class="meta"><span>Armado con las respuestas del jefe: revísalo y edítalo antes de enviar</span></div></div><button type="button" class="x" id="cerrarX2" aria-label="Cerrar">✕</button></div>
+       <div class="db">${base.alertas.length?`<section class="sec"><h4>Puntos a validar antes de enviar (${base.alertas.length})</h4><ul class="ptos">${base.alertas.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></section>`:'<section class="sec good">Sin puntos pendientes: los datos mínimos están completos.</section>'}
+        <section class="sec"><h4>Texto que recibirá Gerencia</h4><textarea id="tg" class="tg" rows="20" spellcheck="true">${esc(base.texto)}</textarea><p class="muted">Cada dato sale de las respuestas del formulario. Si lo editas, queda registrado como «editado por el Business Partner».</p></section></div>
+       <div class="df"><div class="acts"><button type="button" class="btn sec" id="volver">← Volver al detalle</button><button type="button" class="btn sec" id="regenerar">Regenerar</button><span class="sp"></span><button type="button" class="btn ok" id="enviarG">Enviar a Gerencia ➜</button></div></div>`;
+      $("cerrarX2").onclick=()=>dlg.close();$("volver").onclick=()=>detalle(id);
+      $("regenerar").onclick=()=>{$("tg").value=base.texto;aviso("Texto regenerado desde los datos")};
+      $("enviarG").onclick=()=>{const t=$("tg").value.trim();if(t.length<30)return aviso("El texto está vacío");
+        if(!confirm("¿Enviar a Gerencia con este texto? Esta acción se registra a tu nombre."))return;
+        aplicar("Enviado a Gerencia",coment,{textoGerencia:t,textoOrigen:t===base.texto.trim()?"motor":"motor+editado"},"Solicitud escalada: ya está en la bandeja de Gerencia")};
+    };
     if(ed)dlg.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{
       const [txt,nuevo,,exige,ok,confirma]=ACCIONES[vista][b.dataset.i],coment=$("nc").value.trim();
       const estado=nuevo||(D.estados.includes(f.estado)?f.estado:D.estados[0]);
       if(exige&&!coment){$("nc").focus();$("nc").classList.add("falta");return aviso("Escribe una observación para continuar")}
+      if(vista==="bp"&&nuevo==="Enviado a Gerencia")return componer(coment);
       if(confirma&&!confirm(`¿${txt.replace(/[➜✓]/g,"").trim()}? Esta acción se registra a tu nombre.`))return;
-      dlg.querySelectorAll("button").forEach(x=>x.disabled=true);
-      google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=false);aviso(e.message||e)}).withSuccessHandler(()=>{dlg.close();cargar(vista);aviso("✓ "+ok)}).panelActualizar(id,vista,estado,coment,TOKEN)});
+      aplicar(estado,coment,null,ok)});
   }).panelDetalle(id,vista,TOKEN);
 }
 // Cierre por inactividad: el panel muestra datos de personas; en un equipo compartido la sesión no debe quedar abierta.
