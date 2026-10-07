@@ -1,6 +1,6 @@
 // Capa Firebase compartida por index.html y panel.html. La configuración web de Firebase NO es secreta: la seguridad la dan firestore.rules.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-import { getAuth, connectAuthEmulator, signInAnonymously, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { getAuth, connectAuthEmulator, signInAnonymously, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -21,13 +21,11 @@ export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDoc
 /** Correo sin tildes ni ñ y en minúsculas (cmuñozse = cmunozse), como se guarda en Auth y en las reglas. */
 export const normalizar = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
-const esUsil = u => !!u && u.emailVerified && /@usil\.edu\.pe$/.test(u.email || "");
-
 /** Usuario actual de Firebase (o null). */
 export async function usuario() { await auth.authStateReady(); return auth.currentUser; }
-/** Jefe con cuenta de Google institucional vigente, o null (los HRBP/Gerencia entran por el panel con correo y clave). */
-export async function sesion() { const u = await usuario(); return u && (u.isAnonymous || (esUsil(u) && u.providerData.some(p => p.providerId === "google.com"))) ? u : null; }
-/** SOLO MODO PRUEBA: entrada con el correo escrito, sin verificarlo. Las reglas la rechazan cuando config/app.modoPrueba es false. */
+/** Jefe con sesión anónima (nombre y correo escritos en la pantalla), o null. HRBP y Gerencia entran por entrarClave. */
+export async function sesion() { const u = await usuario(); return u && u.isAnonymous ? u : null; }
+/** Entrada del jefe con el correo escrito, sin verificarlo (sesión anónima). Las reglas solo le dejan crear solicitudes y leer las suyas. */
 export async function entrarCorreo(email) {
   if (!/^[^@\s]+@usil\.edu\.pe$/i.test(email)) throw new Error("Usa tu correo institucional (@usil.edu.pe).");
   const u = await usuario();
@@ -35,19 +33,10 @@ export async function entrarCorreo(email) {
 }
 export const salir = () => signOut(auth);
 /** HRBP o Gerencia con sesión de correo y clave (verificada) o null: van directo al panel. */
-export async function personal() { const u = await usuario(); return u && u.emailVerified && u.providerData.some(p => p.providerId === "password") ? u : null; }
-/** Entrada con correo y clave que entrega el administrador (sin tildes ni ñ: cmuñozse = cmunozse). */
-export async function entrarClave(email, clave) {
-  try { await signInWithEmailAndPassword(auth, normalizar(email), String(clave)); }
-  catch (e) { throw new Error("Correo o clave incorrectos."); }
-  return personal();
-}
-export async function entrarGoogle() {
-  const p = new GoogleAuthProvider();
-  p.setCustomParameters({ hd: "usil.edu.pe", prompt: "select_account" });   // «hd» solo sugiere el dominio: lo exigen las reglas
-  const { user } = await signInWithPopup(auth, p);
-  if (!esUsil(user)) { await signOut(auth); throw new Error("Usa tu cuenta institucional de Google (@usil.edu.pe)."); }
-  return user;
+export async function personal() {
+  const u = await usuario();
+  if (!u || !u.emailVerified || !u.providerData.some(p => p.providerId === "password")) return null;
+  return (await getDoc(doc(db, "roles", u.email))).exists() ? u : null;   // sin rol asignado no es personal del panel
 }
 async function conSesion() { const u = await sesion(); if (!u) throw new Error("Inicia sesión con tu cuenta institucional."); return u; }
 

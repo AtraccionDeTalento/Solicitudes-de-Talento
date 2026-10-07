@@ -54,16 +54,24 @@ ok('los estados que usa el panel coinciden con las reglas', () => {
   const estados = [...panel.matchAll(/"(Nuevo|En revisión BP|Devuelto al jefe|Enviado a Gerencia|Aprobado|Rechazado|En pausa)"/g)].map(x => x[1]);
   estados.forEach(e => assert.ok(rules.includes("'" + e + "'"), e + ' no está en firestore.rules'));
 });
-ok('las reglas exigen Google institucional verificado; el anónimo solo existe con modoPrueba', () => {
-  assert.ok(/email_verified == true/.test(rules) && /sign_in_provider == 'google\.com'/.test(rules) && /usil\[\.\]edu\[\.\]pe/.test(rules));
-  assert.ok(/function anonimo()[^}]*&& prueba()/.test(rules), 'el acceso anónimo debe depender de modoPrueba');
-  assert.ok(/function prueba()[^}]*modoPrueba == true/.test(rules));
+ok('las reglas: el jefe (sesión anónima) solo crea y lee lo suyo; el Maestro se cierra a jefes sin verificar en producción; sin Google', () => {
+  assert.ok(!/google\.com/.test(rules + fbjs));
+  assert.ok(/function anonimo\(\)[^}]*== 'anonymous'/.test(rules) && /function prueba\(\)[^}]*modoPrueba == true/.test(rules));
+  assert.ok(/allow get: if personal\(\) \|\| \(anonimo\(\) && prueba\(\)\)/.test(rules), 'el Maestro de un jefe sin verificar debe depender de modoPrueba');
+  assert.ok(/allow create: if anonimo\(\)[^;]*matches\('\.\+@usil\[\.\]edu\[\.\]pe'\)/.test(rules), 'el correo del jefe debe ser @usil.edu.pe');
+  assert.ok(/function personal\(\)[^}]*email_verified|function usil\(\)[^}]*email_verified == true/.test(rules), 'HRBP y Gerencia exigen correo verificado');
+});
+ok('la pantalla de entrada: solo nombre y correo (sin clave ni Google); BP y Gerencia por un botón aparte', () => {
+  const login = /<div id="login"[\s\S]*?<\/form>/.exec(html)[0];
+  assert.deepStrictEqual([...login.matchAll(/<input id="(\w+)"/g)].map(m => m[1]), ['lgNombre', 'lgMail']);
+  assert.ok(!/google/i.test(login) && !/GoogleAuthProvider|signInWithPopup|entrarGoogle/.test(js + panel + fbjs));
+  assert.ok(/id="lgPanel"/.test(login) && /lgPanel"\)\.onclick=\(\)=>\{location\.href=CONFIG\.panelUrl\}/.test(js));
 });
 ok('Vercel: las cabeceras repiten la CSP de las páginas, sin frame, y publican solo el sitio', () => {
   const v = JSON.parse(leer('vercel.json')).headers[0].headers, h = k => (v.find(x => x.key === k) || {}).value;
   assert.strictEqual(h('Content-Security-Policy'), csp(html) + "; frame-ancestors 'none'"); assert.strictEqual(csp(html), csp(panelHtml));
   assert.ok(/max-age=\d{8,}/.test(h('Strict-Transport-Security')) && h('X-Content-Type-Options') === 'nosniff' && h('X-Frame-Options') === 'DENY');
-  assert.ok(/same-origin-allow-popups/.test(h('Cross-Origin-Opener-Policy')), 'COOP debe permitir el popup de Google');
+  assert.strictEqual(h('Cross-Origin-Opener-Policy'), 'same-origin');
   const ign = leer('.vercelignore').split('\n'); ['tools', 'tests', 'docs', 'firestore.rules', 'package.json'].forEach(x => assert.ok(ign.includes(x), x));
 });
 ok('la validación de correo usa expresiones correctas (acepta correos con «s»)', () => {

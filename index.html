@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#00195A">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.googleusercontent.com; media-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com; frame-src https://*.firebaseapp.com https://*.google.com https://*.googleapis.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self' https://*.googleapis.com; frame-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300195A'/%3E%3Ctext x='32' y='43' font-family='Arial' font-weight='800' font-size='30' text-anchor='middle' fill='white'%3Eu%3C/text%3E%3Crect x='14' y='50' width='36' height='4' rx='2' fill='%23F3BE00'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -119,16 +119,13 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
       <img src="assets/usil-lockup-navy.png" alt="Corporación Educativa USIL" width="190" height="auto">
       <div class="rule"></div>
       <h3 id="loginTitle">Solicitud de Movimiento de Talento</h3>
-      <p class="sub">Ingresa con tu cuenta de Google institucional (@usil.edu.pe) para continuar.</p>
-      <div class="lerr" id="lgErr" role="alert"></div>
-      <button type="button" id="lgGoogle">Entrar con Google</button>
-      <div class="rule"></div>
       <p class="sub" id="lgAyuda"></p>
-      <div class="f" id="lgNombreWrap"><label for="lgNombre">Nombre y apellido</label><input id="lgNombre" autocomplete="name" placeholder="Ej. Mariana Torres"></div>
+      <div class="f" id="lgNombreWrap"><label for="lgNombre">Nombre y apellido <small>(jefes de área)</small></label><input id="lgNombre" autocomplete="name" placeholder="Ej. Mariana Torres"></div>
       <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="usuario@usil.edu.pe"></div>
-      <div class="f"><label for="lgPass">Clave <small>(solo Business Partner y Gerencia)</small></label><input id="lgPass" type="password" autocomplete="current-password"></div>
       <div class="lerr" id="lgErr2" role="alert"></div>
       <button type="button" id="lgStaff">Ingresar</button>
+      <div class="rule"></div>
+      <button type="button" class="secondary" id="lgPanel">Acceso Business Partner y Gerencia</button>
       <p class="fine">Acceso solo para colaboradores USIL. Tu información se usa únicamente para registrar la solicitud.</p>
     </form>
   </div>

@@ -703,7 +703,7 @@ function lockNew(reset){
 // Consulta al maestro en Firestore (por matrícula, sin listar): devuelve solo la persona buscada.
 async function postMaestro(extra){
   try{return {ok:true,item:await (await FBp).maestro(extra)}}
-  catch(e){return {ok:false,error:e.code==="permission-denied"?"Sin permiso para consultar la base.":String(e.message||e)}}
+  catch(e){return {ok:false,error:e.code==="permission-denied"?"La búsqueda automática no está disponible.":String(e.message||e)}}
 }
 function afterAuto(){refresh();store(draftKey(),JSON.stringify({data:gather(),cur,reached}))}
 async function lookupRemote(code){
@@ -1302,7 +1302,7 @@ function init(){
 }
 
 // ---------- Sesión ----------
-// La identidad la da Firebase Auth (Google @usil.edu.pe verificado) y la validan las reglas de Firestore; SESSION solo ordena la pantalla.
+// Jefes: nombre y correo @usil.edu.pe (sesión anónima de Firebase; el correo no se verifica). HRBP y Gerencia: correo y clave. Las reglas de Firestore deciden qué ve cada uno.
 function saveSession(){try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(SESSION))}catch(e){}}
 function readSession(){
   try{const s=JSON.parse(sessionStorage.getItem(SESSION_KEY)||"null");if(s&&Date.now()-s.last<CONFIG.sessionMinutes*60000) return s}catch(e){}
@@ -1311,27 +1311,18 @@ function readSession(){
 let lastSave=0;
 function touch(){if(!SESSION) return;SESSION.last=Date.now();if(Date.now()-lastSave>15000){lastSave=Date.now();saveSession()}}
 function setupLogin(){
-  $("lgGoogle").onclick=async()=>{
-    const err=$("lgErr"),b=$("lgGoogle");err.textContent="";b.disabled=true;
-    try{const u=await (await FBp).entrarGoogle();SESSION={name:u.displayName||u.email,email:u.email.toLowerCase(),role:"jefe",last:Date.now()};saveSession();enter()}
-    catch(e){err.textContent=e.code==="auth/popup-closed-by-user"||e.code==="auth/cancelled-popup-request"?"":(e.message||"No se pudo iniciar sesión.")}
-    b.disabled=false;
-  };
-  // Un solo formulario: con clave = Business Partner/Gerencia (van a su panel); sin clave = jefe de área, solo en modo prueba (correo sin verificar).
+  // Jefe de área: nombre y correo @usil.edu.pe (sin verificar). Business Partner y Gerencia entran por su botón, que lleva al panel.
   $("lgStaff").onclick=async()=>{
-    const err=$("lgErr2"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),clave=$("lgPass").value,name=$("lgNombre").value.trim().replace(/\s+/g," ");
+    const err=$("lgErr2"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),name=$("lgNombre").value.trim().replace(/\s+/g," ");
     err.textContent="";
+    if(name.length<5||!name.includes(" ")) return void(err.textContent="Ingresa tu nombre y apellido.");
     if(!mail) return void(err.textContent="Ingresa tu correo institucional.");
-    if(!clave&&!CONFIG.modoPrueba) return void(err.textContent="Jefes de área: usa «Entrar con Google». Business Partner y Gerencia: agrega tu clave.");
-    if(!clave&&(name.length<5||!name.includes(" "))) return void(err.textContent="Ingresa tu nombre y apellido.");
     b.disabled=true;
-    try{
-      const F=await FBp;
-      if(clave){await F.entrarClave(mail,clave);location.href=CONFIG.panelUrl;return}
-      await F.entrarCorreo(mail);SESSION={name,email:mail,role:"jefe",anon:true,last:Date.now()};saveSession();enter();
-    }catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
+    try{await (await FBp).entrarCorreo(mail);SESSION={name,email:mail,role:"jefe",anon:true,last:Date.now()};saveSession();enter()}
+    catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
     b.disabled=false;
   };
+  $("lgPanel").onclick=()=>{location.href=CONFIG.panelUrl};
   $("loginForm").addEventListener("submit",e=>{e.preventDefault();$("lgStaff").click()});
   $("form").addEventListener("submit",e=>e.preventDefault());
   document.querySelector("#login video").addEventListener("error",e=>{e.target.style.display="none"});
@@ -1353,9 +1344,8 @@ async function boot(){
 }
 function showLogin(){
   $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
-  $("lgNombreWrap").classList.toggle("hidden",!CONFIG.modoPrueba);
-  $("lgAyuda").textContent=CONFIG.modoPrueba?"Modo prueba: sin clave entras como jefe de área con tu correo (sin verificar). Business Partner y Gerencia: agrega la clave que te entregaron.":"Business Partner y Gerencia: ingresa con tu correo y la clave que te entregaron.";
-  $("lgErr").textContent="";$("lgErr2").textContent="";$("lgPass").value="";
+  $("lgAyuda").textContent="Ingresa tu nombre y tu correo institucional para continuar.";
+  $("lgErr2").textContent="";
 }
 function enter(){
   BP_MODE=SESSION.role==="bp";
