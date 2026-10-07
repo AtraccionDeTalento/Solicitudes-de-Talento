@@ -18,11 +18,11 @@ Necesitas Node 22+ y Java. Una vez: `npm install`. Luego, en **tres terminales**
 ```bash
 npm run emu          # 1) emuladores de Firebase (Auth y Firestore)
 npm run seed:local   # 2) datos inventados; imprime las claves de hrbp1@usil.edu.pe y ger1@usil.edu.pe
-npm run serve        # 3) la app en http://localhost:5000/?emu
+npm run serve        # 3) la app en http://localhost:5000/
 ```
 - Entra con cualquier nombre y un correo `@usil.edu.pe` inventado; rellena y envía una solicitud (en modo prueba hay botones para rellenarla). Todas llegan a `hrbp1@usil.edu.pe`.
 - Pulsa «Acceso Business Partner y Gerencia», entra con `hrbp1` y la clave que imprimió el paso 2, pásala a Gerencia; entra como `ger1@usil.edu.pe` y apruébala.
-- Al cerrar los emuladores todo se borra. `?emu` solo funciona en `localhost` y no toca la nube.
+- Al cerrar los emuladores todo se borra. En `localhost` la app usa siempre los emuladores y no toca la nube (con `?nube` usaría la nube).
 - `npm test` (estáticas) y `npm run test:rules` (reglas de seguridad) corren con los emuladores.
 
 ## B. Crear el proyecto en Firebase (una vez)

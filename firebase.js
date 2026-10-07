@@ -10,9 +10,8 @@ const firebaseConfig = {
   appId: "PEGAR"
 };
 
-// Prueba local: http://localhost:5000/?emu usa los emuladores (proyecto «demo-local»); solo se activa en localhost y nunca toca la nube.
-const emu = ["localhost", "127.0.0.1"].includes(location.hostname) && (new URLSearchParams(location.search).has("emu") || sessionStorage.getItem("emu") === "1");
-if (emu) sessionStorage.setItem("emu", "1");
+// Prueba local: en localhost la app usa SIEMPRE los emuladores (proyecto «demo-local») y nunca toca la nube. Para probar localhost contra la nube: ?nube
+const emu = ["localhost", "127.0.0.1"].includes(location.hostname) && !new URLSearchParams(location.search).has("nube");
 const app = initializeApp(emu ? { apiKey: "emulador", authDomain: "localhost", projectId: "demo-local", appId: "emulador" } : firebaseConfig);
 export const auth = getAuth(app), db = getFirestore(app);
 if (emu) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
