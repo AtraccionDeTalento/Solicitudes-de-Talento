@@ -3,7 +3,8 @@
 //       set GOOGLE_APPLICATION_CREDENTIALS=C:\ruta\clave-de-servicio.json
 //       node cargar-datos.js [Maestro_recortado.csv] [--borrar-solicitudes]
 // El CSV sale de preparar-maestro.py. La clave de servicio y usuarios.json son secretos: nunca al repositorio (.gitignore ya excluye *.json).
-const fs = require("fs"), path = require("path"), admin = require("firebase-admin");
+const fs = require("fs"), path = require("path"), crypto = require("crypto"), admin = require("firebase-admin");
+const PRUEBA = process.env.DATOS_PRUEBA === "1";   // emuladores: datos inventados, sin personas reales (ver seed-local.js)
 admin.initializeApp();
 const db = admin.firestore(), norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
@@ -27,24 +28,36 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
 (async () => {
   const args = process.argv.slice(2), archivo = args.find(a => !a.startsWith("--"));
   await db.doc("config/app").set({ modoPrueba: true });   // en producción: cambiar a false (desde la consola de Firebase)
-  const rf = path.join(__dirname, "ruteo.local.json");
-  if (!fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
-  const ruteo = JSON.parse(fs.readFileSync(rf, "utf8")), validos = require("./departamentos");
+  const validos = require("./departamentos"), rf = path.join(__dirname, "ruteo.local.json");
+  if (!PRUEBA && !fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
+  const ruteo = PRUEBA ? Object.fromEntries(validos.map(d => [d, { nombre: "HRBP de prueba", correo: "hrbp1@usil.edu.pe" }])) : JSON.parse(fs.readFileSync(rf, "utf8"));
   Object.keys(ruteo).forEach(d => { if (!validos.includes(d)) throw new Error("Departamento desconocido en el ruteo: " + d); });
   await lote(Object.entries(ruteo).map(([dep, bp]) => [db.doc("ruteo/" + dep), bp]));
   console.log("ruteo:", Object.keys(ruteo).length, "departamentos");
 
   const uf = path.join(__dirname, "usuarios.json");
-  if (fs.existsSync(uf)) {
-    for (const [correo, u] of Object.entries(JSON.parse(fs.readFileSync(uf, "utf8")))) {
+  let usuarios = null;
+  if (PRUEBA) {   // claves al azar, solo para los emuladores
+    const clave = () => crypto.randomBytes(9).toString("base64url");
+    usuarios = { "hrbp1@usil.edu.pe": { nombre: "HRBP de prueba", clave: clave(), roles: ["bp"] }, "ger1@usil.edu.pe": { nombre: "Gerencia de prueba", clave: clave(), roles: ["gerencia"] } };
+    console.log("Cuentas del panel (solo emulador):"); Object.entries(usuarios).forEach(([k, v]) => console.log("  " + k + "  clave: " + v.clave));
+  } else if (fs.existsSync(uf)) usuarios = JSON.parse(fs.readFileSync(uf, "utf8"));
+  if (usuarios) {
+    for (const [correo, u] of Object.entries(usuarios)) {
       const email = norm(correo);
       try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: u.clave, emailVerified: true }); }
       catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: u.clave, displayName: u.nombre, emailVerified: true }); }   // emailVerified: las reglas exigen correo verificado
       await db.doc("roles/" + email).set({ nombre: u.nombre, roles: u.roles });
-      console.log("usuario:", email, u.roles.join("+"));
+      if (!PRUEBA) console.log("usuario:", email, u.roles.join("+"));
     }
   } else console.log("sin tools/usuarios.json: no se crearon usuarios");
 
+  if (PRUEBA) {   // personal inventado: 6 por departamento
+    const items = []; let n = 0;
+    validos.forEach(dep => { for (let i = 1; i <= 6; i++) { const mat = String(++n).padStart(10, "0");
+      items.push([db.doc("maestro/" + mat), { nombre: "Persona Prueba " + n, puesto: "ANALISTA " + i, situacion: "Activo", departamento: dep, area: "AREA " + i, seccion: "SECCION " + i }]); } });
+    await lote(items); console.log("maestro de prueba:", n, "personas inventadas");
+  }
   if (archivo) {
     const [cab, ...filas] = csv(fs.readFileSync(archivo, "utf8").replace(/^﻿/, "")).filter(r => r.length > 1);
     if (cab.length !== 8) throw new Error("El CSV debe tener las 8 columnas de preparar-maestro.py");

@@ -1,0 +1,11 @@
+# Lo que NO se publica en el sitio (Vercel sirve la raíz del repositorio)
+tools
+tests
+docs
+node_modules
+firebase.json
+firestore.rules
+package.json
+package-lock.json
+README.md
+.gitignore

@@ -10,10 +10,12 @@ const firebaseConfig = {
   appId: "PEGAR"
 };
 
-const app = initializeApp(firebaseConfig);
+// Prueba local: http://localhost:5000/?emu usa los emuladores (proyecto «demo-local»); solo se activa en localhost y nunca toca la nube.
+const emu = ["localhost", "127.0.0.1"].includes(location.hostname) && (new URLSearchParams(location.search).has("emu") || sessionStorage.getItem("emu") === "1");
+if (emu) sessionStorage.setItem("emu", "1");
+const app = initializeApp(emu ? { apiKey: "emulador", authDomain: "localhost", projectId: "demo-local", appId: "emulador" } : firebaseConfig);
 export const auth = getAuth(app), db = getFirestore(app);
-// Pruebas locales: http://localhost:PUERTO/index.html?emu usa los emuladores de Firebase en vez del proyecto real.
-if (location.hostname === "localhost" && new URLSearchParams(location.search).has("emu")) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
+if (emu) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
 export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, signInWithEmailAndPassword, signOut };
 
 /** Correo sin tildes ni ñ y en minúsculas (cmuñozse = cmunozse), como se guarda en Auth y en las reglas. */

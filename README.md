@@ -11,6 +11,7 @@ Cada solicitud llega **automáticamente al Business Partner** del departamento d
 | `firebase.js` + `fb-init.js` | Conexión a Firebase (Firestore y Auth), compartida por ambas páginas. |
 | `firestore.rules` | Reglas de seguridad: quién lee y qué cambia cada rol. |
 | `tools/` | Carga inicial de datos (ruteo, usuarios, Maestro) y preparación del Maestro. |
+| `vercel.json` | Cabeceras de seguridad del sitio en Vercel. |
 | `docs/` | Guía de puesta en marcha, lista de preguntas y plantilla de ruteo. |
 
 ## Puesta en marcha

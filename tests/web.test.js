@@ -58,4 +58,11 @@ ok('las reglas exigen Google institucional verificado y no admiten anónimos', (
   assert.ok(/email_verified == true/.test(rules) && /sign_in_provider == 'google\.com'/.test(rules) && /usil\[\.\]edu\[\.\]pe/.test(rules));
   assert.ok(!/anonymous/.test(rules + fbjs));
 });
+ok('Vercel: las cabeceras repiten la CSP de las páginas, sin frame, y publican solo el sitio', () => {
+  const v = JSON.parse(leer('vercel.json')).headers[0].headers, h = k => (v.find(x => x.key === k) || {}).value;
+  assert.strictEqual(h('Content-Security-Policy'), csp(html) + "; frame-ancestors 'none'"); assert.strictEqual(csp(html), csp(panelHtml));
+  assert.ok(/max-age=\d{8,}/.test(h('Strict-Transport-Security')) && h('X-Content-Type-Options') === 'nosniff' && h('X-Frame-Options') === 'DENY');
+  assert.ok(/same-origin-allow-popups/.test(h('Cross-Origin-Opener-Policy')), 'COOP debe permitir el popup de Google');
+  const ign = leer('.vercelignore').split('\n'); ['tools', 'tests', 'docs', 'firestore.rules', 'package.json'].forEach(x => assert.ok(ign.includes(x), x));
+});
 console.log('\n' + n + ' pruebas OK');
