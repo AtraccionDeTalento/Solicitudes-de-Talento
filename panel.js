@@ -205,24 +205,52 @@ function descargar(){
   }).panelExportar(vista,TOKEN);
 }
 
+// ---------- Detalle de una solicitud (ventana con encabezado, secciones y barra de acciones fija) ----------
+function aviso(t){let e=$("toast");if(!e){e=document.createElement("div");e.id="toast";document.body.appendChild(e)}e.textContent=t;e.className="show";clearTimeout(aviso.t);aviso.t=setTimeout(()=>{e.className=""},3500)}
+const lis=s=>String(s||"").split(" | ").filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join("");
+const fila=(k,v)=>v==null||String(v).trim()===""?"":`<div class="kv"><span>${esc(k)}</span><b>${esc(v)}</b></div>`;
+// Acciones por rol: [texto, estado nuevo (null = conservar el actual), estilo, exige comentario, aviso de éxito, pide confirmación]
+const ACCIONES={
+  bp:[["Guardar observación",null,"sec",false,"Observación guardada",false],["Devolver al jefe","Devuelto al jefe","warn",true,"Solicitud devuelta al jefe",false],["Pausar","En pausa","sec",false,"Solicitud en pausa",false],["Escalar a Gerencia ➜","Enviado a Gerencia","ok",false,"Solicitud escalada: ya está en la bandeja de Gerencia",true]],
+  gerencia:[["Guardar comentario",null,"sec",false,"Comentario guardado",false],["Devolver al BP","En revisión BP","warn",true,"Solicitud devuelta al Business Partner",false],["Rechazar","Rechazado","bad",true,"Solicitud rechazada",true],["Aprobar ✓","Aprobado","ok",false,"Solicitud aprobada",true]]
+};
 function detalle(id){
   const f=D.filas.find(x=>x.id===id),ed=D.editables.includes(f.estado||"Nuevo");
   google.script.run.withFailureHandler(fail).withSuccessHandler(d=>{
-    const dl=a=>`<dl>${a.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
-    $("dlg").innerHTML=`<h2 style="margin-top:0;color:var(--navy)">${esc(f.movimiento)} · ${esc(f.colaborador)}</h2>
-     ${dl([["ID",f.id],["Líder",f.cliente+" · "+f.cargoCliente],["Departamento / Área",f.departamento+" · "+f.area],["Puesto actual",f.puestoActual],["BP asignado",f.bp],["Presupuesto",f.presupuesto+" · "+f.fuentePresupuesto+" · S/ "+f.montoPresupuesto],["Urgencia / impacto",f.urgencia+" · "+f.impacto],["Consecuencia",f.consecuencia],["Comentario BP",f.comentarioBP],["Comentario gerencia",f.comentarioGerencia]])}
-     <h3>Detalle del impacto</h3><p>${esc(d.impacto)}</p>
-     ${d.puntaje?`<h3>Evaluación automática: ${esc(d.puntaje)}/100 · ${esc(d.clasificacion)}</h3>${d.fortalezas?`<p><b>Fortalezas</b><br>${esc(d.fortalezas).split(" | ").join("<br>")}</p>`:""}${d.alertas?`<p><b>Alertas</b><br>${esc(d.alertas).split(" | ").join("<br>")}</p>`:""}<p class="muted">${esc(d.recomendacion)}</p>`:""}
-     ${d.sustento?`<h3>Sustento ejecutivo</h3><p style="white-space:pre-wrap">${esc(d.sustento)}</p>`:""}
-     <h3>Levantamiento</h3>${dl(d.levantamiento)||""}
-     ${d.aprobaciones.length?`<h3>Aprobaciones</h3>${d.aprobaciones.map(a=>dl([["Nivel",a.level],["Aprobador",a.name+" · "+a.role],["Fecha",a.date],["Evidencia",a.evidence+" "+(a.type||"")]])).join("<hr>")}`:""}
-     ${ed?`<h3>Gestión</h3><div class="tools"><select id="ne">${D.estados.map(e=>`<option ${e===f.estado?"selected":""}>${esc(e)}</option>`).join("")}</select></div>
-       <textarea id="nc" rows="3" style="width:100%" placeholder="Comentario">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>`:""}
-     ${vista==="jefe"&&f.estado==="Devuelto al jefe"&&d.editUrl?`<p><a href="${esc(d.editUrl)}" target="_blank" rel="noopener"><b>Corregir y reenviar</b></a></p>`:vista==="jefe"&&f.estado==="Devuelto al jefe"?"<p><b>Corrige la solicitud desde la app web y vuelve a enviarla.</b></p>":""}
-     <p style="text-align:right"><button class="p" id="cerrar" style="background:#8892AD">Cerrar</button> ${ed?'<button class="p" id="guardar">Guardar</button>':""}</p>`;
-    $("dlg").showModal();$("cerrar").onclick=()=>$("dlg").close();
-    if(ed)$("guardar").onclick=()=>{$("guardar").disabled=true;
-      google.script.run.withFailureHandler(e=>{$("guardar").disabled=false;alert(e.message||e)}).withSuccessHandler(()=>{$("dlg").close();cargar(vista)}).panelActualizar(id,vista,$("ne").value,$("nc").value,TOKEN)};
+    const p=Number(d.puntaje),nivel=p>=85?"alto":p>=60?"medio":"bajo",previos=[["Business Partner",f.comentarioBP],["Gerencia",f.comentarioGerencia]].filter(x=>x[1]);
+    $("dlg").innerHTML=`
+     <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
+       <div class="meta"><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
+       <button type="button" class="x" id="cerrarX" aria-label="Cerrar">✕</button></div>
+     <div class="db">
+      <section class="sec"><h4>Resumen</h4><div class="grid">
+        ${fila("Líder solicitante",f.cliente+" · "+f.cargoCliente)}${fila("Departamento",f.departamento)}${fila("Área",f.area)}${fila("Sección",f.seccion)}
+        ${fila("Matrícula",f.codigo)}${fila("Puesto actual",f.puestoActual)}${fila("Business Partner",f.bp)}${fila("Urgencia",f.urgencia)}
+        ${fila("Impacto si no se ejecuta",f.impacto)}${fila("Consecuencia",f.consecuencia)}</div></section>
+      <section class="sec"><h4>Presupuesto</h4><div class="grid">${fila("¿Cuenta con presupuesto?",f.presupuesto)}${fila("Fuente",f.fuentePresupuesto)}${fila("Quién valida",f.validaPresupuesto)}${fila("Monto",f.montoPresupuesto!==""?"S/ "+f.montoPresupuesto:"")}</div></section>
+      ${d.puntaje?`<section class="sec"><h4>Evaluación automática</h4>
+        <div class="score"><div class="ring ${nivel}">${esc(d.puntaje)}</div><div><b>${esc(d.clasificacion)}</b><p class="muted">${esc(d.recomendacion)}</p></div></div>
+        <div class="two">${d.fortalezas?`<div class="good"><h5>Fortalezas</h5><ul>${lis(d.fortalezas)}</ul></div>`:""}${d.alertas?`<div class="warnb"><h5>Alertas</h5><ul>${lis(d.alertas)}</ul></div>`:""}</div></section>`:""}
+      <section class="sec"><h4>Detalle del impacto</h4><p class="txt">${esc(d.impacto)}</p></section>
+      ${d.sustento?`<section class="sec"><h4>Sustento ejecutivo</h4><p class="txt">${esc(d.sustento)}</p></section>`:""}
+      ${d.levantamiento.length?`<section class="sec"><h4>Levantamiento</h4>${d.levantamiento.map(([k,v])=>`<div class="qa"><span>${esc(k)}</span><p>${esc(v)}</p></div>`).join("")}</section>`:""}
+      ${d.aprobaciones.length?`<section class="sec"><h4>Aprobaciones previas</h4><div class="two">${d.aprobaciones.map(a=>`<div class="ap"><b>${esc(a.name)}</b><span>${esc(a.role)} · ${esc(a.level)}</span><span>${esc(a.date)} · Evidencia: ${esc(a.evidence)}${a.type?" ("+esc(a.type)+")":""}</span></div>`).join("")}</div></section>`:""}
+      ${previos.length?`<section class="sec"><h4>Comentarios anteriores</h4>${previos.map(([q,t])=>`<div class="qa"><span>${esc(q)}</span><p>${esc(t)}</p></div>`).join("")}</section>`:""}
+     </div>
+     <div class="df">${ed?`<label for="nc">Observación o comentario${vista==="bp"?" (lo ve Gerencia y, si la devuelves, el jefe)":""}</label>
+       <textarea id="nc" rows="2" placeholder="Escribe aquí tu observación…">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>
+       <div class="acts"><button type="button" class="btn sec" id="cerrar">Cerrar</button><span class="sp"></span>${ACCIONES[vista].map((a,i)=>`<button type="button" class="btn ${a[2]}" data-i="${i}">${esc(a[0])}</button>`).join("")}</div>`
+       :`<div class="acts"><span class="muted">Esta solicitud ya no está en tu etapa: solo lectura.</span><span class="sp"></span><button type="button" class="btn sec" id="cerrar">Cerrar</button></div>`}</div>`;
+    const dlg=$("dlg");dlg.showModal();dlg.scrollTop=0;
+    const cerrar=()=>dlg.close();$("cerrarX").onclick=cerrar;$("cerrar").onclick=cerrar;
+    dlg.onclick=e=>{if(e.target===dlg)cerrar()};   // clic fuera de la ventana
+    if(ed)dlg.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{
+      const [txt,nuevo,,exige,ok,confirma]=ACCIONES[vista][b.dataset.i],coment=$("nc").value.trim();
+      const estado=nuevo||(D.estados.includes(f.estado)?f.estado:D.estados[0]);
+      if(exige&&!coment){$("nc").focus();$("nc").classList.add("falta");return aviso("Escribe una observación para continuar")}
+      if(confirma&&!confirm(`¿${txt.replace(/[➜✓]/g,"").trim()}? Esta acción se registra a tu nombre.`))return;
+      dlg.querySelectorAll("button").forEach(x=>x.disabled=true);
+      google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=false);aviso(e.message||e)}).withSuccessHandler(()=>{dlg.close();cargar(vista);aviso("✓ "+ok)}).panelActualizar(id,vista,estado,coment,TOKEN)});
   }).panelDetalle(id,vista,TOKEN);
 }
 google.script.run.withFailureHandler(mostrarLogin).withSuccessHandler(q=>cargar(q.vistas[q.vistas.length-1])).panelQuien();
