@@ -29,8 +29,9 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   const args = process.argv.slice(2), archivo = args.find(a => !a.startsWith("--"));
   await db.doc("config/app").set({ modoPrueba: true });   // en producción: cambiar a false (desde la consola de Firebase)
   const validos = require("./departamentos"), rf = path.join(__dirname, "ruteo.local.json");
+  // En los emuladores, si existen tools/ruteo.local.json y tools/usuarios.json se usan también: así pruebas con tus cuentas reales sin tocar la nube.
   if (!PRUEBA && !fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
-  const ruteo = PRUEBA ? Object.fromEntries(validos.map(d => [d, { nombre: "HRBP de prueba", correo: "hrbp1@usil.edu.pe" }])) : JSON.parse(fs.readFileSync(rf, "utf8"));
+  const ruteo = (PRUEBA && !fs.existsSync(rf)) ? Object.fromEntries(validos.map(d => [d, { nombre: "HRBP de prueba", correo: "hrbp1@usil.edu.pe" }])) : JSON.parse(fs.readFileSync(rf, "utf8"));
   Object.keys(ruteo).forEach(d => { if (!validos.includes(d)) throw new Error("Departamento desconocido en el ruteo: " + d); });
   await lote(Object.entries(ruteo).map(([dep, bp]) => [db.doc("ruteo/" + dep), bp]));
   console.log("ruteo:", Object.keys(ruteo).length, "departamentos");
@@ -40,7 +41,8 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   if (PRUEBA) {   // claves al azar, solo para los emuladores
     const clave = () => crypto.randomBytes(9).toString("base64url");
     usuarios = { "hrbp1@usil.edu.pe": { nombre: "HRBP de prueba", clave: clave(), roles: ["bp"] }, "ger1@usil.edu.pe": { nombre: "Gerencia de prueba", clave: clave(), roles: ["gerencia"] } };
-    console.log("Cuentas del panel (solo emulador):"); Object.entries(usuarios).forEach(([k, v]) => console.log("  " + k + "  clave: " + v.clave));
+    console.log("Cuentas de prueba del panel (solo emulador):"); Object.entries(usuarios).forEach(([k, v]) => console.log("  " + k + "  clave: " + v.clave));
+    if (fs.existsSync(uf)) { Object.assign(usuarios, JSON.parse(fs.readFileSync(uf, "utf8"))); console.log("  + las cuentas de tools/usuarios.json (con sus claves)"); }
   } else if (fs.existsSync(uf)) usuarios = JSON.parse(fs.readFileSync(uf, "utf8"));
   if (usuarios) {
     for (const [correo, u] of Object.entries(usuarios)) {
