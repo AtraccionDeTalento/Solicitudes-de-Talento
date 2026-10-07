@@ -44,10 +44,11 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   } else if (fs.existsSync(uf)) usuarios = JSON.parse(fs.readFileSync(uf, "utf8"));
   if (usuarios) {
     for (const [correo, u] of Object.entries(usuarios)) {
-      if (!PRUEBA && String(u.clave || "").length < 12) throw new Error("La clave de " + correo + " debe tener 12 o más caracteres (cámbiala en tools/usuarios.json).");
+      if (!PRUEBA && u.clave && String(u.clave).length < 12) throw new Error("La clave de " + correo + " debe tener 12 o más caracteres (cámbiala en tools/usuarios.json).");
       const email = norm(correo);
-      try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: u.clave, emailVerified: true }); }
+      if (u.clave) try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: u.clave, emailVerified: true }); }
       catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: u.clave, displayName: u.nombre, emailVerified: true }); }   // emailVerified: las reglas exigen correo verificado
+      // Sin clave en usuarios.json: no se crea cuenta; la persona se registra sola con su correo y elige su clave (panel → «Crear mi cuenta»).
       const previo = await db.doc("roles/" + email).get();   // el bpId es aleatorio y se conserva entre cargas
       const bpId = u.roles.includes("bp") ? ((previo.exists && previo.data().bpId) || crypto.randomBytes(12).toString("hex")) : null;
       await db.doc("roles/" + email).set({ nombre: u.nombre, roles: u.roles, ...(bpId ? { bpId } : {}) });

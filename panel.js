@@ -5,6 +5,8 @@ const CFG={bp:{estados:["En revisión BP","Devuelto al jefe","Enviado a Gerencia
   gerencia:{estados:["Enviado a Gerencia","Aprobado","Rechazado","En revisión BP"],editables:VISIBLE_GER,campo:"comentarioGerencia"}};
 const sesion=async()=>{
   const u=await FB.usuario();if(!u||!u.providerData.some(x=>x.providerId==="password"))throw new Error("Inicia sesión");
+  if(!u.emailVerified){await FB.signOut(FB.auth);throw new Error("Falta confirmar tu correo: abre el enlace que te enviamos y vuelve a entrar.")}
+
   const s=await FB.getDoc(FB.doc(FB.db,"roles",u.email));const vistas=s.exists()?(s.data().roles||[]).filter(r=>CFG[r]):[];
   if(!vistas.length){await FB.signOut(FB.auth);throw new Error("Tu cuenta no tiene un rol asignado.")}
   return {token:"fb",email:u.email,vistas,bpId:s.data().bpId};
@@ -21,6 +23,23 @@ const filas=async(vista,q)=>{
   return docs.docs.map(d=>({...d.data(),bp:n[d.data().bpId]||"—"}));
 };
 const API={
+  // Cada Business Partner / Gerencia crea su propia cuenta con su correo y la clave que elija; el correo se confirma con un enlace.
+  // Solo entran los correos que el administrador autorizó (documento roles/{correo}); una cuenta sin autorización no ve nada.
+  async panelCrear(email,clave,clave2){
+    email=FB.normalizar(email);
+    if(!/^[^@\s]+@usil\.edu\.pe$/.test(email))throw new Error("Usa tu correo institucional (@usil.edu.pe).");
+    if(String(clave).length<12)throw new Error("Tu clave debe tener 12 o más caracteres.");
+    if(clave!==clave2)throw new Error("Las dos claves no coinciden.");
+    let u;
+    try{await FB.setPersistence(FB.auth,FB.browserSessionPersistence);u=(await FB.createUserWithEmailAndPassword(FB.auth,email,clave)).user}
+    catch(e){throw new Error(e.code==="auth/email-already-in-use"?"Ese correo ya tiene cuenta: entra con tu clave o usa «Olvidé mi clave».":e.code==="auth/weak-password"?"Esa clave es demasiado débil.":"No se pudo crear la cuenta. Intenta de nuevo.")}
+    try{await FB.sendEmailVerification(u)}finally{await FB.signOut(FB.auth)}
+    return {mensaje:"Cuenta creada. Te enviamos un enlace a "+email+": ábrelo para confirmar tu correo y luego entra con tu clave."};
+  },
+  async panelOlvide(email){
+    try{await FB.sendPasswordResetEmail(FB.auth,FB.normalizar(email))}catch(e){if(e.code!=="auth/user-not-found"&&e.code!=="auth/invalid-email")throw new Error("No se pudo enviar el correo ahora. Intenta más tarde.")}
+    return {mensaje:"Si tu correo tiene cuenta, te llegará un enlace para elegir una clave nueva."};   // misma respuesta exista o no: no revela quién tiene cuenta
+  },
   async panelEntrar(email,clave){
     try{await FB.setPersistence(FB.auth,FB.browserSessionPersistence);await FB.signInWithEmailAndPassword(FB.auth,FB.normalizar(email),String(clave))}catch(e){throw new Error("Correo o clave incorrectos.")}
     return sesion();
@@ -50,12 +69,25 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 let TOKEN=null;
 const fail=e=>{const m=(e&&e.message||e)+"";if(/venci/.test(m)){TOKEN=null;return mostrarLogin(e)}$("err").hidden=false;$("err").textContent=m;$("app").innerHTML=""};
 $("salir").onclick=async()=>{await FB.signOut(FB.auth);TOKEN=null;mostrarLogin()};
-function mostrarLogin(e){
+const TEXTOS={
+  entrar:["Panel de revisión","Ingresa con tu correo institucional y tu clave (Business Partner o Gerencia).","Entrar"],
+  crear:["Crear mi cuenta","Primera vez: usa tu correo institucional autorizado y elige tu clave (12 o más caracteres). Te enviaremos un enlace para confirmar tu correo.","Crear cuenta"],
+  olvide:["Recuperar mi clave","Te enviaremos un enlace al correo para elegir una clave nueva.","Enviar enlace"]};
+function mostrarLogin(e,modo){
+  modo=TEXTOS[modo]?modo:"entrar";
   $("err").hidden=true;$("tabs").innerHTML="";$("quien").textContent="";$("salir").style.display="none";
-  const m=(e&&e.message||"")+"";
-  $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:380px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">Panel de revisión</h3><p class="muted">Ingresa con tu correo institucional y la clave de tu rol (HRBP o Gerencia).</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p><p><input id="lgc" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="usuario@usil.edu.pe" style="width:100%"></p><p><input id="lgk" type="password" autocomplete="current-password" placeholder="Clave" style="width:100%"></p><button class="p" style="width:100%">Entrar</button></form>';
-  $("lg").onsubmit=ev=>{ev.preventDefault();$("lgm").textContent="";
-    google.script.run.withFailureHandler(x=>{$("lgm").textContent=x.message||x}).withSuccessHandler(r=>{TOKEN=r.token;cargar(r.vistas[r.vistas.length-1])}).panelEntrar($("lgc").value,$("lgk").value)};
+  const m=(e&&e.message||"")+"",[titulo,ayuda,boton]=TEXTOS[modo];
+  const campo=(id,tipo,ph,ac)=>'<p><input id="'+id+'" type="'+tipo+'" autocomplete="'+ac+'" autocapitalize="none" spellcheck="false" placeholder="'+ph+'" style="width:100%"></p>';
+  $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:400px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">'+titulo+'</h3><p class="muted">'+ayuda+'</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p>'+
+    campo("lgc","text","usuario@usil.edu.pe","username")+(modo==="olvide"?"":campo("lgk","password",modo==="crear"?"Elige tu clave (12 o más caracteres)":"Clave",modo==="crear"?"new-password":"current-password"))+(modo==="crear"?campo("lgk2","password","Repite tu clave","new-password"):"")+
+    '<button class="p" style="width:100%">'+boton+'</button><p class="lnks">'+(modo==="entrar"?'<button type="button" class="lnk" data-m="crear">Crear mi cuenta</button><button type="button" class="lnk" data-m="olvide">Olvidé mi clave</button>':'<button type="button" class="lnk" data-m="entrar">← Volver a entrar</button>')+'</p></form>';
+  $("lg").querySelectorAll(".lnk").forEach(x=>x.onclick=()=>mostrarLogin(null,x.dataset.m));
+  const dec=(txt,bien)=>{$("lgm").textContent=txt;$("lgm").style.color=bien?"#17844A":"#B00020"};
+  $("lg").onsubmit=ev=>{ev.preventDefault();dec("");const b=$("lg").querySelector("button.p");b.disabled=true;const fin=()=>{b.disabled=false};
+    const fallo=x=>{dec(x.message||x);fin()};
+    if(modo==="entrar")google.script.run.withFailureHandler(fallo).withSuccessHandler(r=>{TOKEN=r.token;cargar(r.vistas[r.vistas.length-1])}).panelEntrar($("lgc").value,$("lgk").value);
+    else if(modo==="crear")google.script.run.withFailureHandler(fallo).withSuccessHandler(r=>{dec(r.mensaje,true);$("lgk").value=$("lgk2").value="";fin()}).panelCrear($("lgc").value,$("lgk").value,$("lgk2").value);
+    else google.script.run.withFailureHandler(fallo).withSuccessHandler(r=>{dec(r.mensaje,true);fin()}).panelOlvide($("lgc").value)};
 }
 
 function cargar(v){

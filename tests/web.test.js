@@ -1,7 +1,7 @@
 // Comprobaciones estáticas de la app, el panel y del contenido del repositorio. Ejecutar: node tests/web.test.js
 const fs = require('fs'), path = require('path'), assert = require('assert'), vm = require('vm'), { execSync } = require('child_process');
 const raiz = path.join(__dirname, '..');
-const leer = f => fs.readFileSync(path.join(raiz, f), 'utf8');
+const leer = f => fs.readFileSync(path.join(raiz, f), 'utf8').replace(/\r\n/g, '\n');   // Git en Windows puede dejar CRLF
 const html = leer('index.html'), panelHtml = leer('panel.html'), rules = leer('firestore.rules'), fbjs = leer('firebase.js');
 const js = leer('app.js'), panel = leer('panel.js');   // los scripts van en archivos propios: la CSP no permite scripts inline
 let n = 0; const ok = (t, f) => { f(); n++; console.log('  ✓', t); };
@@ -105,6 +105,14 @@ ok('el hosting no publica .git, .github, tools, tests, docs ni la configuración
   const ign = (JSON.parse(leer('firebase.json')).hosting || { ignore: ['.git/**', '**/.git/**', '.github/**', 'tools/**', 'tests/**', 'docs/**', 'firestore.rules'] }).ignore;
   ['.git/**', '**/.git/**', '.github/**', 'tools/**', 'tests/**', 'docs/**', 'firestore.rules'].forEach(x => assert.ok(ign.includes(x), 'firebase.json no ignora ' + x));
   assert.ok(leer('.vercelignore').split('\n').includes('.git'), '.vercelignore debe excluir .git');
+});
+
+ok('cada Business Partner crea su cuenta con su correo y su clave; el correo se confirma y las reglas exigen un rol autorizado', () => {
+  assert.ok(/panelCrear/.test(panel) && /sendEmailVerification/.test(panel) && /panelOlvide/.test(panel) && /sendPasswordResetEmail/.test(panel));
+  assert.ok(/emailVerified/.test(panel) && /Falta confirmar tu correo/.test(panel), 'sin confirmar el correo no se entra');
+  assert.ok(/String\(clave\)\.length<12/.test(panel), 'la clave elegida debe tener 12+ caracteres');
+  assert.ok(/mensaje:"Si tu correo tiene cuenta/.test(panel), 'la recuperación debe responder igual exista o no la cuenta');
+  assert.ok(/email_verified == true/.test(rules) && /exists\([^\n]*roles/.test(rules), 'las reglas exigen correo verificado y un rol autorizado');
 });
 
 console.log('\n' + n + ' pruebas OK');

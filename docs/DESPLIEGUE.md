@@ -7,8 +7,10 @@ No hay servidor propio: la seguridad la dan `firestore.rules` y el inicio de ses
 | Quién | Cómo | Qué puede |
 |---|---|---|
 | Jefe de área | Pantalla de inicio: **nombre y correo `@usil.edu.pe`** (el correo no se verifica) | Crear solicitudes y leer solo las suyas |
-| Business Partner | Botón **«Acceso Business Partner y Gerencia»** → panel → correo y clave que da el administrador | Ver y gestionar solo lo que llega a él |
-| Gerencia (Karla) | El mismo botón → correo y clave | Ver lo que los BP le pasan y decidir |
+| Business Partner | Botón **«Acceso Business Partner y Gerencia»** → panel → **su correo y la clave que ellos mismos eligen** | Ver y gestionar solo lo que llega a él |
+| Gerencia (Karla) | El mismo botón → su correo y su clave | Ver lo que los BP le pasan y decidir |
+
+**Cuentas propias (sin que el administrador conozca ninguna clave):** el administrador solo *autoriza correos* (`usuarios.json` sin `clave`). Cada persona entra al panel → **«Crear mi cuenta»**, escribe su correo y elige una clave de 12+ caracteres, abre el enlace que le llega para confirmar el correo y ya puede entrar. **«Olvidé mi clave»** le envía un enlace para elegir otra. Un correo no autorizado puede registrarse pero no ve nada («Tu cuenta no tiene un rol asignado»).
 
 > **Riesgo asumido:** el correo del jefe no se verifica. Quien escriba el de otro jefe puede enviar solicitudes a su nombre (el Business Partner las revisa antes de que lleguen a Gerencia). Por eso, **en producción los jefes no pueden consultar el Maestro** (no hay autocompletado de colaboradores: lo escriben a mano) y solo pueden crear y leer sus propias solicitudes. Sin límite de envíos por persona: si hay abuso, activar App Check.
 > Si TI exige identidad verificada, la alternativa gratuita es «Entrar con Google» (cuenta `@usil.edu.pe`); está en el historial de Git (commit `95ddfa8`).
@@ -36,7 +38,7 @@ npm run serve        # 3) la app en http://localhost:5000/
 
 ## C. Cargar datos y usuarios (una vez)
 1. **⚙ → Cuentas de servicio → Generar nueva clave privada**. Guarda el JSON **fuera del repositorio**.
-2. Copia `tools/usuarios.ejemplo.txt` como `tools/usuarios.json` (correos sin tildes ni ñ, claves de 12+ caracteres, roles) y `tools/ruteo.ejemplo.txt` como `tools/ruteo.local.json` (HRBP de cada departamento). Ambos quedan fuera de GitHub.
+2. Copia `tools/usuarios.ejemplo.txt` como `tools/usuarios.json` (correos sin tildes ni ñ y roles; **sin clave**: cada persona elige la suya) y `tools/ruteo.ejemplo.txt` como `tools/ruteo.local.json` (HRBP de cada departamento). Ambos quedan fuera de GitHub.
 3. Genera el CSV del Maestro: `python tools/preparar-maestro.py "Maestro BPs.xlsx" Maestro_recortado.csv`.
 4. En PowerShell:
 ```powershell

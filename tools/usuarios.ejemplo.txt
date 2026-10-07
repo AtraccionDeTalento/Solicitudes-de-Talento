@@ -1,8 +1,10 @@
 Copia este archivo como tools/usuarios.json (queda fuera de GitHub). Una entrada por persona que entra al panel.
-El correo se escribe sin tildes ni ñ (cmunozse, no cmuñozse). La clave debe tener 6 caracteres o más.
-roles: "bp" (HRBP) y/o "gerencia".
+Solo se AUTORIZAN correos: cada persona crea su cuenta en el panel («Crear mi cuenta») y elige su propia clave. El administrador no maneja claves.
+El correo se escribe sin tildes ni ñ (cmunozse, no cmuñozse). roles: "bp" (HRBP) y/o "gerencia".
 
 {
-  "hrbp1@usil.edu.pe": { "nombre": "Nombre del HRBP 1", "clave": "CAMBIAR", "roles": ["bp"] },
-  "ger1@usil.edu.pe":  { "nombre": "Nombre de Gerencia", "clave": "CAMBIAR", "roles": ["gerencia"] }
+  "hrbp1@usil.edu.pe": { "nombre": "Nombre del HRBP 1", "roles": ["bp"] },
+  "ger1@usil.edu.pe":  { "nombre": "Nombre de Gerencia", "roles": ["gerencia"] }
 }
+
+(Opcional, solo para pruebas locales: agregar "clave": "..." crea la cuenta ya lista, sin registro. Las claves reales deben tener 12 o más caracteres.)
