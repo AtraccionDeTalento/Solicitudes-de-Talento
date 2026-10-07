@@ -1317,20 +1317,20 @@ function setupLogin(){
     catch(e){err.textContent=e.code==="auth/popup-closed-by-user"||e.code==="auth/cancelled-popup-request"?"":(e.message||"No se pudo iniciar sesión.")}
     b.disabled=false;
   };
-  $("lgSoloBtn").onclick=async()=>{
-    const err=$("lgErr3"),b=$("lgSoloBtn"),name=$("lgNombre").value.trim().replace(/\s+/g," "),mail=$("lgSolo").value.trim().toLowerCase();err.textContent="";
-    if(name.length<5||!name.includes(" ")) return void(err.textContent="Ingresa tu nombre y apellido.");
-    b.disabled=true;
-    try{await (await FBp).entrarCorreo(mail);SESSION={name,email:mail,role:"jefe",anon:true,last:Date.now()};saveSession();enter()}
-    catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
-    b.disabled=false;
-  };
+  // Un solo formulario: con clave = Business Partner/Gerencia (van a su panel); sin clave = jefe de área, solo en modo prueba (correo sin verificar).
   $("lgStaff").onclick=async()=>{
-    const err=$("lgErr2"),b=$("lgStaff");err.textContent="";
-    if(!$("lgMail").value.trim()||!$("lgPass").value) return void(err.textContent="Ingresa tu correo y tu clave.");
+    const err=$("lgErr2"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),clave=$("lgPass").value,name=$("lgNombre").value.trim().replace(/\s+/g," ");
+    err.textContent="";
+    if(!mail) return void(err.textContent="Ingresa tu correo institucional.");
+    if(!clave&&!CONFIG.modoPrueba) return void(err.textContent="Jefes de área: usa «Entrar con Google». Business Partner y Gerencia: agrega tu clave.");
+    if(!clave&&(name.length<5||!name.includes(" "))) return void(err.textContent="Ingresa tu nombre y apellido.");
     b.disabled=true;
-    try{await (await FBp).entrarClave($("lgMail").value,$("lgPass").value);location.href=CONFIG.panelUrl}
-    catch(e){err.textContent=e.message||"No se pudo iniciar sesión.";b.disabled=false}
+    try{
+      const F=await FBp;
+      if(clave){await F.entrarClave(mail,clave);location.href=CONFIG.panelUrl;return}
+      await F.entrarCorreo(mail);SESSION={name,email:mail,role:"jefe",anon:true,last:Date.now()};saveSession();enter();
+    }catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
+    b.disabled=false;
   };
   $("loginForm").addEventListener("submit",e=>{e.preventDefault();$("lgStaff").click()});
   $("form").addEventListener("submit",e=>e.preventDefault());
@@ -1353,8 +1353,9 @@ async function boot(){
 }
 function showLogin(){
   $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
-  $("loginPrueba").classList.toggle("hidden",!CONFIG.modoPrueba);
-  $("lgErr").textContent="";$("lgErr3").textContent="";$("lgErr2").textContent="";$("lgPass").value="";
+  $("lgNombreWrap").classList.toggle("hidden",!CONFIG.modoPrueba);
+  $("lgAyuda").textContent=CONFIG.modoPrueba?"Modo prueba: sin clave entras como jefe de área con tu correo (sin verificar). Business Partner y Gerencia: agrega la clave que te entregaron.":"Business Partner y Gerencia: ingresa con tu correo y la clave que te entregaron.";
+  $("lgErr").textContent="";$("lgErr2").textContent="";$("lgPass").value="";
 }
 function enter(){
   BP_MODE=SESSION.role==="bp";
