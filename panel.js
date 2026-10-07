@@ -22,7 +22,7 @@ const filas=async(vista,q)=>{
 };
 const API={
   async panelEntrar(email,clave){
-    try{await FB.signInWithEmailAndPassword(FB.auth,FB.normalizar(email),String(clave))}catch(e){throw new Error("Correo o clave incorrectos.")}
+    try{await FB.setPersistence(FB.auth,FB.browserSessionPersistence);await FB.signInWithEmailAndPassword(FB.auth,FB.normalizar(email),String(clave))}catch(e){throw new Error("Correo o clave incorrectos.")}
     return sesion();
   },
   panelQuien:sesion,
@@ -256,4 +256,8 @@ function detalle(id){
       google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=false);aviso(e.message||e)}).withSuccessHandler(()=>{dlg.close();cargar(vista);aviso("✓ "+ok)}).panelActualizar(id,vista,estado,coment,TOKEN)});
   }).panelDetalle(id,vista,TOKEN);
 }
+// Cierre por inactividad: el panel muestra datos de personas; en un equipo compartido la sesión no debe quedar abierta.
+const INACTIVO_MIN=30;let ultimo=Date.now();
+["click","keydown","input","scroll"].forEach(ev=>addEventListener(ev,()=>{ultimo=Date.now()},{passive:true}));
+setInterval(async()=>{if(Date.now()-ultimo>INACTIVO_MIN*60000&&await FB.usuario()){await FB.signOut(FB.auth);TOKEN=null;mostrarLogin(new Error("Tu sesión se cerró por inactividad. Ingresa de nuevo."))}},30000);
 google.script.run.withFailureHandler(mostrarLogin).withSuccessHandler(q=>cargar(q.vistas[q.vistas.length-1])).panelQuien();

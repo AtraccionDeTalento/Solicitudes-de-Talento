@@ -44,6 +44,7 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   } else if (fs.existsSync(uf)) usuarios = JSON.parse(fs.readFileSync(uf, "utf8"));
   if (usuarios) {
     for (const [correo, u] of Object.entries(usuarios)) {
+      if (!PRUEBA && String(u.clave || "").length < 12) throw new Error("La clave de " + correo + " debe tener 12 o más caracteres (cámbiala en tools/usuarios.json).");
       const email = norm(correo);
       try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: u.clave, emailVerified: true }); }
       catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: u.clave, displayName: u.nombre, emailVerified: true }); }   // emailVerified: las reglas exigen correo verificado

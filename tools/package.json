@@ -1,1 +1,1 @@
-{ "name": "cargar-datos", "private": true, "dependencies": { "firebase-admin": "^13.0.0" } }
+{"name":"cargar-datos","private":true,"dependencies":{"firebase-admin":"^13.10.0"}}

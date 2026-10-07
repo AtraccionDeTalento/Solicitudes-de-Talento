@@ -80,4 +80,25 @@ ok('la validación de correo usa expresiones correctas (acepta correos con «s»
   assert.ok(re.test('susana.sosa@usil.edu.pe') && !re.test('x@gmail.com') && !re.test('a b@usil.edu.pe') && !re.test('x@usilXeduYpe'));
   assert.ok(!/replace\(\/s\+\//.test(js + fbjs), 'falta la barra en /\\s+/');
 });
+ok('la base acepta solo los campos de la app, con tope en los textos libres y en las listas', () => {
+  assert.ok(/d\.keys\(\)\.hasOnly\(\[/.test(rules) && /d\.keys\(\)\.hasAll\(\[/.test(rules));
+  ['impactoDetalle', 'solicitudConcreta', 'fortalezas', 'alertas', 'cliente'].forEach(k => assert.ok(new RegExp("s\\(d, '" + k + "', \\d+\\)").test(rules), 'sin tope: ' + k));
+  assert.ok(/levantamiento[^\n]*size\(\) <= \d+/.test(rules) && /aprobaciones[^\n]*size\(\) <= 3/.test(rules));
+  assert.ok((rules.match(/s\(d, '/g) || []).length <= 16, 'demasiadas comprobaciones: Firestore corta las reglas a 1000 expresiones (la prueba de la solicitud completa lo vigila)');
+});
+ok('nada de datos personales queda en el navegador tras cerrar la pestaña, y el panel cierra la sesión por inactividad', () => {
+  assert.ok(!/localStorage/.test(js + panel + fbjs), 'localStorage deja datos de colaboradores en equipos compartidos');
+  assert.ok(/browserSessionPersistence/.test(panel) && /INACTIVO_MIN\s*=\s*\d+/.test(panel) && /signOut\(FB\.auth\)/.test(panel));
+});
+ok('cabeceras: sin indexar, sin caché y mismo origen; Vercel no publica .github ni la configuración', () => {
+  const v = JSON.parse(leer('vercel.json')).headers[0].headers, h = k => (v.find(x => x.key === k) || {}).value;
+  assert.ok(/noindex/.test(h('X-Robots-Tag')) && h('Cache-Control') === 'no-store' && h('Cross-Origin-Resource-Policy') === 'same-origin');
+  const ign = leer('.vercelignore').split('\n'); ['.github', 'vercel.json'].forEach(x => assert.ok(ign.includes(x), x));
+  assert.ok(/permissions:\s*\n\s+contents: read/.test(leer('.github/workflows/ci.yml')), 'la integración continua debe tener permisos mínimos');
+});
+ok('los datos que escribe un jefe y ve el personal siempre pasan por esc(): ninguna plantilla inserta campos sin escapar', () => {
+  const crudo = [...panel.matchAll(/\$\{(f|d|a|x|q|par)\.[a-zA-Z]+\}/g)].map(m => m[0]);
+  assert.deepStrictEqual(crudo, [], 'interpolación sin esc(): ' + crudo.join(', '));
+});
+
 console.log('\n' + n + ' pruebas OK');

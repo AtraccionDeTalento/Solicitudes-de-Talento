@@ -233,8 +233,8 @@ function monthLabel(v){
 }
 function recordId(){return "CASE-"+Date.now()+"-"+Math.random().toString(36).slice(2,7).toUpperCase()}
 function nonempty(v){return String(v??"").trim()!==""}
-function store(k,v){try{v===undefined?localStorage.removeItem(k):localStorage.setItem(k,v);return true}catch(e){return false}}
-function load(k,def){try{const s=localStorage.getItem(k);return s==null?def:JSON.parse(s)}catch(e){return def}}
+function store(k,v){try{v===undefined?sessionStorage.removeItem(k):sessionStorage.setItem(k,v);return true}catch(e){return false}}
+function load(k,def){try{const s=sessionStorage.getItem(k);return s==null?def:JSON.parse(s)}catch(e){return def}}
 let masterEmployees=new Map();
 let masterMeta=null;
 
@@ -357,8 +357,8 @@ async function loadMasterFile(){
       situacion:item.situacion,
       filaExcel:item.filaExcel
     }));
-    localStorage.setItem(MASTER_KEY,JSON.stringify(subset));
-    localStorage.setItem(MASTER_META_KEY,JSON.stringify(masterMeta));
+    sessionStorage.setItem(MASTER_KEY,JSON.stringify(subset));
+    sessionStorage.setItem(MASTER_META_KEY,JSON.stringify(masterMeta));
 
     $("masterStatus").value=f.name;
     $("masterDetail").textContent=`${nextMap.size.toLocaleString("es-PE")} colaboradores cargados · encabezados detectados en fila ${headerRow+1}${duplicates?` · ${duplicates} código(s) duplicado(s), se usó la última coincidencia`:""} · base guardada para próximas aperturas.`;
@@ -376,8 +376,8 @@ async function loadMasterFile(){
 
 function restorePersistedMaster(){
   try{
-    const saved=JSON.parse(localStorage.getItem(MASTER_KEY)||"[]");
-    const meta=JSON.parse(localStorage.getItem(MASTER_META_KEY)||"null");
+    const saved=JSON.parse(sessionStorage.getItem(MASTER_KEY)||"[]");
+    const meta=JSON.parse(sessionStorage.getItem(MASTER_META_KEY)||"null");
     if(!Array.isArray(saved) || !saved.length) return;
 
     const map=new Map();
@@ -1301,6 +1301,7 @@ function init(){
   boot();
 }
 
+// Borradores e historial viven solo en sessionStorage: se borran al cerrar la pestaña (en equipos compartidos no queda nada de los colaboradores).
 // ---------- Sesión ----------
 // Jefes: nombre y correo @usil.edu.pe (sesión anónima de Firebase; el correo no se verifica). HRBP y Gerencia: correo y clave. Las reglas de Firestore deciden qué ve cada uno.
 function saveSession(){try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(SESSION))}catch(e){}}
@@ -1364,7 +1365,7 @@ function enter(){
 function logout(explicit){
   if(explicit&&!confirm("Se cerrará la sesión y se eliminará el borrador sin enviar de este equipo. ¿Continuar?")) return;
   const key=draftKey(),snap=JSON.stringify({data:gather(),cur,reached});
-  try{sessionStorage.removeItem(SESSION_KEY)}catch(e){}
+  try{sessionStorage.removeItem(SESSION_KEY);sessionStorage.removeItem(HISTORY_KEY)}catch(e){}
   FBp.then(F=>F.salir());
   SESSION=null;BP_MODE=false;resetForm();
   explicit?store(key):store(key,snap);

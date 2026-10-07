@@ -60,6 +60,11 @@ Es repetible: vuelve a ejecutarlo para cambiar claves o ruteo. `--borrar-solicit
 ## Seguridad (qué hay y qué no)
 - **En el repositorio no hay** correos, nombres, matrículas, claves, planillas ni claves de servicio (`npm test` lo verifica). Lo personal vive en Firestore y en archivos locales ignorados por Git.
 - **Ni el código ni la base entregan nombres o correos de los Business Partner a quien no sea personal del panel.** El ruteo guarda solo un identificador aleatorio (`bpId`); el nombre vive en la colección `bps`, que solo leen HRBP y Gerencia; el correo del BP solo existe como su cuenta de acceso. Un jefe (o un visitante con sesión anónima) solo puede leer ese identificador. `npm run test:rules` lo comprueba.
+- **Lo que escribe un jefe no puede atacar al personal que lo lee:** todo dato se muestra escapado, y la CSP bloquea scripts inline y manejadores de eventos. Está probado con una solicitud con código en todos los campos: se ve como texto y no se ejecuta nada.
+- **La base solo acepta los campos que envía la app**, con tope de tamaño en los textos libres, 80 respuestas de levantamiento y 3 aprobaciones: nadie puede guardar datos ajenos al formulario ni documentos enormes. Las reglas no pueden pasar de 1000 expresiones (Firestore las corta y rechaza todo): `npm run test:rules` incluye una solicitud completa que lo vigila.
+- **Nada personal queda en el navegador:** borradores e historial viven en `sessionStorage` (se borran al cerrar la pestaña). El panel guarda la sesión solo mientras la pestaña esté abierta y la cierra tras 30 minutos sin actividad.
+- Las claves reales deben tener 12+ caracteres: `cargar-datos.js` se niega a cargar claves más cortas (en los emuladores sí permite `TALENTIN`).
+- Cabeceras: `noindex`, sin caché, `Cross-Origin-Resource-Policy: same-origin`, `X-Frame-Options: DENY`, HSTS y CSP. Vercel no publica `.github`, `tools`, `tests`, `docs` ni `firestore.rules`.
 - Cada persona del panel solo lee su propio rol; nadie puede listar roles ni líderes.
 - Los correos y claves reales viven solo en `tools/usuarios.json` y `tools/ruteo.local.json` (ignorados por Git y excluidos de Vercel).
 - `firebase.js` contiene la configuración web de Firebase: es pública por diseño. Lo que protege los datos son `firestore.rules` y los inicios de sesión.

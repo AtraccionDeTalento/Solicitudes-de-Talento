@@ -1,5 +1,7 @@
 name: Pruebas
 on: [push, pull_request]
+permissions:
+  contents: read   # mínimo privilegio
 jobs:
   test:
     runs-on: ubuntu-latest

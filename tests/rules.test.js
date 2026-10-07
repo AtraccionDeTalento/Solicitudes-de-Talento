@@ -96,6 +96,25 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertFails(setDoc(sol(anon, 'A9'), nueva('A9', 'u1', { bp: 'Quien sea' })));
     await assertFails(setDoc(sol(anon, 'A10'), nueva('A10', 'u1', { bpCorreo: BP1 })));
   });
+  await t('una solicitud COMPLETA (todos los campos de la app, con textos largos) sí se guarda: las reglas no se pasan del límite de 1000 expresiones', async () => {
+    const largo = n => 'x'.repeat(n);
+    const completa = nueva('FULL1', 'u1', {
+      enviadoEl: '2026-10-07T12:00:00.000Z', origen: 'web', periodo: '2026-10', fechaSolicitud: '2026-10-07', cliente: largo(100), cargoCliente: largo(100), area: largo(100), seccion: largo(100),
+      codigo: '0000000001', colaborador: largo(100), puestoActual: largo(100), tieneAprobacion: 'Sí', presupuesto: 'Sí', fuentePresupuesto: 'Presupuesto aprobado', validaPresupuesto: largo(100),
+      montoPresupuesto: '4500', urgencia: 'Inmediato', impacto: 'Alto', consecuencia: 'Retraso operativo', impactoDetalle: largo(950), solicitudConcreta: largo(2900),
+      puntaje: '96', clasificacion: 'Caso bien preparado', fortalezas: largo(1500), alertas: largo(1500), recomendacion: largo(700),
+      levantamiento: Array.from({ length: 40 }, (_, i) => ({ p: 'Pregunta ' + i, r: largo(300) })), aprobaciones: [{ level: 'a', name: 'b' }, { level: 'a' }, { level: 'c' }] });
+    await assertSucceeds(setDoc(sol(anon, 'FULL1'), completa));
+  });
+  await t('la base no acepta campos ajenos al formulario, textos enormes ni listas gigantes', async () => {
+    await assertFails(setDoc(sol(anon, 'B1'), nueva('B1', 'u1', { campoInventado: 'x' })));
+    await assertFails(setDoc(sol(anon, 'B2'), nueva('B2', 'u1', { cliente: 'x'.repeat(400) })));
+    await assertFails(setDoc(sol(anon, 'B3'), nueva('B3', 'u1', { impactoDetalle: 'x'.repeat(1001) })));
+    await assertFails(setDoc(sol(anon, 'B4'), nueva('B4', 'u1', { levantamiento: Array.from({ length: 200 }, () => ({ p: 'a', r: 'b' })) })));
+    await assertFails(setDoc(sol(anon, 'B5'), nueva('B5', 'u1', { aprobaciones: [{}, {}, {}, {}] })));
+    await assertFails(setDoc(sol(anon, 'B6'), nueva('B6', 'u1', { cliente: { a: 1 } })));
+    await assertSucceeds(setDoc(sol(anon, 'B7'), nueva('B7', 'u1', { cliente: 'Nombre normal', levantamiento: [{ p: 'a', r: 'b' }], aprobaciones: [{}] })));
+  });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');
 })().catch(e => { console.error(e); process.exit(1); });

@@ -9,3 +9,6 @@ package.json
 package-lock.json
 README.md
 .gitignore
+.github
+vercel.json
+.vercelignore
