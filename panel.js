@@ -1,5 +1,6 @@
 import * as FB from "./firebase.js";
-import { redactar } from "./redactor.mjs";   // motor de redacción ejecutiva (determinista)
+import { redactar } from "./redactor.mjs";
+import { metricas, aplicarFiltros } from "./tablero.mjs";   // indicadores del tablero de Gerencia   // motor de redacción ejecutiva (determinista)
 // Panel de HRBP y Gerencia sobre Firestore. Las reglas (firestore.rules) deciden qué ve y qué cambia cada rol; aquí solo se consulta.
 const VISIBLE_GER=["Enviado a Gerencia","Aprobado","Rechazado"];
 const CFG={bp:{estados:["En revisión BP","Devuelto al jefe","Enviado a Gerencia","En pausa"],editables:["Nuevo","En revisión BP","Devuelto al jefe","En pausa"],campo:"comentarioBP"},
@@ -64,7 +65,7 @@ const mk=(ok,ko)=>new Proxy({},{get:(_,k)=>k==="withSuccessHandler"?f=>mk(f,ko):
 const google={script:{run:mk()}};
 const TITULOS={jefe:"Mis solicitudes",bp:"Bandeja del Business Partner",gerencia:"Gerencia · vista final"};
 const ALL=["Nuevo","En revisión BP","Devuelto al jefe","Enviado a Gerencia","Aprobado","Rechazado","En pausa"];
-let D=null,vista=null,filtro={q:"",estado:"",periodo:""};
+let D=null,vista=null,filtro={q:"",estado:"",periodo:"",movimiento:"",departamento:"",bp:"",atencion:""};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let TOKEN=null;
@@ -104,6 +105,7 @@ function visibles(){const q=filtro.q.toLowerCase();
 function pintar(){
   $("quien").textContent=D.email;$("salir").style.display="";
   $("tabs").innerHTML=D.vistas.map(v=>`<button class="${v===vista?"on":""}" data-v="${v}">${TITULOS[v]}</button>`).join("");
+  if(vista==="gerencia")return pintarGerencia();
   const F=D.filas,pend=F.filter(f=>(vista==="gerencia"?["Enviado a Gerencia"]:["Nuevo","En revisión BP"]).includes(f.estado||"Nuevo")).length;
   let h=`<div class="kpis"><div class="card kpi"><b>${F.length}</b><span>Solicitudes</span></div><div class="card kpi"><b>${pend}</b><span>Por revisar</span></div>
    <div class="card kpi"><b>${F.filter(f=>f.estado==="Aprobado").length}</b><span>Aprobadas</span></div><div class="card kpi"><b>${F.filter(f=>f.estado==="Rechazado").length}</b><span>Rechazadas</span></div></div>`;
@@ -116,10 +118,68 @@ function pintar(){
   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.departamento)}</td>${vista!=="jefe"?`<td>${esc(f.cliente)}</td>`:""}<td>${esc(f.bp)}</td><td>${esc(f.urgencia)}</td><td>${esc(f.puntaje||"—")}</td><td><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span></td></tr>`).join("")||'<tr><td colspan="9" class="muted">Sin solicitudes.</td></tr>'}</table></div>`;
   $("app").innerHTML=h;
 }
+// ---------- Tablero gerencial (vista de Gerencia): indicadores, flujo, casos que requieren atención, gráficos y bandeja ----------
+const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const periodoTxt=p=>p?MESES[+p.slice(5)-1].replace(/^./,c=>c.toUpperCase())+" "+p.slice(0,4):"Todos los periodos";
+const IC={
+  doc:'<svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>',
+  reloj:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  ok:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>',
+  no:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
+  star:'<svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  cal:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+  alerta:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg>'};
+const ETIQ={urgentes:"Urgentes pendientes",bajos:"Preparación baja (<60)",pendientes:"Pendientes de decisión"};
+const PILL_U={"Inmediato":"u1","Dentro de 30 días":"u2","Dentro de 60 días":"u3","Más adelante":"u4"},PILL_E={"Enviado a Gerencia":"e1","Aprobado":"e2","Rechazado":"e3"};
+const casos=n=>n===1?"caso":"casos";
+function pintarGerencia(){
+  const hoy=new Date(),todos=metricas(D.filas,"",hoy);
+  if(!filtro.periodoElegido)filtro.periodo=todos.periodos[0]||"";   // por defecto, el periodo más reciente
+  const M=metricas(D.filas,filtro.periodo,hoy),A=M.atencion,V=aplicarFiltros(D.filas,filtro);
+  const kpi=(cl,ic,n,t,f)=>`<button type="button" class="gx-kpi ${cl}" data-f="${f}"><i>${IC[ic]}</i><div><b>${esc(n)}</b><span>${t}</span></div></button>`;
+  const barras=(clave,titulo,sub,pares)=>{const max=Math.max(1,...pares.map(x=>x[1]));
+    return `<section class="gx-card"><h3>${titulo}</h3><p class="sub">${sub}</p>${pares.length?pares.map(([k,n])=>`<button type="button" class="gx-bar${filtro[clave]===k?" on":""}" data-f="${clave}:${esc(k)}"><span class="n" title="${esc(k)}">${esc(k)}</span><span class="t"><i style="width:${Math.round(n/max*100)}%"></i></span><b>${n}</b></button>`).join(""):'<p class="muted">Sin datos en el periodo.</p>'}</section>`};
+  const R=42,C=2*Math.PI*R,dash=(M.pctResueltas/100*C).toFixed(1);
+  const nodos=["limpiar:1","atencion:pendientes","estado:Aprobado","estado:Rechazado"];
+  const chips=Object.entries({estado:filtro.estado,movimiento:filtro.movimiento,departamento:filtro.departamento,bp:filtro.bp,atencion:filtro.atencion}).filter(x=>x[1])
+    .map(([k,v])=>`<button type="button" class="gx-chip" data-f="${k}:${esc(v)}">${esc(k==="atencion"?ETIQ[v]:v)} ✕</button>`);
+  $("app").innerHTML=`
+   <div class="gx-head"><div class="gx-tit"><i>${IC.doc}</i><div><h2>Centro de gestión de solicitudes</h2><p>Seguimiento y estado de las solicitudes que llegan a Gerencia</p></div></div>
+     <label class="gx-per"><i>${IC.cal}</i><span>Periodo<select id="fp">${todos.periodos.map(x=>`<option value="${esc(x)}"${x===filtro.periodo?" selected":""}>${esc(periodoTxt(x))}</option>`).join("")}<option value=""${filtro.periodo===""?" selected":""}>Todos los periodos</option></select></span></label></div>
+   <div class="gx-kpis">
+     ${kpi("azul","doc",M.total,"Solicitudes","limpiar:1")}${kpi("amarillo","reloj",M.pendientes,"Por revisar","atencion:pendientes")}${kpi("verde","ok",M.aprobadas,"Aprobadas","estado:Aprobado")}${kpi("rojo","no",M.rechazadas,"Rechazadas","estado:Rechazado")}${kpi("indigo","star",M.puntajePromedio==null?"—":M.puntajePromedio,"Puntaje promedio","limpiar:1")}
+     <div class="gx-don"><div class="gx-donut"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" class="bg"/><circle cx="50" cy="50" r="${R}" class="fg" stroke-dasharray="${dash} ${C.toFixed(1)}" transform="rotate(-90 50 50)"/></svg><b>${M.pctResueltas}%</b></div>
+       <div><b>de las solicitudes ya fueron resueltas.</b><span>${M.pendientes===0?"No hay casos pendientes de decisión.":M.pendientes+" "+casos(M.pendientes)+" "+(M.pendientes===1?"continúa":"continúan")+" pendiente"+(M.pendientes===1?"":"s")+" de decisión."}</span></div></div>
+   </div>
+   <div class="gx-2">
+     <section class="gx-card"><h3>Flujo de solicitudes</h3><p class="sub">Número de solicitudes por etapa de la decisión</p>
+       <div class="gx-flujo">${M.flujo.map((x,i)=>`<button type="button" class="gx-nodo c${i}" data-f="${nodos[i]}"><b>${esc(x.n)}</b><i></i><span>${esc(x.etapa)}</span><em>${esc(x.pct)}%</em></button>${i<3?"<u></u>":""}`).join("")}</div></section>
+     <section class="gx-card"><h3>Casos que requieren atención</h3><p class="sub">Solo solicitudes pendientes de tu decisión</p>
+       <div class="gx-aten">
+         <button type="button" class="gx-a rojo" data-f="atencion:urgentes"><i>${IC.alerta}</i><span>Urgentes</span><b>${A.urgentes} <small>${casos(A.urgentes)}</small></b><em>${A.inmediatas?A.inmediatas+" inmediato"+(A.inmediatas>1?"s":"")+" · ":""}dentro de 30 días</em></button>
+         <button type="button" class="gx-a amarillo" data-f="atencion:pendientes"><i>${IC.reloj}</i><span>Pendientes de decisión</span><b>${M.pendientes} <small>${casos(M.pendientes)}</small></b><em>${A.masAntiguo==null?"Ninguno pendiente":"el más antiguo lleva "+A.masAntiguo+(A.masAntiguo===1?" día":" días")}</em></button>
+         <button type="button" class="gx-a azul" data-f="atencion:bajos"><i>${IC.star}</i><span>Preparación baja</span><b>${A.bajos} <small>${casos(A.bajos)}</small></b><em>puntaje menor a 60</em></button></div></section>
+   </div>
+   <div class="gx-3">${barras("movimiento","Solicitudes por movimiento","Toca una barra para filtrar la bandeja",M.porMovimiento)}${barras("departamento","Solicitudes por departamento","Los de mayor volumen",M.porDepartamento)}${barras("bp","Solicitudes por Business Partner","Quién las revisó",M.porBP)}</div>
+   <section class="gx-card" id="bandeja"><h3>Bandeja de solicitudes</h3>
+     <div class="tools"><input id="fq" placeholder="Buscar por colaborador, área o movimiento…" value="${esc(filtro.q)}" style="min-width:240px;flex:1"><select id="fe"><option value="">Todos los estados</option>${["Enviado a Gerencia","Aprobado","Rechazado"].map(x=>`<option${x===filtro.estado?" selected":""}>${esc(x)}</option>`).join("")}</select>
+       <button class="p" id="xls">⬇ Descargar Excel</button></div>
+     ${chips.length?`<div class="tools">${chips.join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
+     <div class="wrap"><table><tr><th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>BP</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th>Acción</th></tr>
+     ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e1"}">${esc(f.estado||"Nuevo")}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
+}
+
 $("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
-$("app").onclick=e=>{if(e.target.id==="xls")return descargar();const tr=e.target.closest("tr.f");if(tr)detalle(tr.dataset.id)};
+$("app").onclick=e=>{const t=e.target;
+  if(t.id==="xls")return descargar();
+  const ver=t.closest("[data-ver]");if(ver)return detalle(ver.dataset.ver);
+  const fb=t.closest("[data-f]");   // tarjetas, barras y fichas del tablero filtran la bandeja; pulsar de nuevo quita el filtro
+  if(fb){const i=fb.dataset.f.indexOf(":"),k=fb.dataset.f.slice(0,i),v=fb.dataset.f.slice(i+1);
+    if(k==="limpiar")Object.assign(filtro,{q:"",estado:"",movimiento:"",departamento:"",bp:"",atencion:""});else{filtro[k]=filtro[k]===v?"":v;if(k==="estado"&&filtro.estado)filtro.atencion="";if(k==="atencion"&&filtro.atencion)filtro.estado=""}
+    pintar();const bj=$("bandeja");if(bj&&k!=="limpiar")bj.scrollIntoView({behavior:"smooth",block:"start"});return}
+  const tr=t.closest("tr.f");if(tr)detalle(tr.dataset.id)};
 $("app").oninput=e=>{if(e.target.id==="fq"){filtro.q=e.target.value;const p=e.target.selectionStart;pintar();$("fq").focus();$("fq").setSelectionRange(p,p)}};
-$("app").onchange=e=>{if(e.target.id==="fe"){filtro.estado=e.target.value;pintar()}if(e.target.id==="fp"){filtro.periodo=e.target.value;pintar()}};
+$("app").onchange=e=>{if(e.target.id==="fe"){filtro.estado=e.target.value;pintar()}if(e.target.id==="fp"){filtro.periodo=e.target.value;filtro.periodoElegido=true;pintar()}};
 
 // <excel>
 // Arma el libro de Excel (4 hojas) con los registros que ve la persona. rows: salida de panelExportar; meta: {titulo, usuario, fecha}.
