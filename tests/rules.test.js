@@ -5,7 +5,7 @@ const { doc, setDoc, getDoc, getDocs, updateDoc, collection, query, where, limit
 
 const DEP = 'GERENCIA DE TALENTO Y CULTURA';
 const BP1 = 'bp1@usil.edu.pe', BP2 = 'bp2@usil.edu.pe', GER = 'ger1@usil.edu.pe', JEFE = 'jefe1@usil.edu.pe', OTRO = 'otro@usil.edu.pe';
-const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Uno', bpCorreo: BP1, comentarioBP: '', comentarioGerencia: '',
+const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-1', comentarioBP: '', comentarioGerencia: '',
   enviadoPor: JEFE, movimiento: 'Promoción', departamento: DEP, impactoDetalle: 'x', solicitudConcreta: 'y', ...extra });
 
 (async () => {
@@ -14,10 +14,11 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
   const prueba = valor => env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: valor }));
   await env.withSecurityRulesDisabled(async c => {
     const db = c.firestore();
-    await setDoc(doc(db, 'ruteo', DEP), { nombre: 'HRBP Uno', correo: BP1 });
+    await setDoc(doc(db, 'ruteo', DEP), { bpId: 'bpid-1' });
+    await setDoc(doc(db, 'bps', 'bpid-1'), { nombre: 'HRBP Uno' });
     await setDoc(doc(db, 'lideres', JEFE), { nombre: 'Jefe Uno', puesto: 'JEFE' });
-    await setDoc(doc(db, 'roles', BP1), { roles: ['bp'] });
-    await setDoc(doc(db, 'roles', BP2), { roles: ['bp'] });
+    await setDoc(doc(db, 'roles', BP1), { roles: ['bp'], bpId: 'bpid-1' });
+    await setDoc(doc(db, 'roles', BP2), { roles: ['bp'], bpId: 'bpid-2' });
     await setDoc(doc(db, 'roles', GER), { roles: ['gerencia'] });
     await setDoc(doc(db, 'maestro/0000000001'), { nombre: 'Ana', departamento: DEP, situacion: 'Activo' });
     await setDoc(doc(db, 'solicitudes/S-GER'), nueva('S-GER', 'otro', { estado: 'Enviado a Gerencia', enviadoPor: OTRO }));
@@ -39,7 +40,7 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
   await t('un jefe (sesión anónima) crea su solicitud con un correo @usil.edu.pe, también en producción', () => assertSucceeds(setDoc(sol(anon, 'A1'), nueva('A1', 'u1'))));
   await t('rechaza correo fuera de usil.edu.pe, otro BP, aprobada ya, uid ajeno o movimiento inválido', async () => {
     await assertFails(setDoc(sol(anon, 'A2'), nueva('A2', 'u1', { enviadoPor: 'x@gmail.com' })));
-    await assertFails(setDoc(sol(anon, 'A3'), nueva('A3', 'u1', { bpCorreo: BP2 })));
+    await assertFails(setDoc(sol(anon, 'A3'), nueva('A3', 'u1', { bpId: 'bpid-2' })));
     await assertFails(setDoc(sol(anon, 'A4'), nueva('A4', 'u1', { estado: 'Aprobado' })));
     await assertFails(setDoc(sol(anon, 'A5'), nueva('A5', 'otro')));
     await assertFails(setDoc(sol(anon, 'A6'), nueva('A6', 'u1', { movimiento: 'Hack' })));
@@ -65,8 +66,8 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
     await assertFails(getDocs(query(collection(bp1, 'maestro'), limit(30))));
   });
   await t('el BP lista solo las suyas y otro BP no lee la ajena', async () => {
-    await assertSucceeds(getDocs(query(collection(bp1, 'solicitudes'), where('bpCorreo', '==', BP1))));
-    await assertFails(getDocs(query(collection(bp1, 'solicitudes'), where('bpCorreo', '==', BP2))));
+    await assertSucceeds(getDocs(query(collection(bp1, 'solicitudes'), where('bpId', '==', 'bpid-1'))));
+    await assertFails(getDocs(query(collection(bp1, 'solicitudes'), where('bpId', '==', 'bpid-2'))));
     await assertFails(getDoc(sol(bp2, 'S-NUEVA')));
   });
   await t('el BP cambia estado y comentario, pero no aprueba ni toca otros campos', async () => {
@@ -84,6 +85,16 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bp: 'HRBP Un
   await t('cada persona del panel lee solo su rol y su cargo; nadie escribe ruteo ni roles', async () => {
     await assertSucceeds(getDoc(doc(bp1, 'roles', BP1))); await assertFails(getDoc(doc(bp1, 'roles', GER)));
     await assertFails(setDoc(doc(bp1, 'ruteo', DEP), { nombre: 'x', correo: 'x' })); await assertFails(setDoc(doc(ger, 'roles', 'z@usil.edu.pe'), { roles: ['gerencia'] }));
+  });
+  await t('NADIE sin sesión de personal extrae nombres ni correos de los BP: el ruteo solo trae un identificador opaco', async () => {
+    const r = await getDoc(doc(anon, 'ruteo', DEP));
+    if (JSON.stringify(Object.keys(r.data())) !== '["bpId"]') throw new Error('el ruteo expone más que bpId: ' + JSON.stringify(r.data()));
+    await assertFails(getDoc(doc(anon, 'bps', 'bpid-1'))); await assertFails(getDocs(collection(anon, 'bps')));
+    await assertSucceeds(getDocs(collection(bp1, 'bps'))); await assertFails(setDoc(doc(bp1, 'bps', 'bpid-1'), { nombre: 'x' }));
+  });
+  await t('el jefe no puede escribir el nombre ni el correo del BP en su solicitud', async () => {
+    await assertFails(setDoc(sol(anon, 'A9'), nueva('A9', 'u1', { bp: 'Quien sea' })));
+    await assertFails(setDoc(sol(anon, 'A10'), nueva('A10', 'u1', { bpCorreo: BP1 })));
   });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');

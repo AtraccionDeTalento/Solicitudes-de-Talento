@@ -7,15 +7,18 @@ const sesion=async()=>{
   const u=await FB.usuario();if(!u||!u.providerData.some(x=>x.providerId==="password"))throw new Error("Inicia sesión");
   const s=await FB.getDoc(FB.doc(FB.db,"roles",u.email));const vistas=s.exists()?(s.data().roles||[]).filter(r=>CFG[r]):[];
   if(!vistas.length){await FB.signOut(FB.auth);throw new Error("Tu cuenta no tiene un rol asignado.")}
-  return {token:"fb",email:u.email,vistas};
+  return {token:"fb",email:u.email,vistas,bpId:s.data().bpId};
 };
 const SIN=new Set(["levantamiento","aprobaciones","uid","gestionadoPor","gestionadoEl"]);
 const plano=(d,extra)=>{const o={};Object.entries(d).forEach(([k,v])=>{if(extra||!SIN.has(k))o[k]=v});return o};
 const pares=d=>(d.levantamiento||[]).map(x=>[x.p,x.r]);
+const nombres=async()=>{if(!nombres.c){nombres.c={};(await FB.getDocs(FB.collection(FB.db,"bps"))).forEach(d=>{nombres.c[d.id]=d.data().nombre})}return nombres.c};
 const filas=async(vista,q)=>{
   if(!CFG[vista]||!q.vistas.includes(vista))throw new Error("Sin acceso a esta vista");
   const c=FB.collection(FB.db,"solicitudes");
-  return (await FB.getDocs(vista==="bp"?FB.query(c,FB.where("bpCorreo","==",q.email)):FB.query(c,FB.where("estado","in",VISIBLE_GER)))).docs.map(d=>d.data());
+  if(vista==="bp"&&!q.bpId)throw new Error("Tu cuenta no tiene un Business Partner asignado.");
+  const [docs,n]=await Promise.all([FB.getDocs(vista==="bp"?FB.query(c,FB.where("bpId","==",q.bpId)):FB.query(c,FB.where("estado","in",VISIBLE_GER))),nombres()]);
+  return docs.docs.map(d=>({...d.data(),bp:n[d.data().bpId]||"—"}));
 };
 const API={
   async panelEntrar(email,clave){

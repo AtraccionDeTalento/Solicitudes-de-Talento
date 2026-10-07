@@ -33,11 +33,9 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   if (!PRUEBA && !fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
   const ruteo = (PRUEBA && !fs.existsSync(rf)) ? Object.fromEntries(validos.map(d => [d, { nombre: "HRBP de prueba", correo: "hrbp1@usil.edu.pe" }])) : JSON.parse(fs.readFileSync(rf, "utf8"));
   Object.keys(ruteo).forEach(d => { if (!validos.includes(d)) throw new Error("Departamento desconocido en el ruteo: " + d); });
-  await lote(Object.entries(ruteo).map(([dep, bp]) => [db.doc("ruteo/" + dep), bp]));
-  console.log("ruteo:", Object.keys(ruteo).length, "departamentos");
 
   const uf = path.join(__dirname, "usuarios.json");
-  let usuarios = null;
+  let usuarios = null; const bpIds = {};
   if (PRUEBA) {   // claves al azar, solo para los emuladores
     const clave = () => crypto.randomBytes(9).toString("base64url");
     usuarios = { "hrbp1@usil.edu.pe": { nombre: "HRBP de prueba", clave: clave(), roles: ["bp"] }, "ger1@usil.edu.pe": { nombre: "Gerencia de prueba", clave: clave(), roles: ["gerencia"] } };
@@ -49,10 +47,21 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
       const email = norm(correo);
       try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: u.clave, emailVerified: true }); }
       catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: u.clave, displayName: u.nombre, emailVerified: true }); }   // emailVerified: las reglas exigen correo verificado
-      await db.doc("roles/" + email).set({ nombre: u.nombre, roles: u.roles });
+      const previo = await db.doc("roles/" + email).get();   // el bpId es aleatorio y se conserva entre cargas
+      const bpId = u.roles.includes("bp") ? ((previo.exists && previo.data().bpId) || crypto.randomBytes(12).toString("hex")) : null;
+      await db.doc("roles/" + email).set({ nombre: u.nombre, roles: u.roles, ...(bpId ? { bpId } : {}) });
+      if (bpId) { bpIds[email] = bpId; await db.doc("bps/" + bpId).set({ nombre: u.nombre }); }
       if (!PRUEBA) console.log("usuario:", email, u.roles.join("+"));
     }
   } else console.log("sin tools/usuarios.json: no se crearon usuarios");
+
+  // Ruteo: solo el identificador opaco del BP (ni nombre ni correo: cualquiera con sesión anónima puede leer este documento)
+  await lote(Object.entries(ruteo).map(([dep, bp]) => {
+    const id = bpIds[norm(bp.correo)];
+    if (!id) throw new Error("El BP del ruteo (" + dep + ") no tiene cuenta con rol bp en usuarios.json: " + bp.correo);
+    return [db.doc("ruteo/" + dep), { bpId: id }];
+  }));
+  console.log("ruteo:", Object.keys(ruteo).length, "departamentos");
 
   if (PRUEBA) {   // personal inventado: 6 por departamento
     const items = []; let n = 0;

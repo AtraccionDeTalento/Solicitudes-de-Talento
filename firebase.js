@@ -17,7 +17,7 @@ export const auth = getAuth(app), db = getFirestore(app);
 if (emu) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
 export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, signInWithEmailAndPassword, signOut };
 
-/** Correo sin tildes ni ñ y en minúsculas (cmuñozse = cmunozse), como se guarda en Auth y en las reglas. */
+/** Correo sin tildes ni ñ y en minúsculas (una «ñ» se escribe «n»), como se guarda en Auth y en las reglas. */
 export const normalizar = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 /** Usuario actual de Firebase (o null). */
@@ -62,7 +62,7 @@ export async function enviar(plano) {
   const u = await conSesion();
   const rt = await getDoc(doc(db, "ruteo", plano.departamento));
   if (!rt.exists()) throw new Error("Departamento sin Business Partner configurado.");
-  const bp = rt.data();
-  await setDoc(doc(db, "solicitudes", plano.id), { ...plano, enviadoPor: (u.email || plano.enviadoPor).toLowerCase(), uid: u.uid, bp: bp.nombre, bpCorreo: bp.correo, estado: "Nuevo", comentarioBP: "", comentarioGerencia: "" });
-  return { ok: true, bp: bp.nombre };
+  const bpId = rt.data().bpId;
+  await setDoc(doc(db, "solicitudes", plano.id), { ...plano, enviadoPor: (u.email || plano.enviadoPor).toLowerCase(), uid: u.uid, bpId, estado: "Nuevo", comentarioBP: "", comentarioGerencia: "" });
+  return { ok: true, bp: true };   // el jefe no ve nombres ni correos de los Business Partner
 }

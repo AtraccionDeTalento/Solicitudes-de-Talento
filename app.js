@@ -997,7 +997,7 @@ async function doSubmit(){
   if(CONFIG.endpoint){
     try{
       const r=await Promise.race([(await FBp).enviar(aPlano(rec)),new Promise((_,no)=>setTimeout(()=>no(new Error("El servidor tardó demasiado en responder.")),20000))]);
-      sent=true;err="";rec.bpAsignado=r.bp||"";rec.sinBP=!r.bp;
+      sent=true;err="";rec.sinBP=!r.bp;
       const hh=load(HISTORY_KEY,[]),k=hh.findIndex(x=>x.id===rec.id);if(k>=0){hh[k]=rec;store(HISTORY_KEY,JSON.stringify(hh))}
     }catch(e){sent=false;err=e.code==="permission-denied"?"Sin permiso: revisa que el correo sea @usil.edu.pe y el departamento tenga BP.":(e.message||"No hubo conexión con el servidor.")}
   }
@@ -1007,7 +1007,7 @@ function showDone(rec,sent,err){
   lastRec=rec;
   ["form","stepper","actionsBar","errSummary"].forEach(id=>$(id).classList.add("hidden"));
   const msg=!sent?`No se pudo enviar al servidor (${esc(err)}). Intenta de nuevo en unos minutos; tu borrador sigue guardado en este equipo.`
-    :CONFIG.endpoint?(rec.bpAsignado?`Tu solicitud fue enviada a tu Business Partner: ${esc(rec.bpAsignado)}.`:"Tu solicitud fue registrada; aún no hay un Business Partner configurado para tu departamento y se derivó al coordinador.")
+    :CONFIG.endpoint?(!rec.sinBP?"Tu solicitud fue enviada a tu Business Partner.":"Tu solicitud fue registrada; aún no hay un Business Partner configurado para tu departamento y se derivó al coordinador.")
     :"Tu solicitud quedó guardada en este equipo. Descarga el Excel y envíalo a tu Business Partner.";
   $("done").classList.remove("hidden");
   $("done").innerHTML=`<h2>${sent?"✔ Solicitud registrada":"⚠ Solicitud guardada, falta enviarla"}</h2><p>${msg}</p><dl class="sum"><dt>Código de seguimiento</dt><dd><b>${esc(rec.id)}</b></dd><dt>Movimiento</dt><dd>${esc(rec.data.movimiento)}</dd><dt>Índice de preparación</dt><dd>${rec.evaluation.score}/100 · ${esc(rec.evaluation.label)}</dd></dl><div class="inline" style="margin-top:16px"><button type="button" id="dlXls">Descargar Excel</button><button type="button" class="secondary" id="newReq">Nueva solicitud</button></div>`;
@@ -1226,10 +1226,10 @@ async function demoLote(){
   const por={};let ok=0,fallo=0;
   for(let i=0;i<DEPARTAMENTOS.length;i++){
     $("demoBatch").textContent=`Enviando ${i+1}/${DEPARTAMENTOS.length}…`;
-    try{const rec=await demoFill(true,DEPARTAMENTOS[i],MOVS[i%MOVS.length]);const bp=rec&&rec.bpAsignado||"Sin asignar";por[bp]=(por[bp]||0)+1;rec&&rec.id?ok++:fallo++}catch(e){fallo++}
+    try{const rec=await demoFill(true,DEPARTAMENTOS[i],MOVS[i%MOVS.length]);const bp=rec&&rec.id&&!rec.sinBP?"Con Business Partner":"Sin asignar";por[bp]=(por[bp]||0)+1;rec&&rec.id?ok++:fallo++}catch(e){fallo++}
   }
   $("demoBatch").textContent=$("demoBatch").dataset.t;
-  alert(`Listo: ${ok} enviadas, ${fallo} con problema. Por Business Partner: `+Object.entries(por).map(([k,v])=>`${k}: ${v}`).join(" · "));
+  alert(`Listo: ${ok} enviadas, ${fallo} con problema. Resultado: `+Object.entries(por).map(([k,v])=>`${k}: ${v}`).join(" · "));
 }
 
 // ---------- Arranque ----------

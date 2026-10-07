@@ -8,6 +8,7 @@ service cloud.firestore {
     function personal() { return usil() && request.auth.token.firebase.sign_in_provider == 'password'; }
     function anonimo() { return request.auth != null && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
     function prueba() { return get(/databases/$(db)/documents/config/app).data.modoPrueba == true; }
+    function bpDe() { return get(/databases/$(db)/documents/roles/$(yo())).data.bpId; }
     function yo() { return 'email' in request.auth.token ? request.auth.token.email : '-'; }
     function tieneRol(r) {
       return personal() && exists(/databases/$(db)/documents/roles/$(yo()))
@@ -15,7 +16,9 @@ service cloud.firestore {
     }
 
     match /roles/{correo} { allow get: if personal() && correo == yo(); }
+    // El ruteo solo trae un identificador opaco (bpId): ni nombres ni correos de los Business Partner son legibles por un jefe.
     match /ruteo/{dep}    { allow get: if personal() || anonimo(); }
+    match /bps/{id}       { allow get, list: if personal(); }   // bpId → nombre, solo para HRBP y Gerencia
     match /lideres/{correo} { allow get: if personal() && correo == yo(); }
     match /maestro/{mat} {
       allow get: if personal() || (anonimo() && prueba());
@@ -27,10 +30,10 @@ service cloud.firestore {
       allow create: if anonimo() && request.resource.data.enviadoPor.matches('.+@usil[.]edu[.]pe') && nueva(id, request.resource.data);
       allow get, list:
         if (anonimo() && resource.data.uid == request.auth.uid)
-        || (tieneRol('bp') && resource.data.bpCorreo == yo())
+        || (tieneRol('bp') && resource.data.bpId == bpDe())
         || (tieneRol('gerencia') && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']);
       allow update:
-        if (tieneRol('bp') && resource.data.bpCorreo == yo()
+        if (tieneRol('bp') && resource.data.bpId == bpDe()
           && resource.data.estado in ['Nuevo', 'En revisión BP', 'Devuelto al jefe', 'En pausa']
           && request.resource.data.estado in ['En revisión BP', 'Devuelto al jefe', 'Enviado a Gerencia', 'En pausa']
           && gestion(['comentarioBP']))
@@ -50,7 +53,7 @@ service cloud.firestore {
     function nueva(id, d) {
       let rt = get(/databases/$(db)/documents/ruteo/$(d.departamento)).data;
       return d.id == id && d.uid == request.auth.uid && d.estado == 'Nuevo'
-        && d.bpCorreo == rt.correo && d.bp == rt.nombre
+        && d.bpId == rt.bpId && !('bp' in d) && !('bpCorreo' in d)
         && d.comentarioBP == '' && d.comentarioGerencia == '' && !('gestionadoPor' in d)
         && d.enviadoPor.size() < 120
         && d.movimiento in ['Promoción', 'Encargatura', 'Reemplazo', 'Puesto nuevo', 'Incremento salarial', 'Movimiento lateral', 'Movimiento horizontal', 'Reestructuración de área', 'Revalorización de puesto', 'Convenio / caso especial', 'Otro']

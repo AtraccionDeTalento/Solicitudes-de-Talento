@@ -59,7 +59,9 @@ Es repetible: vuelve a ejecutarlo para cambiar claves o ruteo. `--borrar-solicit
 
 ## Seguridad (qué hay y qué no)
 - **En el repositorio no hay** correos, nombres, matrículas, claves, planillas ni claves de servicio (`npm test` lo verifica). Lo personal vive en Firestore y en archivos locales ignorados por Git.
+- **Ni el código ni la base entregan nombres o correos de los Business Partner a quien no sea personal del panel.** El ruteo guarda solo un identificador aleatorio (`bpId`); el nombre vive en la colección `bps`, que solo leen HRBP y Gerencia; el correo del BP solo existe como su cuenta de acceso. Un jefe (o un visitante con sesión anónima) solo puede leer ese identificador. `npm run test:rules` lo comprueba.
 - Cada persona del panel solo lee su propio rol; nadie puede listar roles ni líderes.
+- Los correos y claves reales viven solo en `tools/usuarios.json` y `tools/ruteo.local.json` (ignorados por Git y excluidos de Vercel).
 - `firebase.js` contiene la configuración web de Firebase: es pública por diseño. Lo que protege los datos son `firestore.rules` y los inicios de sesión.
 - **Cualquier página web se puede descargar**: Vercel (Pro) no limita quién la carga salvo con Password Protection (clave compartida, de pago). Lo que se descarga no sirve para leer datos sin una clave de HRBP o Gerencia.
 - Scripts en archivos propios y CSP sin scripts inline. Los módulos de Firebase vienen de `gstatic.com`, fijados a una versión, sin SRI (los módulos ES no lo admiten).
