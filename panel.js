@@ -150,7 +150,8 @@ const filaCaso=f=>`<button type="button" class="px-row" data-ver="${esc(f.id)}">
   <span class="px-mn"><b>${esc(f.colaborador||"—")}</b><em>${esc(f.movimiento)} · ${esc(f.departamento)}</em></span>
   <span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span>${f.dias!=null?`<small class="px-ed">${edad(f.dias)}</small>`:""}
   ${f.puntaje?`<span class="px-sc ${nivelP(+f.puntaje)}" title="Preparación del caso">${esc(f.puntaje)}</span>`:""}</button>`;
-const chipsPeriodo=pers=>`<div class="px-pers"><span>Periodo</span>${["",...pers.slice().reverse()].map(x=>`<button type="button" class="px-pc${filtro.periodo===x?" on":""}" data-f="periodo:${esc(x)}">${x===""?"Todos":esc(mesCorto(x))}</button>`).join("")}</div>`;
+const chipsPeriodo=pers=>{const asc=pers.slice().reverse(),vis=filtro.verMas?asc:asc.slice(-4),ocultos=asc.length-vis.length;
+  return `<div class="px-pers"><span>Periodo</span><button type="button" class="px-pc${filtro.periodo===""?" on":""}" data-f="periodo:">Todos</button>${ocultos>0||filtro.verMas?`<button type="button" class="px-pc mas" data-f="verMas:1">${filtro.verMas?"Menos ›":`‹ ${ocultos} más atrás`}</button>`:""}${vis.map(x=>`<button type="button" class="px-pc${filtro.periodo===x?" on":""}" data-f="periodo:${esc(x)}">${esc(mesCorto(x))}</button>`).join("")}</div>`};
 const onF=f=>{if(!f)return"";const i=f.indexOf(":");return filtro[f.slice(0,i)]===f.slice(i+1)?" on":""};
 const kpiPx=(cl,n,t,s,f)=>`<button type="button" class="px-kpi ${cl}${onF(f)}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em></button>`;
 const barraPx=(clave,pares)=>{const max=Math.max(1,...pares.map(x=>x[1]));return pares.length?pares.map(([k,n])=>`<button type="button" class="px-bar${clave&&filtro[clave]===k?" on":""}" ${clave?`data-f="${clave}:${esc(k)}"`:""}><span class="n" title="${esc(k)}">${esc(k)}</span><span class="t"><i style="width:${Math.round(n/max*100)}%"></i></span><b>${n}</b></button>`).join(""):'<p class="muted">Sin datos.</p>'};
@@ -227,7 +228,7 @@ $("app").onclick=e=>{const t=e.target;
   const fb=t.closest("[data-f]");   // tarjetas, barras y fichas del tablero filtran la bandeja; pulsar de nuevo quita el filtro
   if(fb){const i=fb.dataset.f.indexOf(":"),k=fb.dataset.f.slice(0,i),v=fb.dataset.f.slice(i+1);
     if(k==="limpiar")Object.assign(filtro,{q:"",estado:"",movimiento:"",departamento:"",bp:"",atencion:"",periodo:"",periodoElegido:true});else{filtro[k]=filtro[k]===v?"":v;if(k==="periodo")filtro.periodoElegido=true;if(k==="estado"&&filtro.estado)filtro.atencion="";if(k==="atencion"&&filtro.atencion)filtro.estado=""}
-    pintar();const bj=$("bandeja");if(bj&&k!=="limpiar")bj.scrollIntoView({behavior:"smooth",block:"start"});return}
+    pintar();const bj=$("bandeja");if(bj&&k!=="limpiar"&&k!=="verMas")bj.scrollIntoView({behavior:"smooth",block:"start"});return}
   const tr=t.closest("tr.f");if(tr)detalle(tr.dataset.id)};
 $("app").oninput=e=>{if(e.target.id==="fq"){filtro.q=e.target.value;const p=e.target.selectionStart;pintar();$("fq").focus();$("fq").setSelectionRange(p,p)}};
 $("app").onchange=e=>{if(e.target.id==="fe"){filtro.estado=e.target.value;pintar()}if(e.target.id==="fp"){filtro.periodo=e.target.value;filtro.periodoElegido=true;pintar()}};

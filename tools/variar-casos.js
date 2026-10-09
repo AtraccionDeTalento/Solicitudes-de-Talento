@@ -12,7 +12,7 @@ const APRO = ["Aprobado por el comité.", "Aprobado; formalizar en la próxima p
   const docs = (await db.collection("solicitudes").get()).docs; let i = 0;
   for (const d of docs) {
     const estado = pesar(ESTADOS), resuelto = ["Aprobado", "Rechazado"].includes(estado);
-    const dias = Math.floor(resuelto ? 25 + rnd() * 155 : rnd() * (estado === "Enviado a Gerencia" ? 120 : 60)), fecha = new Date(Date.now() - dias * 864e5);
+    const dias = Math.floor(resuelto ? 25 + rnd() * 335 : rnd() * (estado === "Enviado a Gerencia" ? 170 : 90)), fecha = new Date(Date.now() - dias * 864e5);
     const base = estado === "Aprobado" ? 78 : estado === "Rechazado" ? 52 : 66, puntaje = Math.max(18, Math.min(99, Math.round(base + (rnd() + rnd() + rnd() - 1.5) * 28)));
     const cls = puntaje >= 85 ? "Caso bien preparado" : puntaje >= 60 ? "Caso viable con observaciones" : "Requiere gestión previa";
     const urgencia = pesar([["Inmediato", 26], ["Dentro de 30 días", 32], ["Dentro de 60 días", 24], ["Más adelante", 18]]);
