@@ -49,8 +49,9 @@ service cloud.firestore {
     }
     match /lideres/{correo} { allow get: if personal() && correo == yo(); }
     match /maestro/{mat} {
-      allow get: if staff() || (anonimoOk() && prueba());
-      allow list: if (staff() || (anonimoOk() && prueba())) && request.query.limit <= 50 && prueba();
+      // En modo prueba cualquier jefe verificado puede usar el relleno de pruebas (persona al azar); en producción solo el personal con rol.
+      allow get: if staff() || ((personal() || anonimoOk()) && prueba());
+      allow list: if (staff() || ((personal() || anonimoOk()) && prueba())) && request.query.limit <= 50 && prueba();
     }
 
     match /solicitudes/{id} {

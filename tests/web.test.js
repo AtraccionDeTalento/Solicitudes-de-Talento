@@ -57,7 +57,7 @@ ok('los estados que usa el panel coinciden con las reglas', () => {
 ok('las reglas: el jefe (sesión anónima) solo crea y lee lo suyo; el Maestro se cierra a jefes sin verificar en producción; sin Google', () => {
   assert.ok(!/google\.com/.test(rules + fbjs));
   assert.ok(/function anonimo\(\)[^}]*== 'anonymous'/.test(rules) && /function prueba\(\)[^}]*modoPrueba == true/.test(rules));
-  assert.ok(/allow get: if staff\(\) \|\| \(anonimoOk\(\) && prueba\(\)\)/.test(rules), 'el Maestro solo lo lee el personal con rol; un jefe anónimo solo en modo prueba');
+  assert.ok(/allow get: if staff\(\) \|\| \(\(personal\(\) \|\| anonimoOk\(\)\) && prueba\(\)\)/.test(rules), 'el Maestro solo lo lee el personal con rol; un jefe anónimo solo en modo prueba');
   assert.ok(/function anonimoOk\(\)[^}]*accesoAnonimo/.test(rules), 'el acceso anónimo debe depender de config/app.accesoAnonimo');
   assert.ok(/allow create: if \(\(personal\(\) && request\.resource\.data\.enviadoPor == yo\(\)\)/.test(rules), 'el jefe con clave solo crea a su nombre');
   assert.ok(/match \/bps\/\{id\}\s+\{ allow get, list: if staff\(\)/.test(rules), 'los nombres de socios de negocio no son para jefes');

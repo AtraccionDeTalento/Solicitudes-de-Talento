@@ -27,7 +27,7 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
 
 (async () => {
   const args = process.argv.slice(2), archivo = args.find(a => !a.startsWith("--"));
-  await db.doc("config/app").set({ modoPrueba: true, busquedaJefes: false });   // busquedaJefes: ver firestore.rules (colaboradores)   // en producción: cambiar a false (desde la consola de Firebase)
+  await db.doc("config/app").set({ modoPrueba: true, busquedaJefes: false, accesoAnonimo: false });   // busquedaJefes: ver firestore.rules (colaboradores)   // en producción: cambiar a false (desde la consola de Firebase)
   const validos = require("./departamentos"), rf = path.join(__dirname, "ruteo.local.json");
   // En los emuladores, si existen tools/ruteo.local.json y tools/usuarios.json se usan también: así pruebas con tus cuentas reales sin tocar la nube.
   if (!PRUEBA && !fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
@@ -56,6 +56,15 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
       if (!PRUEBA) console.log("usuario:", email, u.roles.join("+"));
     }
   } else console.log("sin tools/usuarios.json: no se crearon usuarios");
+
+  // Cuenta de prueba de un jefe de área (los jefes reales se registran solos con su correo y confirman con el enlace).
+  if (PRUEBA) {
+    const email = "jefe1@usil.edu.pe", clave = crypto.randomBytes(9).toString("base64url");
+    try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: clave, emailVerified: true }); }
+    catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: clave, displayName: "Jefe de prueba", emailVerified: true }); }
+    await db.doc("lideres/" + email).set({ nombre: "JEFE DE PRUEBA", puesto: "JEFE DE AREA" });
+    console.log("Cuenta de prueba de un jefe de área:\n  " + email + "  clave: " + clave);
+  }
 
   // Ruteo: solo el identificador opaco del BP (ni nombre ni correo: cualquiera con sesión anónima puede leer este documento)
   await lote(Object.entries(ruteo).map(([dep, bp]) => {
