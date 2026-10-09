@@ -271,9 +271,9 @@ function dialogoCorte(){
   const cuenta=()=>{const n=lista($("cf").value).length;const e=$("cn");if(e)e.textContent=n?`${n} caso${n===1?"":"s"} entrarán al corte.`:"No hay casos pendientes con esa fecha.";return n};
   if(!hay){$("cf").onchange=cuenta;cuenta()}
   const cerrar=()=>dlg.close();$("cx1").onclick=cerrar;$("ccancel").onclick=cerrar;
-  $("cok").onclick=()=>{const L=lista($("cf").value).slice(0,100),titulo=$("ct").value.trim();
+  $("cok").onclick=async()=>{const L=lista($("cf").value).slice(0,100),titulo=$("ct").value.trim();
     if(!L.length)return aviso("No hay casos para el corte");if(titulo.length<3)return aviso("Escribe un nombre para el corte");
-    if(!confirm(`¿Congelar ${L.length} caso${L.length===1?"":"s"} en «${titulo}»? Queda en el historial y no se puede modificar.`))return;
+    if(!await confirmar("Congelar el corte",`Vas a congelar ${L.length} caso${L.length===1?"":"s"} en «${titulo}». Queda guardado en el historial y no se puede modificar.`,{ok:"Congelar y presentar"}))return;
     dlg.querySelectorAll("button").forEach(b=>b.disabled=true);
     google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(b=>b.disabled=false);aviso(e.message||e)})
       .withSuccessHandler(c=>{dlg.close();SEL.clear();PRES=c;pintar();scrollTo(0,0);aviso("✓ Corte guardado en el historial")}).panelCrearCorte(titulo,$("cnota").value.trim(),$("cf").value,L.map(f=>f.id))};
@@ -469,6 +469,19 @@ function descargar(){
 }
 
 // ---------- Detalle de una solicitud (ventana con encabezado, secciones y barra de acciones fija) ----------
+/** Confirmación con el diseño de la app (reemplaza al cuadro del navegador «localhost dice»). Devuelve una promesa: true si acepta. tipo: ok | warn | bad */
+function confirmar(titulo,texto,{ok="Aceptar",tipo="ok"}={}){
+  return new Promise(res=>{
+    const d=document.createElement("dialog");d.className="cf "+tipo;
+    d.innerHTML='<div class="cf-ic"></div><h3></h3><p></p><div class="cf-ac"><button type="button" class="cf-no">Cancelar</button><button type="button" class="cf-si"></button></div>';
+    d.querySelector(".cf-ic").textContent=tipo==="bad"?"✕":tipo==="warn"?"!":"✓";
+    d.querySelector("h3").textContent=titulo;d.querySelector("p").textContent=texto;d.querySelector(".cf-si").textContent=ok;
+    let hecho=false;const fin=v=>{if(hecho)return;hecho=true;d.close();d.remove();res(v)};
+    d.querySelector(".cf-no").onclick=()=>fin(false);d.querySelector(".cf-si").onclick=()=>fin(true);
+    d.addEventListener("cancel",e=>{e.preventDefault();fin(false)});d.addEventListener("click",e=>{if(e.target===d)fin(false)});
+    document.body.appendChild(d);d.showModal();d.querySelector(".cf-si").focus();
+  });
+}
 function aviso(t){let e=$("toast");if(!e){e=document.createElement("div");e.id="toast";document.body.appendChild(e)}e.textContent=t;e.className="show";clearTimeout(aviso.t);aviso.t=setTimeout(()=>{e.className=""},3500)}
 const lis=s=>String(s||"").split(" | ").filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join("");
 const fila=(k,v)=>v==null||String(v).trim()===""?"":`<div class="kv"><span>${esc(k)}</span><b>${esc(v)}</b></div>`;
@@ -542,8 +555,8 @@ function detalle(id){
        <div class="df"><div class="acts"><button type="button" class="btn sec" id="volver">← Volver al detalle</button><button type="button" class="btn sec" id="regenerar">Regenerar</button><span class="sp"></span><button type="button" class="btn ok" id="enviarG">Enviar a Gerencia ➜</button></div></div>`;
       $("cerrarX2").onclick=()=>dlg.close();$("volver").onclick=()=>detalle(id);
       $("regenerar").onclick=()=>{$("tg").value=base.texto;aviso("Texto regenerado desde los datos")};
-      $("enviarG").onclick=()=>{const t=$("tg").value.trim();if(t.length<30)return aviso("El texto está vacío");
-        if(!confirm("¿Enviar a Gerencia con este texto? Esta acción se registra a tu nombre."))return;
+      $("enviarG").onclick=async()=>{const t=$("tg").value.trim();if(t.length<30)return aviso("El texto está vacío");
+        if(!await confirmar("Enviar a Gerencia","Se enviará el texto que revisaste. La acción queda registrada a tu nombre.",{ok:"Enviar a Gerencia"}))return;
         aplicar("Enviado a Gerencia",coment,{textoGerencia:t,textoOrigen:t===base.texto.trim()?"motor":"motor+editado"},"Solicitud escalada: ya está en la bandeja de Gerencia")};
     };
     // Derivar: pasa la solicitud a otro Socio de negocio (el actual deja de verla; el otro la recibe marcada como derivada).
@@ -555,19 +568,19 @@ function detalle(id){
         <section class="sec"><h4>Motivo de la derivación</h4><textarea id="motivo" rows="3" style="width:100%" placeholder="Por qué la derivas (lo verá quien la reciba)">${esc(coment)}</textarea></section></div>
        <div class="df"><div class="acts"><button type="button" class="btn sec" id="volver3">← Volver al detalle</button><span class="sp"></span><button type="button" class="btn ok" id="derivarOk">Derivar</button></div></div>`;
       $("cerrarX3").onclick=()=>dlg.close();$("volver3").onclick=()=>detalle(id);
-      $("derivarOk").onclick=()=>{const dest=dlg.querySelector("input[name=dest]:checked"),motivo=$("motivo").value.trim();
+      $("derivarOk").onclick=async()=>{const dest=dlg.querySelector("input[name=dest]:checked"),motivo=$("motivo").value.trim();
         if(!dest)return aviso("Elige a quién derivarla");
         if(motivo.length<5){$("motivo").focus();return aviso("Escribe el motivo de la derivación")}
-        const nom=n[dest.value];if(!confirm(`¿Derivar esta solicitud a ${nom}? Dejarás de verla.`))return;
+        const nom=n[dest.value];if(!await confirmar("Derivar la solicitud",`Pasará a ${nom} y dejarás de verla.`,{ok:"Derivar",tipo:"warn"}))return;
         aplicar("En revisión BP",motivo,{derivarA:dest.value},"Solicitud derivada a "+nom)};
     };
-    if(ed)dlg.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{
+    if(ed)dlg.querySelectorAll("[data-i]").forEach(b=>b.onclick=async()=>{
       const [txt,nuevo,,exige,ok,confirma]=ACCIONES[vista][b.dataset.i],coment=$("nc").value.trim();
       const estado=nuevo||(D.estados.includes(f.estado)?f.estado:D.estados[0]);
       if(exige&&!coment){$("nc").focus();$("nc").classList.add("falta");return aviso("Escribe una observación para continuar")}
       if(vista==="bp"&&txt==="Derivar a otro socio")return derivar(coment);
       if(vista==="bp"&&nuevo==="Enviado a Gerencia")return componer(coment);
-      if(confirma&&!confirm(`¿${txt.replace(/[➜✓]/g,"").trim()}? Esta acción se registra a tu nombre.`))return;
+      if(confirma&&!await confirmar(txt.replace(/[➜✓]/g,"").trim(),"Esta acción queda registrada a tu nombre.",{ok:txt.replace(/[➜✓]/g,"").trim(),tipo:ACCIONES[vista][b.dataset.i][2]==="bad"?"bad":ACCIONES[vista][b.dataset.i][2]==="warn"?"warn":"ok"}))return;
       aplicar(estado,coment,null,ok)});
   }).panelDetalle(id,vista,TOKEN);
 }

@@ -176,6 +176,14 @@ th.csel,td.csel{width:34px;padding-right:0!important}input.sel{width:18px;height
 body.entrar{background:linear-gradient(rgba(0,25,90,.45),rgba(0,25,90,.62)),url(assets/login-hero.jpg) center/cover fixed no-repeat}body.entrar #app>*{position:relative}
 body.entrar main{padding-top:15vh}
 .ejec{font-size:18.5px!important;line-height:1.7!important;margin:6px 0!important}.pr-full{margin-top:8px;border-top:1px dashed #C4D4FF;padding-top:8px}.pr-caso>.px-det{margin:8px 0 0}
+dialog.cf{border:0;border-radius:22px;padding:30px 32px 24px;width:min(430px,92vw);text-align:center;box-shadow:0 30px 80px #00195a55;animation:cfIn .18s ease-out}dialog.cf::backdrop{background:#00195a80;backdrop-filter:blur(3px)}
+@keyframes cfIn{from{transform:translateY(12px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+.cf-ic{width:60px;height:60px;border-radius:50%;margin:0 auto 14px;display:grid;place-items:center;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#17844A,#1E9E5A);box-shadow:0 10px 24px #1e9e5a55}
+.cf.warn .cf-ic{background:linear-gradient(135deg,#B87400,#F5B400);box-shadow:0 10px 24px #f5b40066;color:#2b1d00}.cf.bad .cf-ic{background:linear-gradient(135deg,#B02A2A,#D64545);box-shadow:0 10px 24px #d6454566}
+dialog.cf h3{margin:0 0 8px;font-size:21px;color:#00195A}dialog.cf p{margin:0 0 22px;color:#3a4766;font-size:15.5px;line-height:1.55}
+.cf-ac{display:flex;gap:10px;justify-content:center}.cf-ac button{font:inherit;font-weight:700;font-size:15px;border-radius:26px;padding:12px 24px;cursor:pointer;border:1.5px solid #C4D4FF;background:#fff;color:#00195A}.cf-ac button:hover{background:#EEF3FF}
+.cf-ac .cf-si{border:0;color:#fff;background:linear-gradient(135deg,#17844A,#1E9E5A);box-shadow:0 8px 18px #1e9e5a55}.cf.warn .cf-si{background:linear-gradient(135deg,#B87400,#F5B400);color:#2b1d00;box-shadow:0 8px 18px #f5b40066}.cf.bad .cf-si{background:linear-gradient(135deg,#B02A2A,#D64545);box-shadow:0 8px 18px #d6454566}.cf-ac .cf-si:hover{filter:brightness(1.1)}
+@media(max-width:440px){.cf-ac{flex-direction:column-reverse}.cf-ac button{width:100%}dialog.cf{padding:24px 20px 20px}}
 .pill.e0{background:#FFF4C2;color:#7A6200}
 @media(max-width:1000px){.px-kpis{grid-template-columns:1fr 1fr}.px-2{grid-template-columns:1fr}.px-top h2{font-size:26px}}
 @media(max-width:560px){.px-kpis{grid-template-columns:1fr}.px-kpi b{font-size:36px}.px-kpi.primario b{font-size:44px}.px-row .px-ed{display:none}}
