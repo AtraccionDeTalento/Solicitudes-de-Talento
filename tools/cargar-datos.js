@@ -93,5 +93,19 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
     await lote(items);
     console.log("maestro:", filas.length, "personas");
   }
+  // Jefes de área: cuenta con su correo y su documento como clave inicial (tools/jefes-dni.csv, hecho con preparar-jefes.py y fuera del repositorio).
+  // Las cuentas que ya existen no se tocan (si alguien ya eligió su clave, se respeta). Firebase guarda solo el hash de la clave.
+  const jf = args.find(x => x.startsWith("--jefes="));
+  if (jf) {
+    const [cab, ...filas] = csv(fs.readFileSync(jf.slice(8), "utf8").replace(/^﻿/, "")).filter(r => r.length > 1);
+    if (cab[0] !== "email" || cab[1] !== "documento") throw new Error("El CSV de jefes debe empezar con las columnas email,documento");
+    let nuevos = 0, previos = 0, fallos = 0, i = 0;
+    const hilo = async () => { while (i < filas.length) { const [mail, doc, nombre] = filas[i++], email = norm(mail);
+      try { await admin.auth().getUserByEmail(email); previos++; }
+      catch (e) { if (e.code !== "auth/user-not-found") { fallos++; continue; }
+        try { await admin.auth().createUser({ email, password: doc, displayName: nombre, emailVerified: true }); nuevos++; } catch (x) { fallos++; } } } };
+    await Promise.all(Array.from({ length: 12 }, hilo));
+    console.log("jefes con cuenta: nuevas", nuevos, "· ya existían", previos, "· con problema", fallos);
+  }
   if (args.includes("--borrar-solicitudes")) { await db.recursiveDelete(db.collection("solicitudes")); console.log("solicitudes borradas"); }
 })().catch(e => { console.error(e); process.exit(1); });

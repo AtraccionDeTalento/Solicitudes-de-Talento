@@ -1264,7 +1264,7 @@ function readSession(){
 }
 let lastSave=0;
 function touch(){if(!SESSION) return;SESSION.last=Date.now();if(Date.now()-lastSave>15000){lastSave=Date.now();saveSession()}}
-const TXT_LG={entrar:["Ingresa con tu correo institucional y tu clave.","Ingresar"],crear:["Crea tu cuenta con tu correo institucional. Te enviaremos un enlace para confirmarlo.","Crear mi cuenta"],olvide:["Escribe tu correo y te enviaremos un enlace para elegir una clave nueva.","Enviar enlace"]};
+const TXT_LG={entrar:["Ingresa con tu correo institucional. Tu clave inicial es tu DNI.","Ingresar"],crear:["Crea tu cuenta con tu correo institucional. Te enviaremos un enlace para confirmarlo.","Crear mi cuenta"],olvide:["Escribe tu correo y te enviaremos un enlace para elegir una clave nueva.","Enviar enlace"]};
 let MODO_LG="entrar";
 function modoLogin(m){
   MODO_LG=m;$("lgAyuda").textContent=TXT_LG[m][0];$("lgStaff").textContent=TXT_LG[m][1];
