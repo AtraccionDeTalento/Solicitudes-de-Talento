@@ -1,7 +1,7 @@
 // Reglas de seguridad de Firestore contra el emulador. Ejecutar: npm run test:rules (necesita Java).
 const fs = require('fs');
 const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, getDoc, getDocs, updateDoc, collection, query, where, limit } = require('firebase/firestore');
+const { doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, collection, query, where, limit } = require('firebase/firestore');
 
 const DEP = 'GERENCIA DE TALENTO Y CULTURA';
 const BP1 = 'bp1@usil.edu.pe', BP2 = 'bp2@usil.edu.pe', GER = 'ger1@usil.edu.pe', JEFE = 'jefe1@usil.edu.pe', OTRO = 'otro@usil.edu.pe';
@@ -153,6 +153,23 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertFails(getDoc(sol(bp1, 'V1')));       // el BP original ya no la ve
     await assertSucceeds(getDoc(sol(bp2, 'V1')));    // el destino sí
     await assertSucceeds(updateDoc(sol(bp2, 'V1'), { estado: 'En pausa', comentarioBP: 'ok', gestionadoPor: BP2, gestionadoEl: 'hoy' }));
+  });
+  await t('cortes: solo Gerencia los lee y los crea, con su propio correo; nunca se editan ni se borran', async () => {
+    const corte = (extra = {}) => ({ titulo: 'Comité 1', fechaCorte: '2026-10-09', creadoPor: GER, creadoEl: 'hoy', casos: [{ id: 'A' }], resumen: { total: 1 }, ...extra });
+    const c = id => doc(ger, 'cortes', id);
+    await assertSucceeds(setDoc(c('c1'), corte()));
+    await assertSucceeds(getDoc(c('c1')));
+    await assertSucceeds(getDocs(collection(ger, 'cortes')));
+    await assertFails(setDoc(c('c2'), corte({ creadoPor: BP1 })));            // a nombre de otro
+    await assertFails(setDoc(c('c3'), corte({ casos: [] })));                 // vacío
+    await assertFails(setDoc(c('c4'), corte({ casos: Array.from({ length: 101 }, (_, i) => ({ id: 'X' + i })) })));
+    await assertFails(setDoc(c('c5'), corte({ extra: 'no' })));               // campo no permitido
+    await assertFails(setDoc(c('c6'), corte({ titulo: '' })));
+    await assertFails(updateDoc(c('c1'), { titulo: 'cambiado' }));            // inmutable
+    await assertFails(deleteDoc(c('c1')));
+    await assertFails(setDoc(doc(bp1, 'cortes', 'x'), corte({ creadoPor: BP1 })));   // un socio de negocio no crea cortes
+    await assertFails(getDoc(doc(bp1, 'cortes', 'c1')));                      // ni los lee
+    await assertFails(getDoc(doc(anon, 'cortes', 'c1')));
   });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');

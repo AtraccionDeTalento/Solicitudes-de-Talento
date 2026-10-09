@@ -22,6 +22,15 @@ service cloud.firestore {
     // Búsqueda del colaborador por correo (autorrelleno). Para los jefes sin verificar solo se abre en modo prueba o si config/app.busquedaJefes = true:
     // con ella cualquiera podría probar correos y ver nombre y puesto de esa persona, así que se enciende a conciencia (y junto con App Check).
     match /colaboradores/{correo} { allow get: if personal() || (anonimo() && (prueba() || get(/databases/$(db)/documents/config/app).data.get('busquedaJefes', false) == true)); }
+    // Cortes de Gerencia: copia congelada de los casos que se llevan a un comité. Solo Gerencia los lee y los crea; nadie los edita ni los borra (historial).
+    match /cortes/{id} {
+      allow get, list: if tieneRol('gerencia');
+      allow create: if tieneRol('gerencia') && request.resource.data.keys().hasOnly(['titulo', 'nota', 'fechaCorte', 'creadoPor', 'creadoEl', 'casos', 'resumen'])
+        && request.resource.data.creadoPor == yo() && request.resource.data.titulo is string && request.resource.data.titulo.size() > 0 && request.resource.data.titulo.size() <= 120
+        && request.resource.data.casos is list && request.resource.data.casos.size() > 0 && request.resource.data.casos.size() <= 100
+        && (!('nota' in request.resource.data) || request.resource.data.nota.size() <= 1000);
+      allow update, delete: if false;
+    }
     match /lideres/{correo} { allow get: if personal() && correo == yo(); }
     match /maestro/{mat} {
       allow get: if personal() || (anonimo() && prueba());
