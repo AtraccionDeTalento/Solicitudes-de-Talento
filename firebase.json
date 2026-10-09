@@ -39,7 +39,8 @@
       ".gitignore",
       "**/*.log",
       ".claude/**",
-      ".claude"
+      ".claude",
+      "acceso-publico/**"
     ],
     "headers": [
       {
