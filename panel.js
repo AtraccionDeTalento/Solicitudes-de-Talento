@@ -69,7 +69,7 @@ const API={
     const [docs,n]=await Promise.all([Promise.all(ids.map(id=>FB.getDoc(FB.doc(FB.db,"solicitudes",id)))),nombres()]);
     const t=v=>String(v==null?"":v);
     const casos=docs.filter(s=>s.exists()).map(s=>{const d=s.data();return {id:s.id,colaborador:t(d.colaborador),movimiento:t(d.movimiento),departamento:t(d.departamento),area:t(d.area),cliente:t(d.cliente),cargoCliente:t(d.cargoCliente),
-      bp:t(n[d.bpId]),urgencia:t(d.urgencia),impacto:t(d.impacto),puntaje:t(d.puntaje),estado:t(d.estado),fechaSolicitud:t(d.fechaSolicitud),texto:t(d.textoGerencia||redactar(d,{comentarioBP:d.comentarioBP}).texto).slice(0,3500)}});
+      bp:t(n[d.bpId]),urgencia:t(d.urgencia),impacto:t(d.impacto),puntaje:t(d.puntaje),estado:t(d.estado),fechaSolicitud:t(d.fechaSolicitud),sustento:t(d.solicitudConcreta).slice(0,1500),texto:t(d.textoGerencia||redactar(d,{comentarioBP:d.comentarioBP}).texto).slice(0,3500)}});
     const pts=casos.map(c=>Number(c.puntaje)).filter(x=>x>0),pm={};casos.forEach(c=>{pm[c.movimiento]=(pm[c.movimiento]||0)+1});
     const corte={titulo:t(titulo).slice(0,120),nota:t(nota).slice(0,1000),fechaCorte:t(fechaCorte),creadoPor:q.email,creadoEl:new Date().toISOString(),casos,
       resumen:{total:casos.length,urgentes:casos.filter(c=>["Inmediato","Dentro de 30 días"].includes(c.urgencia)).length,preparacion:pts.length?Math.round(pts.reduce((a,b)=>a+b,0)/pts.length):0,porMovimiento:Object.entries(pm).map(([m,k])=>({m,n:k}))}};
@@ -298,13 +298,14 @@ function pintarPresentacion(){
      <div class="px-kpi neutro"><span>Preparación promedio</span><b>${esc(R.preparacion||"—")}</b><em>sobre 100 puntos</em></div>
      <div class="px-kpi verde"><span>Ya decididos</span><b>${esc(resueltos)}</b><em>de ${esc(casos.length)} desde el corte</em></div></div>
    ${casos.map((k,i)=>`<section class="gx-card pr-caso"><div class="px-row" style="border:0;cursor:default"><i class="px-av g">${esc(i+1)}</i><span class="px-mn"><b style="font-size:19px">${esc(k.colaborador||"—")}</b><em style="font-size:14px">${esc(k.movimiento)} · ${esc(k.departamento)}</em></span><button type="button" class="gx-ver px-noprint" data-ver="${esc(k.id)}">Revisar caso</button></div>
-       <div class="px-sus">${resaltar(k.texto)}</div></section>`).join("")}`;
+       <div class="px-sus"><p class="tx-p ejec">${marcar(k.sustento||k.texto.split("\n").slice(0,2).join(" "))}</p></div><button type="button" class="px-det px-noprint" data-tog="1">Ver detallado ▾</button><div class="pr-full" hidden><div class="px-sus">${resaltar(k.texto)}</div></div></section>`).join("")}`;
 }
 
 $("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
 $("app").onclick=e=>{const t=e.target;
   if(t.id==="xls")return descargar();
   const repintar=()=>{const y=scrollY;pintar();scrollTo(0,y)};
+  if(t.dataset&&t.dataset.tog){const b=t.nextElementSibling;b.hidden=!b.hidden;t.textContent=b.hidden?"Ver detallado ▾":"Ocultar detallado ▴";return}
   if(t.id==="btnCorte")return dialogoCorte();
   if(t.id==="btnHist")return dialogoHistorial();
   if(t.id==="btnSalirPres"){PRES=null;return pintar()}
@@ -478,6 +479,7 @@ const ACCIONES={
 };
 /** Texto del motor con lo importante en negrita: títulos de sección, etiquetas, importes, fechas, porcentajes y plazos. */
 const CLAVES=/(S\/\s?[\d.,]+|\d+(?:[.,]\d+)?\s?%|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|\b\d+\s+(?:personas?|días|meses|colaboradores?|posiciones?)\b|\b\d{1,3}\/100\b|\b(?:Inmediato|Crítico)\b)/g;
+const marcar=t=>esc(t).replace(CLAVES,"<strong>$1</strong>");
 function resaltar(texto){
   const marca=t=>esc(t).replace(CLAVES,"<strong>$1</strong>");
   return String(texto||"").split("\n").map((l,i)=>{
@@ -514,12 +516,12 @@ function detalle(id){
       <div class="px-v"><span>Impacto si no se ejecuta</span><b>${esc(f.impacto||"—")}</b><em>${esc(f.consecuencia||"")}</em></div>
       <div class="px-v"><span>Presupuesto</span><b>${esc(f.presupuesto||"—")}</b><em>${f.montoPresupuesto!==""&&f.montoPresupuesto!=null?"S/ "+esc(f.montoPresupuesto):esc(f.fuentePresupuesto||"")}</em></div>
       ${(d.registro&&d.registro.levantamiento||[]).filter(x=>x.i==="cantidadPosiciones")[0]?`<div class="px-v"><span>Posiciones</span><b>${esc(d.registro.levantamiento.filter(x=>x.i==="cantidadPosiciones")[0].r)}</b></div>`:""}<div class="px-v"><span>Aprobación previa</span><b>${d.aprobaciones.length?d.aprobaciones.length+" registrada"+(d.aprobaciones.length===1?"":"s"):"Sin aprobación"}</b></div></div></section>`;
-    const susten=base?`<section class="sec px-sus"><h4>Sustento del caso <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Socio de negocio":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Socio de negocio"}</span></h4>${resaltar(base)}</section>`:"";
+    const susten=(d.sustento||base)?`<section class="sec px-sus"><h4>Sustento ejecutivo</h4><p class="tx-p ejec">${marcar(d.sustento||base.split("\n").slice(0,2).join(" "))}</p></section>`:"";
     $("dlg").innerHTML=`
      <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
        <div class="meta"><span class="tag ${esc(f.estado)}">${esc(eb(f.estado||"Nuevo"))}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
        <button type="button" class="x" id="cerrarX" aria-label="Cerrar">✕</button></div>
-     <div class="db">${vista==="gerencia"?`${solic}${visib}${susten}<button type="button" class="px-det" id="verDet" aria-expanded="false">Ver detallado ▾</button><div id="det" hidden>${secResumen}${secResto}</div>`:`${secTexto}${secResumen}${secResto}`}
+     <div class="db">${vista==="gerencia"?`${solic}${visib}${susten}<button type="button" class="px-det" id="verDet" aria-expanded="false">Ver detallado ▾</button><div id="det" hidden>${secTexto}${secResumen}${secResto}</div>`:`${secTexto}${secResumen}${secResto}`}
      </div>
      <div class="df">${ed?`<label for="nc">Observación o comentario${vista==="bp"?" (lo ve Gerencia y, si la devuelves, el jefe)":""}</label>
        <textarea id="nc" rows="2" placeholder="Escribe aquí tu observación…">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>

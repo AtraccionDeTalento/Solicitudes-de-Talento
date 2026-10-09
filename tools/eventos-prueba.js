@@ -2,16 +2,16 @@
 Object.assign(process.env, { FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080", GCLOUD_PROJECT: "demo-local" });
 const admin = require("firebase-admin"); admin.initializeApp(); const db = admin.firestore();
 let sem = 5; const rnd = () => (sem = (sem * 1664525 + 1013904223) % 4294967296) / 4294967296;
-const GER = "ksarmiento@usil.edu.pe";
 (async () => {
   const roles = (await db.collection("roles").get()).docs.map(d => d.data()), correoDe = {}; roles.forEach(r => { if (r.bpId) correoDe[r.bpId] = r.correo; });
   // el correo del socio vive en el id del documento de roles
   (await db.collection("roles").get()).docs.forEach(d => { if (d.data().bpId) correoDe[d.data().bpId] = d.id; });
+  const GER = (await db.collection("roles").get()).docs.find(d => (d.data().roles || []).includes("gerencia")).id;   // la cuenta de Gerencia del emulador
   await db.recursiveDelete(db.collection("eventos"));
   const sols = (await db.collection("solicitudes").get()).docs; let total = 0, lote = db.batch(), en = 0;
   const pon = async (ref, d) => { lote.set(ref, d); total++; if (++en === 400) { await lote.commit(); lote = db.batch(); en = 0; } };
   for (const s of sols) {
-    const x = s.data(), inicio = new Date(x.enviadoEl).getTime(), bpMail = correoDe[x.bpId] || "socio@usil.edu.pe", ahora = Date.now();
+    const x = s.data(), inicio = new Date(x.enviadoEl).getTime(), bpMail = correoDe[x.bpId] || "socio-sin-cuenta", ahora = Date.now();
     let t = inicio, estado = "Nuevo", ultimo = null; const ev = [];
     const paso = (a, por, rol, tipo, comentario) => { t = Math.min(ahora - 36e5, t + (3e5 + rnd() * 2e5) * (1 + rnd() * 400)); ev.push({ solicitudId: s.id, bpId: x.bpId, tipo, de: estado, a, por, rol, fecha: new Date(t).toISOString(), comentario: comentario || "" }); estado = a; ultimo = ev[ev.length - 1]; };
     const fin = x.estado;
