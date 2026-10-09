@@ -22,13 +22,34 @@ export const normalizar = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]
 
 /** Usuario actual de Firebase (o null). */
 export async function usuario() { await auth.authStateReady(); return auth.currentUser; }
-/** Jefe con sesión anónima (nombre y correo escritos en la pantalla), o null. HRBP y Gerencia entran por entrarClave. */
-export async function sesion() { const u = await usuario(); return u && u.isAnonymous ? u : null; }
-/** Entrada del jefe con el correo escrito, sin verificarlo (sesión anónima). Las reglas solo le dejan crear solicitudes y leer las suyas. */
-export async function entrarCorreo(email) {
-  if (!/^[^@\s]+@usil\.edu\.pe$/i.test(email)) throw new Error("Usa tu correo institucional (@usil.edu.pe).");
-  const u = await usuario();
-  return u && u.isAnonymous ? u : (await signInAnonymously(auth)).user;
+/** Usuario con correo institucional VERIFICADO y clave (jefe de área o personal con rol), o null. */
+export async function sesion() { const u = await usuario(); return u && !u.isAnonymous && u.emailVerified && u.providerData.some(p => p.providerId === "password") ? u : null; }
+const esUsil = email => /^[^@\s]+@usil\.edu\.pe$/i.test(email);
+/** Entrada con correo institucional y clave. Sin correo verificado no entra. */
+export async function entrarJefe(email, clave) {
+  if (!esUsil(email)) throw new Error("Usa tu correo institucional (@usil.edu.pe).");
+  await setPersistence(auth, browserSessionPersistence);
+  let u;
+  try { u = (await signInWithEmailAndPassword(auth, normalizar(email), String(clave))).user; } catch (e) { throw new Error("Correo o clave incorrectos."); }
+  if (!u.emailVerified) { await signOut(auth); throw new Error("Falta confirmar tu correo: abre el enlace que te enviamos y vuelve a entrar."); }
+  return u;
+}
+/** Crea la cuenta de un jefe y le envía el enlace para confirmar su correo. Hasta confirmarlo no puede usar la app. */
+export async function crearCuenta(email, clave, clave2) {
+  email = normalizar(email);
+  if (!esUsil(email)) throw new Error("Usa tu correo institucional (@usil.edu.pe).");
+  if (String(clave).length < 12) throw new Error("Tu clave debe tener 12 o más caracteres.");
+  if (clave !== clave2) throw new Error("Las dos claves no coinciden.");
+  let u;
+  try { await setPersistence(auth, browserSessionPersistence); u = (await createUserWithEmailAndPassword(auth, email, clave)).user; }
+  catch (e) { throw new Error(e.code === "auth/email-already-in-use" ? "Ese correo ya tiene cuenta: entra con tu clave o usa «Olvidé mi clave»." : e.code === "auth/weak-password" ? "Esa clave es demasiado débil." : "No se pudo crear la cuenta. Intenta de nuevo."); }
+  try { await sendEmailVerification(u); } finally { await signOut(auth); }
+  return "Cuenta creada. Te enviamos un enlace a " + email + ": ábrelo para confirmar tu correo y luego entra con tu clave.";
+}
+/** Envía el enlace para elegir una clave nueva. Responde igual exista o no la cuenta (no revela quién tiene cuenta). */
+export async function olvideClave(email) {
+  try { await sendPasswordResetEmail(auth, normalizar(email)); } catch (e) { if (e.code !== "auth/user-not-found" && e.code !== "auth/invalid-email") throw new Error("No se pudo enviar el correo ahora. Intenta más tarde."); }
+  return "Si tu correo tiene cuenta, te llegará un enlace para elegir una clave nueva.";
 }
 export const salir = () => signOut(auth);
 /** HRBP o Gerencia con sesión de correo y clave (verificada) o null: van directo al panel. */

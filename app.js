@@ -621,12 +621,18 @@ async function lookupEmployeeByEmail(){
   help.textContent=msg;afterAuto();
 }
 async function autoLider(){
-  if(!CONFIG.endpoint||!SESSION||$("cargoCliente").value) return;
+  if(!CONFIG.endpoint||!SESSION) return;
   try{
     const r=await postMaestro({lider:true});
-    if(r.ok&&r.item&&r.item.puesto&&!$("cargoCliente").value){$("cargoCliente").value=r.item.puesto;afterAuto()}
-  }catch(e){/* sin base: el líder escribe su cargo */}
+    if(r.ok&&r.item){
+      let cambio=false;
+      if(r.item.nombre){const n=titulo(r.item.nombre);SESSION.name=n;saveSession();$("cliente").value=n;$("userName").textContent=`${n} · Líder`;cambio=true}
+      if(r.item.puesto&&!$("cargoCliente").value){$("cargoCliente").value=r.item.puesto;cambio=true}
+      if(cambio){lockLeader();afterAuto()}
+    }
+  }catch(e){/* sin base: el líder se identifica con su correo */}
 }
+
 function lookupEmployeeByCode(){
   if(NOCODE.includes($("movimiento").value)) return;
   const help=$("codigoHelp"), code=normalizeEmployeeCode($("codigo").value);
@@ -1258,16 +1264,35 @@ function readSession(){
 }
 let lastSave=0;
 function touch(){if(!SESSION) return;SESSION.last=Date.now();if(Date.now()-lastSave>15000){lastSave=Date.now();saveSession()}}
+const TXT_LG={entrar:["Ingresa con tu correo institucional y tu clave.","Ingresar"],crear:["Crea tu cuenta con tu correo institucional. Te enviaremos un enlace para confirmarlo.","Crear mi cuenta"],olvide:["Escribe tu correo y te enviaremos un enlace para elegir una clave nueva.","Enviar enlace"]};
+let MODO_LG="entrar";
+function modoLogin(m){
+  MODO_LG=m;$("lgAyuda").textContent=TXT_LG[m][0];$("lgStaff").textContent=TXT_LG[m][1];
+  $("lgPassWrap").classList.toggle("hidden",m==="olvide");$("lgPass2Wrap").classList.toggle("hidden",m!=="crear");
+  $("lgCrear").classList.toggle("hidden",m!=="entrar");$("lgOlvide").classList.toggle("hidden",m!=="entrar");$("lgVolver").classList.toggle("hidden",m==="entrar");
+  $("lgErr2").textContent="";$("lgOk").textContent="";
+}
+const nombreDeCorreo=m=>String(m).split("@")[0].replace(/[._-]+/g," ").replace(/(^|\s)\S/g,c=>c.toUpperCase());
+const titulo=n=>String(n||"").toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
 function setupLogin(){
-  // Jefe de área: nombre y correo @usil.edu.pe (sin verificar). Socio de negocio y Gerencia entran por su botón, que lleva al panel.
+  // Jefe de área: correo institucional verificado y clave. Si no tiene cuenta, la crea y confirma su correo con un enlace. Socio de negocio y Gerencia entran por su botón, que lleva al panel.
+  $("lgCrear").onclick=()=>modoLogin("crear");$("lgOlvide").onclick=()=>modoLogin("olvide");$("lgVolver").onclick=()=>modoLogin("entrar");
   $("lgStaff").onclick=async()=>{
-    const err=$("lgErr2"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),name=$("lgNombre").value.trim().replace(/\s+/g," ");
-    err.textContent="";
-    if(name.length<5||!name.includes(" ")) return void(err.textContent="Ingresa tu nombre y apellido.");
+    const err=$("lgErr2"),ok=$("lgOk"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),clave=$("lgPass").value;
+    err.textContent="";ok.textContent="";
     if(!mail) return void(err.textContent="Ingresa tu correo institucional.");
+    if(MODO_LG!=="olvide"&&!clave) return void(err.textContent="Ingresa tu clave.");
     b.disabled=true;
-    try{await (await FBp).entrarCorreo(mail);SESSION={name,email:mail,role:"jefe",anon:true,last:Date.now()};saveSession();enter()}
-    catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
+    try{
+      const F=await FBp;
+      if(MODO_LG==="crear"){ok.textContent=await F.crearCuenta(mail,clave,$("lgPass2").value);$("lgPass").value=$("lgPass2").value="";modoLogin("entrar");ok.textContent="Cuenta creada. Te enviamos un enlace a "+mail+": ábrelo para confirmar tu correo y luego entra con tu clave."}
+      else if(MODO_LG==="olvide"){ok.textContent=await F.olvideClave(mail)}
+      else{
+        await F.entrarJefe(mail,clave);$("lgPass").value="";
+        if(await F.personal()) return void location.replace(CONFIG.panelUrl);   // Socio de negocio o Gerencia: a su panel
+        SESSION={name:nombreDeCorreo(mail),email:mail,role:"jefe",last:Date.now()};saveSession();enter();
+      }
+    }catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
     b.disabled=false;
   };
   $("lgPanel").onclick=()=>{location.href=CONFIG.panelUrl};
@@ -1284,16 +1309,15 @@ function setupLogin(){
 async function boot(){
   try{
     const F=await Promise.race([FBp,new Promise((_,no)=>setTimeout(()=>no(new Error("sin Firebase")),10000))]),u=await F.sesion(),s=readSession();
-    if(s&&u&&(u.isAnonymous?s.anon:s.email===u.email.toLowerCase())){SESSION=s;return enter()}
+    if(u&&await F.personal()) return location.replace(CONFIG.panelUrl);   // Socio de negocio o Gerencia ya con sesión: directo a su panel
+    if(s&&u&&s.email===u.email.toLowerCase()){SESSION=s;return enter()}
     if(u) await F.salir();   // sesión de Firebase sin sesión de pantalla vigente (venció por inactividad)
-    else if(await F.personal()) return location.replace(CONFIG.panelUrl);   // HRBP o Gerencia ya con sesión: directo a su panel
   }catch(e){}
   showLogin();
 }
 function showLogin(){
   $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
-  $("lgAyuda").textContent="Ingresa tu nombre y tu correo institucional para continuar.";
-  $("lgErr2").textContent="";
+  modoLogin("entrar");
 }
 function enter(){
   BP_MODE=SESSION.role==="bp";

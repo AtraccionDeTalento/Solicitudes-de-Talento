@@ -57,13 +57,15 @@ ok('los estados que usa el panel coinciden con las reglas', () => {
 ok('las reglas: el jefe (sesión anónima) solo crea y lee lo suyo; el Maestro se cierra a jefes sin verificar en producción; sin Google', () => {
   assert.ok(!/google\.com/.test(rules + fbjs));
   assert.ok(/function anonimo\(\)[^}]*== 'anonymous'/.test(rules) && /function prueba\(\)[^}]*modoPrueba == true/.test(rules));
-  assert.ok(/allow get: if personal\(\) \|\| \(anonimo\(\) && prueba\(\)\)/.test(rules), 'el Maestro de un jefe sin verificar debe depender de modoPrueba');
-  assert.ok(/allow create: if anonimo\(\)[^;]*matches\('\.\+@usil\[\.\]edu\[\.\]pe'\)/.test(rules), 'el correo del jefe debe ser @usil.edu.pe');
+  assert.ok(/allow get: if staff\(\) \|\| \(anonimoOk\(\) && prueba\(\)\)/.test(rules), 'el Maestro solo lo lee el personal con rol; un jefe anónimo solo en modo prueba');
+  assert.ok(/function anonimoOk\(\)[^}]*accesoAnonimo/.test(rules), 'el acceso anónimo debe depender de config/app.accesoAnonimo');
+  assert.ok(/allow create: if \(\(personal\(\) && request\.resource\.data\.enviadoPor == yo\(\)\)/.test(rules), 'el jefe con clave solo crea a su nombre');
+  assert.ok(/match \/bps\/\{id\}\s+\{ allow get, list: if staff\(\)/.test(rules), 'los nombres de socios de negocio no son para jefes');
   assert.ok(/function personal\(\)[^}]*email_verified|function usil\(\)[^}]*email_verified == true/.test(rules), 'HRBP y Gerencia exigen correo verificado');
 });
-ok('la pantalla de entrada: solo nombre y correo (sin clave ni Google); BP y Gerencia por un botón aparte', () => {
+ok('la pantalla de entrada: correo institucional y clave (sin Google); Socio de negocio y Gerencia por un botón aparte', () => {
   const login = /<div id="login"[\s\S]*?<\/form>/.exec(html)[0];
-  assert.deepStrictEqual([...login.matchAll(/<input id="(\w+)"/g)].map(m => m[1]), ['lgNombre', 'lgMail']);
+  assert.deepStrictEqual([...login.matchAll(/<input id="(\w+)"/g)].map(m => m[1]), ['lgMail', 'lgPass', 'lgPass2']);
   assert.ok(!/google/i.test(login) && !/GoogleAuthProvider|signInWithPopup|entrarGoogle/.test(js + panel + fbjs));
   assert.ok(/id="lgPanel"/.test(login) && /lgPanel"\)\.onclick=\(\)=>\{location\.href=CONFIG\.panelUrl\}/.test(js));
 });
@@ -75,7 +77,7 @@ ok('Vercel: las cabeceras repiten la CSP de las páginas, sin frame, y publican 
   const ign = leer('.vercelignore').split('\n'); ['tools', 'tests', 'docs', 'firestore.rules', 'package.json'].forEach(x => assert.ok(ign.includes(x), x));
 });
 ok('la validación de correo usa expresiones correctas (acepta correos con «s»)', () => {
-  const m = /entrarCorreo\(email\) \{\s*if \(!(\/[^\n]+?\/i)\.test\(email\)\)/.exec(fbjs);
+  const m = /const esUsil = email => (\/[^\n]+?\/i)\.test\(email\);/.exec(fbjs);
   assert.ok(m, 'no se encontró la validación'); const re = vm.runInNewContext(m[1]);
   assert.ok(re.test('susana.sosa@usil.edu.pe') && !re.test('x@gmail.com') && !re.test('a b@usil.edu.pe') && !re.test('x@usilXeduYpe'));
   assert.ok(!/replace\(\/s\+\//.test(js + fbjs), 'falta la barra en /\\s+/');

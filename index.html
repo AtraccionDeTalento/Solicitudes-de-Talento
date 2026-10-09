@@ -113,6 +113,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 }
 @media print{header,.actions,#stepper,#login,#toast{display:none!important}.step{display:block!important}}
 @media(max-width:720px){.wrap{padding:12px 12px 84px}.panel{padding:16px}.scorebox{grid-template-columns:1fr}dl.sum{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}#stepper button span{display:none}}
+.lok{color:#17663A;background:#EAF7EF;border-radius:10px;padding:0;font-size:13.5px;margin:0 0 8px}.lok:not(:empty){padding:9px 12px}.llinks{display:flex;justify-content:space-between;gap:10px;margin:10px 0 0}.link{background:none!important;border:0!important;color:#0036DC!important;padding:4px 0!important;font:inherit;font-size:14px;cursor:pointer;text-decoration:underline;width:auto!important;box-shadow:none!important}
 </style>
 </head>
 <body>
@@ -123,10 +124,12 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
       <div class="rule"></div>
       <h3 id="loginTitle">Solicitudes y movimientos</h3>
       <p class="sub" id="lgAyuda"></p>
-      <div class="f" id="lgNombreWrap"><label for="lgNombre">Nombre y apellido <small>(jefes de área)</small></label><input id="lgNombre" autocomplete="name" placeholder="Ej. Mariana Torres"></div>
       <div class="f"><label for="lgMail">Correo institucional</label><input id="lgMail" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="usuario@usil.edu.pe"></div>
-      <div class="lerr" id="lgErr2" role="alert"></div>
+      <div class="f" id="lgPassWrap"><label for="lgPass">Clave</label><input id="lgPass" type="password" autocomplete="current-password" placeholder="Tu clave"></div>
+      <div class="f hidden" id="lgPass2Wrap"><label for="lgPass2">Repite tu clave <small>(12 o más caracteres)</small></label><input id="lgPass2" type="password" autocomplete="new-password" placeholder="Repite tu clave"></div>
+      <div class="lerr" id="lgErr2" role="alert"></div><div class="lok" id="lgOk" role="status"></div>
       <button type="button" id="lgStaff">Ingresar</button>
+      <div class="llinks"><button type="button" class="link" id="lgCrear">Crear mi cuenta</button><button type="button" class="link" id="lgOlvide">Olvidé mi clave</button><button type="button" class="link hidden" id="lgVolver">← Volver a ingresar</button></div>
       <div class="rule"></div>
       <button type="button" class="secondary" id="lgPanel">Acceso Socio de negocio y Gerencia</button>
       <p class="fine">Acceso solo para colaboradores USIL. Tu información se usa únicamente para registrar la solicitud.</p>
