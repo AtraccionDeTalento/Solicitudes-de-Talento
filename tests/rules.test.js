@@ -171,6 +171,25 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertFails(getDoc(doc(bp1, 'cortes', 'c1')));                      // ni los lee
     await assertFails(getDoc(doc(anon, 'cortes', 'c1')));
   });
+  await t('eventos: la trazabilidad solo se escribe si coincide con la gestión real, firmada por quien la hizo; no se edita ni se borra', async () => {
+    await assertSucceeds(setDoc(sol(anon, 'E1'), nueva('E1', 'u1')));
+    await assertSucceeds(updateDoc(sol(bp1, 'E1'), { estado: 'En pausa', comentarioBP: 'ok', gestionadoPor: BP1, gestionadoEl: 'hoy' }));
+    const ev = (extra = {}) => ({ solicitudId: 'E1', bpId: 'bpid-1', tipo: 'Cambio de estado', de: 'Nuevo', a: 'En pausa', por: BP1, rol: 'bp', fecha: 'hoy', comentario: 'ok', ...extra });
+    const e = (c, id) => doc(c, 'eventos', id);
+    await assertSucceeds(setDoc(e(bp1, 'e1'), ev()));
+    await assertFails(setDoc(e(bp1, 'e2'), ev({ por: BP2 })));                // a nombre de otra persona
+    await assertFails(setDoc(e(bp1, 'e3'), ev({ a: 'Aprobado' })));           // no es el estado real
+    await assertFails(setDoc(e(bp1, 'e4'), ev({ bpId: 'bpid-2' })));
+    await assertFails(setDoc(e(bp1, 'e5'), ev({ solicitudId: 'NO' })));       // la solicitud no existe
+    await assertFails(setDoc(e(bp1, 'e6'), ev({ extra: 1 })));
+    await assertFails(setDoc(e(bp2, 'e7'), ev({ por: BP2 })));                // BP2 no gestionó esa solicitud
+    await assertFails(updateDoc(e(bp1, 'e1'), { comentario: 'x' }));
+    await assertFails(deleteDoc(e(bp1, 'e1')));
+    await assertSucceeds(getDoc(e(bp1, 'e1'))); await assertSucceeds(getDoc(e(ger, 'e1')));
+    await assertFails(getDoc(e(bp2, 'e1'))); await assertFails(getDoc(e(anon, 'e1')));
+    await assertSucceeds(getDocs(query(collection(bp1, 'eventos'), where('bpId', '==', 'bpid-1'))));
+    await assertFails(getDocs(collection(bp1, 'eventos')));                   // un socio de negocio solo lista lo suyo
+  });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');
 })().catch(e => { console.error(e); process.exit(1); });

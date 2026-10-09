@@ -31,6 +31,18 @@ service cloud.firestore {
         && (!('nota' in request.resource.data) || request.resource.data.nota.size() <= 1000);
       allow update, delete: if false;
     }
+    // Trazabilidad: cada gestión (devolver, pausar, derivar, escalar, aprobar, rechazar, comentar) deja un evento que nadie edita ni borra.
+    // Solo se crea si coincide con lo que la propia persona acaba de hacer en la solicitud (mismo estado, mismo socio de negocio, firmado por ella).
+    match /eventos/{id} {
+      allow get, list: if tieneRol('gerencia') || (tieneRol('bp') && resource.data.bpId == bpDe());
+      allow create: if (tieneRol('bp') || tieneRol('gerencia'))
+        && request.resource.data.keys().hasOnly(['solicitudId', 'bpId', 'tipo', 'de', 'a', 'por', 'rol', 'fecha', 'comentario'])
+        && request.resource.data.por == yo()
+        && exists(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId))
+        && get(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.gestionadoPor == yo() && get(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.estado == request.resource.data.a && get(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.bpId == request.resource.data.bpId
+        && (!('comentario' in request.resource.data) || request.resource.data.comentario.size() <= 1000);
+      allow update, delete: if false;
+    }
     match /lideres/{correo} { allow get: if personal() && correo == yo(); }
     match /maestro/{mat} {
       allow get: if personal() || (anonimo() && prueba());
