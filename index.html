@@ -24,7 +24,7 @@ header{background:linear-gradient(100deg,var(--navy),var(--royal));color:#fff;po
 .userchip button{padding:6px 11px;font-size:12px;background:#ffffff1f;color:#fff}
 footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 90px}
 button:hover:not(:disabled){filter:brightness(1.1)}
-header h1{margin:0;font-size:21px}
+header h1{margin:0;font-size:21px}.htop{display:flex;align-items:center;gap:14px}.hlogo{height:38px;width:auto;filter:brightness(0) invert(1);cursor:default;user-select:none;-webkit-user-drag:none}
 header p{margin:2px 0 8px;color:#C9D6F5;font-size:13px}
 .pbar{height:6px;background:#ffffff33;border-radius:9px;overflow:hidden}
 #barfill{height:100%;width:0;background:#F3BE00;transition:width .25s}
@@ -140,13 +140,13 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 </div>
 <header><div class="hwrap">
   <div class="userchip hidden" id="userChip"><a id="panelLink" class="hidden" target="_blank" rel="noopener" style="color:#fff;margin-right:12px;font-weight:700">Panel de revisión ↗</a><span id="userName"></span><button type="button" id="logoutBtn">Cerrar sesión</button></div>
-  <h1>Solicitudes y movimientos</h1>
+  <div class="htop"><img id="logoUsil" class="hlogo" src="assets/usil-lockup-navy.png" alt="USIL" height="38"><h1>Solicitudes y movimientos</h1></div>
   <p>Responde todas las preguntas con hechos concretos: el resumen que verá el Comité se arma con tus respuestas. <span id="modeTag"></span></p>
   <div class="pbar"><div id="barfill"></div></div><div id="barTxt"></div>
 </div></header>
 
 <main class="wrap">
-  <div id="demoBar" class="hidden" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button type="button" id="demoFill">✨ Rellenar con un ejemplo</button><button type="button" id="demoSend">🚀 Rellenar y enviar</button><button type="button" class="secondary" id="demoBatch">📨 Generar 16 registros</button><span class="muted" style="font-size:13px">Modo prueba:  «Rellenar y enviar» crea un registro real para el BP; «Generar 16» envía uno por departamento con personas al azar (4 por BP).</span></div>
+  <div id="demoBar" class="hidden" style="display:none;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><button type="button" id="demoFill">✨ Rellenar con un ejemplo</button><button type="button" id="demoSend">🚀 Rellenar y enviar</button><button type="button" class="secondary" id="demoBatch">📨 Generar 16 registros</button><span class="muted" style="font-size:13px">Modo prueba:  «Rellenar y enviar» crea un registro real para el BP; «Generar 16» envía uno por departamento con personas al azar (4 por BP).</span></div>
   <nav id="stepper" aria-label="Pasos de la solicitud"></nav>
   <div id="errSummary" class="alert hidden" role="alert"></div>
 

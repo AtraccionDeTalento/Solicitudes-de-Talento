@@ -1372,7 +1372,8 @@ function enter(){
   $("login").classList.add("hidden");$("userChip").classList.remove("hidden");
   $("userName").textContent=`${SESSION.name} · ${{bp:"BP",gerencia:"Gerencia"}[SESSION.role]||"Líder"}`;
   $("bpPanel").classList.toggle("hidden",!BP_MODE||!!CONFIG.panelUrl);$("modeTag").textContent=(BP_MODE?"· Modo BP":"")+(CONFIG.modoPrueba?" · Modo prueba":"");
-  $("demoBar").classList.toggle("hidden",!CONFIG.modoPrueba);
+  // Relleno de pruebas oculto: 5 clics seguidos en el logo (solo con modoPrueba). Quitar este bloque y #demoBar al pasar a producción.
+  {let n=0,t=0;$("logoUsil").onclick=()=>{if(!CONFIG.modoPrueba)return;const ahora=Date.now();n=ahora-t<1500?n+1:1;t=ahora;if(n>=5){n=0;demoFill()}}}
   if(CONFIG.panelUrl){$("panelLink").href=CONFIG.panelUrl;$("panelLink").classList.remove("hidden")}
   if(BP_MODE) renderHistory();
   const dr=load(draftKey(),null);
