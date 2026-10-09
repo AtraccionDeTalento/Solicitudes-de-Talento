@@ -26,7 +26,8 @@ export const REQUERIDOS = {
   'Reemplazo': { puestoReemplazo: 'posición a reemplazar', fechaInicioReemplazo: 'fecha de inicio', porQueColaboradorReemplazo: 'por qué se propone al colaborador' },
   'Puesto nuevo': { puestoNuevo: 'nombre del puesto', necesidadPuesto: 'necesidad del negocio', fechaRequerida: 'fecha requerida' },
   'Incremento salarial': { motivoIncremento: 'motivo del incremento', propuestaNegocio: 'valor de la propuesta', evidenciaRiesgo: 'evidencia de respaldo' },
-  'Movimiento lateral': { puestoDestino: 'puesto destino', motivoMovimiento: 'necesidad que origina el movimiento' },
+  'Movimiento lateral': { puestoDestino: 'puesto destino', motivoMovimiento: 'necesidad que origina el movimiento' },   // tipo anterior: se conserva para leer casos viejos
+  'Movimiento interno': { puestoDestino: 'puesto destino', motivoMovimiento: 'necesidad que origina el movimiento' },
   'Movimiento horizontal': { tipoHorizontal: 'tipo de movimiento', motivoHorizontal: 'necesidad que origina el movimiento', funcionesNuevasHorizontal: 'funciones nuevas' },
   'Reestructuración de área': { areaReestructura: 'área que se reestructura', nPersonasAfectadas: 'colaboradores afectados', fechaVigenciaReestructura: 'fecha de vigencia' },
   'Revalorización de puesto': { queCambioRev: 'situación que origina la revisión', sustentoSubvaloracion: 'sustento de la revalorización' },
@@ -66,6 +67,7 @@ export function redactar(r, opciones = {}) {
     'Puesto nuevo': () => `la creación del puesto ${T('puestoNuevo') || 'indicado'}${cantidad()}${T('temporalPermanente') ? ` (${minus(v('temporalPermanente'))})` : ''}${T('reportaA') ? `, con reporte a ${v('reportaA')}` : ''}${F('fechaRequerida') ? `, requerido para ${fecha(v('fechaRequerida'))}` : ''}`,
     'Incremento salarial': () => `un incremento salarial para ${persona}${T('motivoIncremento') ? `, por ${minus(v('motivoIncremento'))}` : ''}${v('propuestaNegocio') ? `, con una propuesta de ${usa('propuestaNegocio', importe(v('tipoPropuestaNegocio'), v('propuestaNegocio')))}` : ''}`,
     'Movimiento lateral': () => `el movimiento lateral de ${persona}${T('puestoDestino') ? ` al puesto de ${v('puestoDestino')}` : ''}${T('areaDestino') ? `, en ${v('areaDestino')}` : ''}`,
+    'Movimiento interno': () => `el movimiento interno de ${persona}${T('puestoDestino') ? ` al puesto de ${v('puestoDestino')}` : ''}${T('areaDestino') ? `, en ${v('areaDestino')}` : ''}`,
     'Movimiento horizontal': () => `un movimiento horizontal${T('tipoHorizontal') ? ` (${minus(v('tipoHorizontal'))})` : ''} para ${persona}${T('esTemporalHorizontal') ? `, de carácter ${minus(v('esTemporalHorizontal'))}` : ''}${F('desdeCuandoHorizontal') ? `, desde ${fecha(v('desdeCuandoHorizontal'))}` : ''}`,
     'Reestructuración de área': () => `la reestructuración de ${T('areaReestructura') || 'un área'}${T('nPersonasAfectadas') ? `, que afecta a ${v('nPersonasAfectadas')} colaborador(es)` : ''}${F('fechaVigenciaReestructura') ? `, con vigencia desde ${fecha(v('fechaVigenciaReestructura'))}` : ''}`,
     'Revalorización de puesto': () => `la revalorización del puesto de ${persona}${F('desdeCuandoRev') ? `, por cambios vigentes desde ${fecha(v('desdeCuandoRev'))}` : ''}`,

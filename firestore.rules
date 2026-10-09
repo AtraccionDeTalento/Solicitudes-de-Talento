@@ -91,7 +91,7 @@ service cloud.firestore {
         && d.bpId == rt.bpId && !('bp' in d) && !('bpCorreo' in d)
         && d.comentarioBP == '' && d.comentarioGerencia == '' && !('gestionadoPor' in d)
         && d.enviadoPor.size() < 120
-        && d.movimiento in ['Promoción', 'Encargatura', 'Reemplazo', 'Puesto nuevo', 'Incremento salarial', 'Movimiento lateral', 'Movimiento horizontal', 'Reestructuración de área', 'Revalorización de puesto', 'Convenio / caso especial', 'Otro']
+        && d.movimiento in ['Promoción', 'Encargatura', 'Reemplazo', 'Puesto nuevo', 'Incremento salarial', 'Movimiento interno', 'Otro']
         // Solo los campos que envía la app, con tamaños acotados: nadie puede guardar datos ajenos al formulario ni documentos enormes.
         && d.keys().hasOnly(['id', 'enviadoEl', 'enviadoPor', 'origen', 'periodo', 'levantamiento', 'aprobaciones', 'puntaje', 'clasificacion', 'fortalezas', 'alertas', 'recomendacion', 'fechaSolicitud', 'cliente', 'cargoCliente', 'departamento', 'area', 'seccion', 'codigo', 'colaborador', 'puestoActual', 'movimiento', 'tieneAprobacion', 'presupuesto', 'fuentePresupuesto', 'validaPresupuesto', 'montoPresupuesto', 'urgencia', 'impacto', 'consecuencia', 'impactoDetalle', 'solicitudConcreta', 'uid', 'bpId', 'estado', 'comentarioBP', 'comentarioGerencia'])
         && d.keys().hasAll(['id', 'uid', 'bpId', 'estado', 'enviadoPor', 'movimiento', 'departamento', 'impactoDetalle', 'solicitudConcreta', 'comentarioBP', 'comentarioGerencia'])

@@ -17,9 +17,9 @@ const draftKey=()=>"bp_draft_v2:"+(SESSION?SESSION.email:"anon");
 const XLSX_SRC={url:"https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",sri:"sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"};
 
 const MASTER_KEY="bp_master_subset_v1", MASTER_META_KEY="bp_master_meta_v1", HISTORY_KEY="bp_history_v1";
-const MOVS=["Promoción","Encargatura","Reemplazo","Puesto nuevo","Incremento salarial","Movimiento lateral","Movimiento horizontal","Reestructuración de área","Revalorización de puesto","Convenio / caso especial","Otro"];
+const MOVS=["Promoción","Encargatura","Reemplazo","Puesto nuevo","Incremento salarial","Movimiento interno","Otro"];
 const DEPARTAMENTOS=["DIRECCION GENERAL DE SEDES DESCENTRALIZADAS", "DIRECCION GENERAL DEL CSIR", "ESCUELA DE POSGRADO", "GERENCIA DE ADMINISTRACION Y SEGURIDAD", "GERENCIA DE PROYECTOS - SEDE PERU", "GERENCIA DE TALENTO Y CULTURA", "GERENCIA GENERAL", "GERENCIA LEGAL", "GERENCIA SENIOR DE FINANZAS", "PRESIDENCIA EJECUTIVA", "RECTORADO", "VICEPRESIDENCIA DE ASUNTOS CORPORATIVOS", "VICEPRESIDENCIA DE COMUNICACIONES E INNOVACION DIG", "VICEPRESIDENCIA SENIOR", "VICERRECTORADO ACADEMICO", "VICERRECTORADO DE INVESTIGACION"];   // Maestro 05-10-2026; define el BP que recibe la solicitud
-const NOCODE=["Puesto nuevo","Reestructuración de área"];   // sin matrícula individual
+const NOCODE=["Puesto nuevo"];   // sin matrícula individual
 const SN=["Sí","No"], SNP=["Sí","No","Parcialmente"], SNC=["Sí","No","Por confirmar"], SNS=["Sí","No","No se sabe"];
 
 // Preguntas agrupadas por bloque (situación → cambio → sustento → resultado → impacto).
@@ -91,6 +91,7 @@ const SETS = {
 "Puesto nuevo":[
  {t:"El puesto solicitado",q:[
   ["puestoNuevo","Nombre del puesto solicitado","text"],
+  ["motivoPuestoNuevo","Motivo de la creación del puesto","select",["Crecimiento del negocio","Reestructuración de área","Proyecto nuevo","Reemplazo de una función","Otro"],"Si el puesto nace de una reestructuración del área, elige «Reestructuración de área» y explícalo abajo."],
   ["cantidadPosiciones","¿Cuántas posiciones de este puesto necesitas?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si necesitas varias posiciones iguales (por ejemplo 2 asistentes comerciales), envíalas juntas en esta misma solicitud."],
   ["temporalPermanente","¿Es permanente o temporal?","select",["Permanente","Temporal","Por definir"]],
   ["reportaA","¿A quién reportará?","text"],
@@ -124,9 +125,9 @@ const SETS = {
  {t:"Propuesta del negocio",q:[
   ["tipoPropuestaNegocio","Tipo de propuesta del negocio","select",["Monto en S/","Porcentaje %"]],
   ["propuestaNegocio","Valor de la propuesta","number"]]}],
-"Movimiento lateral":[
+"Movimiento interno":[
  {t:"Necesidad",q:[
-  ["motivoMovimiento","¿Qué necesidad origina el movimiento lateral?","textarea"],
+  ["motivoMovimiento","¿Qué necesidad origina el movimiento interno?","textarea"],
   ["problemaResuelveML","¿Qué problema organizacional busca resolver?","textarea"]]},
  {t:"Destino",q:[
   ["puestoDestino","Puesto destino","text"],
@@ -140,72 +141,9 @@ const SETS = {
  {t:"Resultado esperado e impacto",q:[
   ["resultadoEsperadoML","¿Qué se espera lograr con el movimiento?","textarea"],
   ["solicitaIncrementoML","¿El cliente solicita incremento salarial?","select",SNC]]}],
-"Movimiento horizontal":[
- {t:"Situación y tipo de cambio",q:[
-  ["tipoHorizontal","Tipo de movimiento horizontal","select",["Ampliación de funciones","Rotación de funciones","Apoyo a otra área","Cambio de línea de reporte","Otro"]],
-  ["esTemporalHorizontal","¿Es temporal o permanente?","select",["Permanente","Temporal","Por definir"]],
-  ["desdeCuandoHorizontal","¿Desde cuándo se realiza o realizará?","date"],
-  ["motivoHorizontal","¿Qué necesidad origina el movimiento horizontal?","textarea"]]},
- {t:"Qué cambia en el rol",q:[
-  ["funcionesActualesHorizontal","¿Qué funciones mantiene en su puesto actual?","textarea"],
-  ["funcionesNuevasHorizontal","¿Qué funciones nuevas o distintas asumirá?","textarea"],
-  ["areaApoyoHorizontal","¿Con qué área o jefatura coordinará o a quién reportará?","text"],
-  ["cambiaJefeHorizontal","¿Cambia su jefe directo?","select",SN],
-  ]},
- {t:"Resultado esperado e impacto",q:[
-  ["resultadoEsperadoHorizontal","¿Qué se espera lograr con el movimiento?","textarea"],
-  ["solicitaIncrementoHorizontal","¿Se solicita compensación adicional (asignación o incremento)?","select",SNC],
-  ["impactoNoHorizontal","¿Qué ocurriría si el movimiento no se realiza?","textarea"]]}],
-"Reestructuración de área":[
- {t:"Contexto de la reestructuración",q:[
-  ["areaReestructura","¿Qué área o unidad se reestructura?","text"],
-  ["fechaVigenciaReestructura","Fecha propuesta de entrada en vigencia","date"],
-  ["aprobadaReestructura","¿La reestructuración ya fue aprobada por la Dirección o Unidad?","select",SNC],
-  ["motivoReestructura","¿Qué situación origina la reestructuración?","textarea"],
-  ["objetivoReestructura","¿Qué se busca lograr con la nueva estructura?","textarea"]]},
- {t:"Alcance de los cambios",q:[
-  ["nPersonasAfectadas","Número de colaboradores afectados","number"],
-  ["tipoCambioReestructura","Principal tipo de cambio","select",["Reubicación de personas","Cambio de líneas de reporte","Creación de posiciones","Eliminación de posiciones","Combinación de varios cambios"]],
-  ["posicionesCreadas","Posiciones nuevas que se crean","select",["Ninguna","1","2","3 o más"]],
-  ["posicionesEliminadas","Posiciones que se eliminan","select",["Ninguna","1","2","3 o más"]],
-  ["detalleMovimientosRest","Detalle de movimientos: una línea por colaborador (matrícula · nombre · posición actual → posición propuesta · área destino)","textarea","Ej.: 0000001234 · Lucía Ramos · Analista Senior → Coordinadora · Área Comercial"],
-  ["cambiosReporteRest","¿Qué cambios hay en las líneas de reporte?","textarea"]]},
- {t:"Impacto económico",q:[
-  ["cambiosSalarialesRest","¿La reestructuración implica cambios salariales o de nivel?","select",SNC],
-  ["impactoPresupuestalRest","Impacto presupuestal esperado","select",["Neutro","Ahorro","Costo adicional","Por determinar"]],
-  ["detalleEconomicoRest","Explique el impacto económico y salarial","textarea"]]},
- {t:"Resultado esperado e impacto",q:[
-  ["riesgosPersonasRest","¿Qué riesgos hay para el clima o la retención de las personas afectadas?","textarea"],
-  ["resultadoEsperadoRest","¿Qué resultado se espera lograr?","textarea"],
-  ["impactoNoRest","¿Qué ocurriría si la reestructuración no se ejecuta?","textarea"]]}],
-"Revalorización de puesto":[
- {t:"Situación que origina la revisión",q:[
-  ["queCambioRev","¿Qué situación origina la revisión del puesto?","textarea"],
-  ["desdeCuandoRev","¿Desde cuándo se mantienen estos cambios?","date"],
-  ["cambioPermanente","¿Los cambios son permanentes?","select",SNC]]},
- {t:"Cambios en el puesto",q:[
-  ["nuevasRespRev","¿Qué nuevas responsabilidades se incorporaron?","textarea"],
-  ["cambioAlcanceRev","¿Cómo cambió el alcance del puesto?","textarea"],
-  ["cambioPersonasRev","¿Cambió el número de personas a cargo?","text"],
-  ["cambioPresupuestoRev","¿Cambió la responsabilidad presupuestal?","textarea"],
-  ["cambioDecisionRev","¿Cambió el nivel de decisión?","textarea"],
-  ["funcionesOtroPuesto","¿Absorbió funciones de otro puesto?","textarea"]]},
- {t:"Sustento",q:[
-  ["sustentoSubvaloracion","¿Por qué la valoración actual ya no representa el contenido real del puesto?","textarea"],
-  ["jdActualizada","¿Existe descripción de puesto actualizada?","select",["Sí","No","En proceso"]]]},
- {t:"Resultado esperado",q:[
-  ["resultadoEsperadoRev","¿Qué se busca corregir o alinear con la revalorización?","textarea"]]}],
-"Convenio / caso especial":[
- {t:"El caso",q:[
-  ["tipoCasoEspecial","Tipo de convenio / caso","text"],
-  ["vigenciaCaso","Vigencia o duración","text"],
-  ["objetivoCaso","¿Qué necesidad origina la solicitud?","textarea"]]},
- {t:"Sustento, resultado e impacto",q:[
-  ["sustentoCaso","¿Qué elementos sustentan el caso?","textarea"],
-  ["resultadoEsperadoCaso","¿Qué resultado se espera lograr?","textarea"],
-  ["impactoCaso","¿Qué ocurriría si no se atiende?","textarea"]]}],
 "Otro":[
  {t:"La solicitud",q:[
+  ["especificarOtro","Especifica qué tipo de movimiento es","text"],
   ["descripcionOtro","¿Qué movimiento o decisión se solicita?","textarea"],
   ["sustentoOtro","¿Qué situación origina la solicitud?","textarea"]]},
  {t:"Resultado esperado e impacto",q:[
@@ -555,39 +493,10 @@ function buildExecutiveSummary(){
     add("Se solicita la evaluación del reemplazo y, de corresponder, la revisión de las condiciones asociadas al movimiento");
   }
 
-  else if(mov==="Movimiento horizontal"){
-    const tipo=direct("tipoHorizontal");
-    add(`Se solicita el movimiento horizontal de ${person}${tipo?` (${tipo.toLowerCase()})`:""}${direct("esTemporalHorizontal")==="Temporal"?", de carácter temporal":""}${direct("desdeCuandoHorizontal")?`, a partir del ${direct("desdeCuandoHorizontal")}`:""}`);
-    if(direct("motivoHorizontal")) add(`El movimiento se origina: ${stripEnd(direct("motivoHorizontal"))}`);
-    if(direct("funcionesNuevasHorizontal")) add(`Funciones nuevas de ${person}: ${stripEnd(direct("funcionesNuevasHorizontal"))}${direct("areaApoyoHorizontal")?`, en coordinación con ${direct("areaApoyoHorizontal")}`:""}`);
-    const ch=[];
-    if(direct("cambiaJefeHorizontal")==="Sí") ch.push("un cambio de jefe directo");
-    if(direct("solicitaIncrementoHorizontal")==="Sí") ch.push("una compensación adicional");
-    if(ch.length) add(`La propuesta considera ${joinNatural(ch)}`);
-    if(direct("resultadoEsperadoHorizontal")) add(`Con el movimiento se busca: ${stripEnd(direct("resultadoEsperadoHorizontal"))}`);
-    if(direct("impactoNoHorizontal")) add(`Si el movimiento no se realiza: ${stripEnd(direct("impactoNoHorizontal"))}`);
-    add("Se solicita la aprobación del movimiento horizontal en las condiciones indicadas");
-  }
-
-  else if(mov==="Reestructuración de área"){
-    const n=direct("nPersonasAfectadas");
-    add(`Se solicita la reestructuración del área ${direct("areaReestructura")||"indicada"}${n?`, que alcanza a ${n} colaborador(es)`:""}${direct("fechaVigenciaReestructura")?`, con vigencia propuesta desde el ${direct("fechaVigenciaReestructura")}`:""}`);
-    if(direct("motivoReestructura")) add(`La reestructuración se origina: ${stripEnd(direct("motivoReestructura"))}`);
-    if(direct("objetivoReestructura")) add(`Con la nueva estructura se busca: ${stripEnd(direct("objetivoReestructura"))}`);
-    const sc=[];
-    if(direct("tipoCambioReestructura")) sc.push(direct("tipoCambioReestructura").toLowerCase());
-    if(direct("posicionesCreadas")&&direct("posicionesCreadas")!=="Ninguna") sc.push(`${direct("posicionesCreadas")} posición(es) nueva(s)`);
-    if(direct("posicionesEliminadas")&&direct("posicionesEliminadas")!=="Ninguna") sc.push(`${direct("posicionesEliminadas")} posición(es) eliminada(s)`);
-    if(sc.length) add(`El cambio considera ${joinNatural(sc)}`);
-    if(direct("cambiosReporteRest")) add(`En las líneas de reporte:: ${stripEnd(direct("cambiosReporteRest"))}`);
-    if(direct("impactoPresupuestalRest")) add(`El impacto presupuestal esperado es ${direct("impactoPresupuestalRest").toLowerCase()}${direct("cambiosSalarialesRest")==="Sí"?", con cambios salariales o de nivel":""}`);
-    if(direct("impactoNoRest")) add(`Si la reestructuración no se ejecuta: ${stripEnd(direct("impactoNoRest"))}`);
-    add("Se solicita la validación de la nueva estructura y la revisión de sus implicancias salariales y presupuestales");
-  }
-
   else if(mov==="Puesto nuevo"){
     const role=direct("puestoNuevo");
     add(`Se solicita la creación del puesto ${role||"propuesto"}${cantPos()}`);
+    if(direct("motivoPuestoNuevo")) add(`Motivo de la creación: ${direct("motivoPuestoNuevo")}`);
 
     if(direct("necesidadPuesto")) add(`La creación del puesto se origina: ${stripEnd(direct("necesidadPuesto"))}`);
     if(direct("problemaResuelve")) add(`Actualmente: ${stripEnd(direct("problemaResuelve"))}`);
@@ -625,10 +534,10 @@ function buildExecutiveSummary(){
     add("Se solicita a Compensaciones evaluar la consistencia interna y definir la recomendación salarial correspondiente");
   }
 
-  else if(mov==="Movimiento lateral"){
+  else if(mov==="Movimiento interno"){
     const target=direct("puestoDestino");
     const targetArea=direct("areaDestino");
-    add(`Se solicita el movimiento lateral de ${person}${target?` hacia ${target}`:""}${targetArea?` en ${targetArea}`:""}`);
+    add(`Se solicita el movimiento interno de ${person}${target?` hacia ${target}`:""}${targetArea?` en ${targetArea}`:""}`);
     if(direct("motivoMovimiento")) add(`El movimiento se origina: ${stripEnd(direct("motivoMovimiento"))}`);
     if(direct("problemaResuelveML")) add(`Con este cambio se busca resolver: ${stripEnd(direct("problemaResuelveML"))}`);
 
@@ -639,37 +548,11 @@ function buildExecutiveSummary(){
     if(changes.length) add(`La propuesta considera ${joinNatural(changes)}`);
 
     if(direct("resultadoEsperadoML")) add(`Con el movimiento se busca: ${stripEnd(direct("resultadoEsperadoML"))}`);
-    add("Se solicita la aprobación del movimiento lateral en las condiciones indicadas");
-  }
-
-  else if(mov==="Revalorización de puesto"){
-    add(`Se solicita la revalorización del puesto ${current||"actual"} de ${person}`);
-    if(direct("queCambioRev")) add(`La revisión se origina: ${stripEnd(direct("queCambioRev"))}`);
-
-    const changes=[];
-    if(direct("nuevasRespRev")) changes.push("nuevas responsabilidades");
-    if(direct("cambioAlcanceRev")) changes.push("una ampliación de alcance");
-    if(direct("cambioPersonasRev")) changes.push("cambios en la responsabilidad sobre equipos");
-    if(direct("cambioPresupuestoRev")) changes.push("mayor responsabilidad presupuestal");
-    if(direct("cambioDecisionRev")) changes.push("mayor nivel de decisión");
-    if(changes.length) add(`La evolución del puesto se refleja principalmente en ${joinNatural(changes)}`);
-
-    if(direct("sustentoSubvaloracion")) add(`La valoración actual ya no representa el contenido real del puesto: ${stripEnd(direct("sustentoSubvaloracion"))}`);
-    if(direct("resultadoEsperadoRev")) add(`Con la revalorización se busca: ${stripEnd(direct("resultadoEsperadoRev"))}`);
-    add("Se solicita evaluar la nueva valorización del puesto y, de corresponder, su impacto salarial");
-  }
-
-  else if(mov==="Convenio / caso especial"){
-    add(`Se solicita evaluar el caso ${direct("tipoCasoEspecial")||"especial"} presentado para ${person}`);
-    if(direct("objetivoCaso")) add(`La solicitud se origina: ${stripEnd(direct("objetivoCaso"))}`);
-    if(direct("sustentoCaso")) add(`El caso se sustenta en: ${stripEnd(direct("sustentoCaso"))}`);
-    if(direct("resultadoEsperadoCaso")) add(`Con la medida se busca: ${stripEnd(direct("resultadoEsperadoCaso"))}`);
-    if(direct("impactoCaso")) add(`Si no se atiende: ${stripEnd(direct("impactoCaso"))}`);
-    add("Se solicita la evaluación y decisión correspondiente por parte del Comité");
+    add("Se solicita la aprobación del movimiento interno en las condiciones indicadas");
   }
 
   else {
-    add(`Se solicita la revisión del caso presentado para ${person}`);
+    add(`Se solicita la revisión del caso presentado para ${person}${direct("especificarOtro")?` (${direct("especificarOtro")})`:""}`);
     if(direct("descripcionOtro")) add(`La solicitud consiste en: ${stripEnd(direct("descripcionOtro"))}`);
     if(direct("sustentoOtro")) add(`El caso se origina: ${stripEnd(direct("sustentoOtro"))}`);
     if(direct("resultadoEsperadoOtro")) add(`Con la medida se busca: ${stripEnd(direct("resultadoEsperadoOtro"))}`);
@@ -696,7 +579,7 @@ function lockNew(reset){
     }
   }
   $("codigoHelp").textContent=isNew
-    ? (mov==="Puesto nuevo"?"Puesto nuevo":"Reestructuración")+": no hay matrícula individual; completa manualmente Departamento, Área y Sección."
+    ? "Puesto nuevo: no hay colaborador ni matrícula; elige el Departamento y, si quieres, Área y Sección."
     : "Escribe el correo institucional del colaborador y pulsa Buscar: se completan nombre, puesto, departamento, área, sección y matrícula. Si no aparece, complétalos manualmente.";
 }
 

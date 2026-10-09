@@ -48,7 +48,7 @@ ok('los 16 departamentos de la app y del ruteo coinciden', () => {
 ok('los tipos de movimiento coinciden entre la app y las reglas', () => {
   const a = JSON.parse(/const MOVS=(\[.*?\]);/.exec(js)[1]);
   const b = [...(/d\.movimiento in \[([^\]]+)\]/.exec(rules)[1]).matchAll(/'([^']+)'/g)].map(x => x[1]);
-  assert.strictEqual(a.length, 11); assert.deepStrictEqual(a, b);
+  assert.strictEqual(a.length, 7); assert.deepStrictEqual(a, b);
 });
 ok('los estados que usa el panel coinciden con las reglas', () => {
   const estados = [...panel.matchAll(/"(Nuevo|En revisión BP|Devuelto al jefe|Enviado a Gerencia|Aprobado|Rechazado|En pausa)"/g)].map(x => x[1]);

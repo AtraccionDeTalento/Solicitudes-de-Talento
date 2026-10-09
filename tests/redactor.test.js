@@ -24,8 +24,8 @@ function registro(mov, extra = {}) {
 }
 const MOVS = Object.keys(SETS);
 
-ok('cubre los 11 tipos de movimiento y todos los bloques del cuestionario', () => {
-  assert.strictEqual(MOVS.length, 11);
+ok('cubre los 7 tipos de movimiento y todos los bloques del cuestionario', () => {
+  assert.strictEqual(MOVS.length, 7);
   const bloques = new Set(MOVS.flatMap(m => SETS[m].map(b => b.t)));
   bloques.forEach(b => assert.ok(BLOQUES_CONOCIDOS.includes(b), 'bloque sin clasificar en redactor.mjs: ' + b));
   MOVS.forEach(m => Object.keys(REQUERIDOS[m] || {}).forEach(id => assert.ok(SETS[m].some(b => b.q.some(q => q[0] === id)), `${m}: el dato requerido «${id}» no existe en el cuestionario`)));
@@ -84,7 +84,7 @@ ok('incremento salarial: respeta el tipo de propuesta tal como se escribió (mon
 });
 
 ok('movimientos sin matrícula (puesto nuevo, reestructuración) no mencionan a una persona', () => {
-  ['Puesto nuevo', 'Reestructuración de área'].forEach(m => {
+  ['Puesto nuevo'].forEach(m => {
     const r = redactar(registro(m, { colaborador: 'Vacante nueva', codigo: 'No aplica', puestoActual: 'No aplica' }));
     assert.ok(!/Vacante nueva|No aplica/.test(r.texto), m);
   });
