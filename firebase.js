@@ -30,7 +30,9 @@ export async function entrarJefe(email, clave) {
   if (!esUsil(email)) throw new Error("Usa tu correo institucional (@usil.edu.pe).");
   await setPersistence(auth, browserSessionPersistence);
   let u;
-  const intento = async correo => { try { return (await signInWithEmailAndPassword(auth, correo, String(clave))).user; } catch (e) { return null; } };
+  // Un DNI de 7 dígitos casi siempre es uno con cero inicial que la persona olvidó (08 + 7 cifras): se prueba también con el cero.
+  const claves = /^\d{7}$/.test(String(clave)) ? [String(clave), "0" + clave] : [String(clave)];
+  const intento = async correo => { for (const k of claves) { try { return (await signInWithEmailAndPassword(auth, correo, k)).user; } catch (e) { /* siguiente clave */ } } return null; };
   email = normalizar(email);
   u = await intento(email);
   // Socio de negocio o Gerencia que también pide como jefe: su cuenta del formulario es «usuario+jefe@…» (clave = su DNI); la del panel conserva la suya.
