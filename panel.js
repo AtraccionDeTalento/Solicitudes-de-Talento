@@ -97,6 +97,7 @@ const TEXTOS={
   crear:["Crear mi cuenta","Primera vez: usa tu correo institucional autorizado y elige tu clave (12 o más caracteres). Te enviaremos un enlace para confirmar tu correo.","Crear cuenta"],
   olvide:["Recuperar mi clave","Te enviaremos un enlace al correo para elegir una clave nueva.","Enviar enlace"]};
 function mostrarLogin(e,modo){
+  document.body.classList.add("entrar");   // fondo de la pantalla de ingreso
   modo=TEXTOS[modo]?modo:"entrar";
   $("err").hidden=true;$("tabs").innerHTML="";$("quien").textContent="";$("salir").style.display="none";
   const m=(e&&e.message||"")+"",[titulo,ayuda,boton]=TEXTOS[modo];
@@ -124,7 +125,7 @@ function visibles(){const q=filtro.q.toLowerCase();
   return D.filas.filter(f=>(!filtro.estado||(filtro.estado==="Por revisar"?["Nuevo","En revisión BP"].includes(f.estado||"Nuevo"):f.estado===filtro.estado))&&(!filtro.movimiento||f.movimiento===filtro.movimiento)&&(!filtro.periodo||f.periodo===filtro.periodo)&&(!q||Object.values(f).join(" ").toLowerCase().includes(q)))
     .sort((a,b)=>String(b.enviadoEl).localeCompare(String(a.enviadoEl)))}
 function pintar(){
-  $("quien").textContent=D.email;$("salir").style.display="";
+  document.body.classList.remove("entrar");$("quien").textContent=D.email;$("salir").style.display="";
   $("tabs").innerHTML=D.vistas.map(v=>`<button class="${v===vista?"on":""}" data-v="${v}">${TITULOS[v]}</button>`).join("");
   if(vista==="gerencia")return PRES?pintarPresentacion():pintarGerencia();
   const F=D.filas,pend=F.filter(f=>(vista==="gerencia"?["Enviado a Gerencia"]:["Nuevo","En revisión BP"]).includes(f.estado||"Nuevo")).length;
