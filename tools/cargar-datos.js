@@ -59,11 +59,11 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
 
   // Cuenta de prueba de un jefe de área (los jefes reales se registran solos con su correo y confirman con el enlace).
   if (PRUEBA) {
-    const email = "jefe1@usil.edu.pe", clave = crypto.randomBytes(9).toString("base64url");
+    const email = "jefe1@usil.edu.pe", compartida = usuarios && Object.values(usuarios).map(u => u.clave).filter(Boolean).pop(), clave = compartida || crypto.randomBytes(9).toString("base64url");   // en pruebas usa la misma clave compartida de usuarios.json
     try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: clave, emailVerified: true }); }
     catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: clave, displayName: "Jefe de prueba", emailVerified: true }); }
     await db.doc("lideres/" + email).set({ nombre: "JEFE DE PRUEBA", puesto: "JEFE DE AREA" });
-    console.log("Cuenta de prueba de un jefe de área:\n  " + email + "  clave: " + clave);
+    console.log("Cuenta de prueba de un jefe de área:\n  " + email + (compartida ? "  (la clave compartida de usuarios.json)" : "  clave: " + clave));
   }
 
   // Ruteo: solo el identificador opaco del BP (ni nombre ni correo: cualquiera con sesión anónima puede leer este documento)
