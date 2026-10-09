@@ -398,22 +398,27 @@ const ACCIONES={
   bp:[["Guardar observación",null,"sec",false,"Observación guardada",false],["Devolver al jefe","Devuelto al jefe","warn",true,"Solicitud devuelta al jefe",false],["Pausar","En pausa","sec",false,"Solicitud en pausa",false],["Derivar a otro BP",null,"sec",false,"",false],["Escalar a Gerencia ➜","Enviado a Gerencia","ok",false,"Solicitud escalada: ya está en la bandeja de Gerencia",true]],
   gerencia:[["Guardar comentario",null,"sec",false,"Comentario guardado",false],["Devolver al BP","En revisión BP","warn",true,"Solicitud devuelta al Business Partner",false],["Rechazar","Rechazado","bad",true,"Solicitud rechazada",true],["Aprobar ✓","Aprobado","ok",false,"Solicitud aprobada",true]]
 };
+/** Texto del motor con lo importante en negrita: títulos de sección, etiquetas, importes, fechas, porcentajes y plazos. */
+const CLAVES=/(S\/\s?[\d.,]+|\d+(?:[.,]\d+)?\s?%|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|\b\d+\s+(?:personas?|días|meses|colaboradores?|posiciones?)\b|\b\d{1,3}\/100\b|\b(?:Inmediato|Crítico)\b)/g;
+function resaltar(texto){
+  const marca=t=>esc(t).replace(CLAVES,"<strong>$1</strong>");
+  return String(texto||"").split("\n").map((l,i)=>{
+    const t=l.trim();if(!t)return"";
+    if(/^\d+\.\s+\S/.test(t)&&t===t.toUpperCase())return `<h5 class="tx-h">${esc(t.replace(/^\d+\.\s+/,""))}</h5>`;
+    const m=/^•\s+([^:]+):\s*(.*)$/.exec(t);if(m)return `<p class="tx-li"><b>${esc(m[1])}</b> ${marca(m[2])}</p>`;
+    return i===0?`<p class="tx-t"><strong>${esc(t)}</strong></p>`:`<p class="tx-p">${marca(t)}</p>`}).join("");
+}
 function detalle(id){
   const f=D.filas.find(x=>x.id===id),ed=D.editables.includes(f.estado||"Nuevo");
   google.script.run.withFailureHandler(fail).withSuccessHandler(d=>{
     const p=Number(d.puntaje),nivel=p>=85?"alto":p>=60?"medio":"bajo",previos=[["Business Partner",f.comentarioBP],["Gerencia",f.comentarioGerencia]].filter(x=>x[1]);
     const tg=d.registro&&d.registro.textoGerencia,auto=!tg&&d.registro&&vista==="gerencia"?redactar(d.registro,{comentarioBP:f.comentarioBP}):null;
-    $("dlg").innerHTML=`
-     <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
-       <div class="meta"><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
-       <button type="button" class="x" id="cerrarX" aria-label="Cerrar">✕</button></div>
-     <div class="db">
-      ${tg||auto?`<section class="sec"><h4>Texto para Gerencia <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Business Partner":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Business Partner"}</span></h4><pre class="texto">${esc(tg||auto.texto)}</pre></section>`:""}
-      <section class="sec"><h4>Resumen</h4><div class="grid">
+    const secTexto=`${tg||auto?`<section class="sec"><h4>Texto para Gerencia <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Business Partner":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Business Partner"}</span></h4><pre class="texto">${esc(tg||auto.texto)}</pre></section>`:""}`;
+    const secResumen=`<section class="sec"><h4>Resumen</h4><div class="grid">
         ${fila("Líder solicitante",f.cliente+" · "+f.cargoCliente)}${fila("Departamento",f.departamento)}${fila("Área",f.area)}${fila("Sección",f.seccion)}
         ${fila("Matrícula",f.codigo)}${fila("Puesto actual",f.puestoActual)}${fila("Business Partner",f.bp)}${fila("Derivada por",f.derivadoPor)}${fila("Urgencia",f.urgencia)}
-        ${fila("Impacto si no se ejecuta",f.impacto)}${fila("Consecuencia",f.consecuencia)}</div></section>
-      <section class="sec"><h4>Presupuesto</h4><div class="grid">${fila("¿Cuenta con presupuesto?",f.presupuesto)}${fila("Fuente",f.fuentePresupuesto)}${fila("Quién valida",f.validaPresupuesto)}${fila("Monto",f.montoPresupuesto!==""?"S/ "+f.montoPresupuesto:"")}</div></section>
+        ${fila("Impacto si no se ejecuta",f.impacto)}${fila("Consecuencia",f.consecuencia)}</div></section>`;
+    const secResto=`<section class="sec"><h4>Presupuesto</h4><div class="grid">${fila("¿Cuenta con presupuesto?",f.presupuesto)}${fila("Fuente",f.fuentePresupuesto)}${fila("Quién valida",f.validaPresupuesto)}${fila("Monto",f.montoPresupuesto!==""?"S/ "+f.montoPresupuesto:"")}</div></section>
       ${d.puntaje?`<section class="sec"><h4>Evaluación automática</h4>
         <div class="score"><div class="ring ${nivel}">${esc(d.puntaje)}</div><div><b>${esc(d.clasificacion)}</b><p class="muted">${esc(d.recomendacion)}</p></div></div>
         <div class="two">${d.fortalezas?`<div class="good"><h5>Fortalezas</h5><ul>${lis(d.fortalezas)}</ul></div>`:""}${d.alertas?`<div class="warnb"><h5>Alertas</h5><ul>${lis(d.alertas)}</ul></div>`:""}</div></section>`:""}
@@ -421,13 +426,29 @@ function detalle(id){
       ${d.sustento?`<section class="sec"><h4>Sustento ejecutivo</h4><p class="txt">${esc(d.sustento)}</p></section>`:""}
       ${d.levantamiento.length?`<section class="sec"><h4>Levantamiento</h4>${d.levantamiento.map(([k,v])=>`<div class="qa"><span>${esc(k)}</span><p>${esc(v)}</p></div>`).join("")}</section>`:""}
       ${d.aprobaciones.length?`<section class="sec"><h4>Aprobaciones previas</h4><div class="two">${d.aprobaciones.map(a=>`<div class="ap"><b>${esc(a.name)}</b><span>${esc(a.role)} · ${esc(a.level)}</span><span>${esc(a.date)} · Evidencia: ${esc(a.evidence)}${a.type?" ("+esc(a.type)+")":""}</span></div>`).join("")}</div></section>`:""}
-      ${previos.length?`<section class="sec"><h4>Comentarios anteriores</h4>${previos.map(([q,t])=>`<div class="qa"><span>${esc(q)}</span><p>${esc(t)}</p></div>`).join("")}</section>`:""}
+      ${previos.length?`<section class="sec"><h4>Comentarios anteriores</h4>${previos.map(([q,t])=>`<div class="qa"><span>${esc(q)}</span><p>${esc(t)}</p></div>`).join("")}</section>`:""}`;
+    const base=tg||(auto&&auto.texto)||"";
+    const resumenG=auto?auto.resumen:"";
+    const solic=`<section class="sec px-sol"><h4>Quién lo solicita</h4><div class="px-quien"><i class="px-av g">${esc(iniciales(f.cliente))}</i><div><b>${esc(f.cliente||"—")}</b><span>${esc(f.cargoCliente||"Líder de área")}</span></div><div class="px-area"><span>Área solicitante</span><b>${esc(f.area||f.departamento||"—")}</b><em>${esc(f.departamento||"")}</em></div><div class="px-area"><span>Business Partner</span><b>${esc(f.bp||"—")}</b></div></div></section>`;
+    const visib=`<section class="sec"><h4>Visibilidad del caso</h4><div class="px-vis">
+      <div class="px-v"><span>Preparación</span><div class="px-sc ${nivel} g">${esc(d.puntaje||"—")}</div><em>${esc(d.clasificacion||"")}</em></div>
+      <div class="px-v"><span>Urgencia</span><b class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</b></div>
+      <div class="px-v"><span>Impacto si no se ejecuta</span><b>${esc(f.impacto||"—")}</b><em>${esc(f.consecuencia||"")}</em></div>
+      <div class="px-v"><span>Presupuesto</span><b>${esc(f.presupuesto||"—")}</b><em>${f.montoPresupuesto!==""&&f.montoPresupuesto!=null?"S/ "+esc(f.montoPresupuesto):esc(f.fuentePresupuesto||"")}</em></div>
+      <div class="px-v"><span>Aprobación previa</span><b>${d.aprobaciones.length?d.aprobaciones.length+" registrada"+(d.aprobaciones.length===1?"":"s"):"Sin aprobación"}</b></div></div></section>`;
+    const susten=base?`<section class="sec px-sus"><h4>Sustento del caso <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Business Partner":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Business Partner"}</span></h4>${resaltar(base)}</section>`:"";
+    $("dlg").innerHTML=`
+     <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
+       <div class="meta"><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
+       <button type="button" class="x" id="cerrarX" aria-label="Cerrar">✕</button></div>
+     <div class="db">${vista==="gerencia"?`${solic}${visib}${susten}<button type="button" class="px-det" id="verDet" aria-expanded="false">Ver detallado ▾</button><div id="det" hidden>${secResumen}${secResto}</div>`:`${secTexto}${secResumen}${secResto}`}
      </div>
      <div class="df">${ed?`<label for="nc">Observación o comentario${vista==="bp"?" (lo ve Gerencia y, si la devuelves, el jefe)":""}</label>
        <textarea id="nc" rows="2" placeholder="Escribe aquí tu observación…">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>
        <div class="acts"><button type="button" class="btn sec" id="cerrar">Cerrar</button><span class="sp"></span>${ACCIONES[vista].map((a,i)=>`<button type="button" class="btn ${a[2]}" data-i="${i}">${esc(a[0])}</button>`).join("")}</div>`
        :`<div class="acts"><span class="muted">Esta solicitud ya no está en tu etapa: solo lectura.</span><span class="sp"></span><button type="button" class="btn sec" id="cerrar">Cerrar</button></div>`}</div>`;
     const dlg=$("dlg");dlg.showModal();dlg.scrollTop=0;
+    const vd=$("verDet");if(vd)vd.onclick=()=>{const h=$("det").hidden;$("det").hidden=!h;vd.textContent=h?"Ocultar detallado ▴":"Ver detallado ▾";vd.setAttribute("aria-expanded",String(h))};
     const cerrar=()=>dlg.close();$("cerrarX").onclick=cerrar;$("cerrar").onclick=cerrar;
     dlg.onclick=e=>{if(e.target===dlg)cerrar()};   // clic fuera de la ventana
     const aplicar=(estado,coment,extra,ok)=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=true);
