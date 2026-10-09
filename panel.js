@@ -105,7 +105,7 @@ function contar(filas,k){const m={};filas.forEach(f=>{const x=f[k]||"—";m[x]=(
 function barras(t,pares){const max=Math.max(1,...pares.map(p=>p[1]));
   return `<div class="card"><b>${t}</b>${pares.slice(0,8).map(([k,n])=>`<div class="bar"><span title="${esc(k)}">${esc(k)}</span><i style="width:${n/max*100}px"></i><span>${n}</span></div>`).join("")}</div>`}
 function visibles(){const q=filtro.q.toLowerCase();
-  return D.filas.filter(f=>(!filtro.estado||f.estado===filtro.estado)&&(!filtro.periodo||f.periodo===filtro.periodo)&&(!q||Object.values(f).join(" ").toLowerCase().includes(q)))
+  return D.filas.filter(f=>(!filtro.estado||(filtro.estado==="Por revisar"?["Nuevo","En revisión BP"].includes(f.estado||"Nuevo"):f.estado===filtro.estado))&&(!filtro.movimiento||f.movimiento===filtro.movimiento)&&(!filtro.periodo||f.periodo===filtro.periodo)&&(!q||Object.values(f).join(" ").toLowerCase().includes(q)))
     .sort((a,b)=>String(b.enviadoEl).localeCompare(String(a.enviadoEl)))}
 function pintar(){
   $("quien").textContent=D.email;$("salir").style.display="";
@@ -150,27 +150,29 @@ const filaCaso=f=>`<button type="button" class="px-row" data-ver="${esc(f.id)}">
   <span class="px-mn"><b>${esc(f.colaborador||"—")}</b><em>${esc(f.movimiento)} · ${esc(f.departamento)}</em></span>
   <span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span>${f.dias!=null?`<small class="px-ed">${edad(f.dias)}</small>`:""}
   ${f.puntaje?`<span class="px-sc ${nivelP(+f.puntaje)}" title="Preparación del caso">${esc(f.puntaje)}</span>`:""}</button>`;
-const kpiPx=(cl,n,t,s,f)=>`<button type="button" class="px-kpi ${cl}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em></button>`;
+const chipsPeriodo=pers=>`<div class="px-pers"><span>Periodo</span>${["",...pers.slice().reverse()].map(x=>`<button type="button" class="px-pc${filtro.periodo===x?" on":""}" data-f="periodo:${esc(x)}">${x===""?"Todos":esc(mesCorto(x))}</button>`).join("")}</div>`;
+const onF=f=>{if(!f)return"";const i=f.indexOf(":");return filtro[f.slice(0,i)]===f.slice(i+1)?" on":""};
+const kpiPx=(cl,n,t,s,f)=>`<button type="button" class="px-kpi ${cl}${onF(f)}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em></button>`;
 const barraPx=(clave,pares)=>{const max=Math.max(1,...pares.map(x=>x[1]));return pares.length?pares.map(([k,n])=>`<button type="button" class="px-bar${clave&&filtro[clave]===k?" on":""}" ${clave?`data-f="${clave}:${esc(k)}"`:""}><span class="n" title="${esc(k)}">${esc(k)}</span><span class="t"><i style="width:${Math.round(n/max*100)}%"></i></span><b>${n}</b></button>`).join(""):'<p class="muted">Sin datos.</p>'};
 function tablaBandeja(F,V,rol){
   const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
   return `<section class="gx-card" id="bandeja"><h3>${rol==="gerencia"?"Todas las solicitudes":"Bandeja completa"}</h3>
-   <div class="tools"><input id="fq" placeholder="Buscar por colaborador, área o movimiento…" value="${esc(filtro.q)}" style="min-width:240px;flex:1"><select id="fe"><option value="">Todos los estados</option>${(rol==="gerencia"?["Enviado a Gerencia","Aprobado","Rechazado"]:ALL).map(x=>`<option value="${esc(x)}"${x===filtro.estado?" selected":""}>${esc(eb(x))}</option>`).join("")}</select>
+   <div class="tools"><input id="fq" placeholder="Buscar por colaborador, área o movimiento…" value="${esc(filtro.q)}" style="min-width:240px;flex:1"><select id="fe"><option value="">Todos los estados</option>${(rol==="gerencia"?["Enviado a Gerencia","Aprobado","Rechazado"]:["Por revisar",...ALL]).map(x=>`<option value="${esc(x)}"${x===filtro.estado?" selected":""}>${esc(eb(x))}</option>`).join("")}</select>
    ${rol==="gerencia"?"":`<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select>`}<button class="p" id="xls">⬇ Descargar Excel</button></div>
-   ${filtro.estado||filtro.movimiento||filtro.departamento?`<div class="tools">${[filtro.estado,filtro.movimiento,filtro.departamento].filter(Boolean).map(v=>`<span class="gx-chip">${esc(eb(v))}</span>`).join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
+   ${["periodo","movimiento","departamento","estado","atencion"].some(k=>filtro[k])?`<div class="tools">${["periodo","movimiento","departamento","estado","atencion"].filter(k=>filtro[k]).map(k=>`<button type="button" class="gx-chip" data-f="${k}:${esc(filtro[k])}">${esc(k==="periodo"?periodoTxt(filtro[k]):k==="atencion"?ETIQ[filtro[k]]:eb(filtro[k]))} ✕</button>`).join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
    <div class="wrap"><table><tr><th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>Socio de negocio</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th></th></tr>
    ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
 }
 function pintarGerencia(){
   const hoy=new Date(),todos=metricas(D.filas,"",hoy);
   if(!filtro.periodoElegido)filtro.periodo="";   // por defecto se ve todo lo cargado
-  const M=metricas(D.filas,filtro.periodo,hoy),A=M.atencion,V=aplicarFiltros(D.filas,filtro);
-  const Fp=filtro.periodo?D.filas.filter(f=>f.periodo===filtro.periodo):D.filas;
-  const urg=prioridad(Fp,hoy),mv=movimientoPorEstado(Fp),tn=tendencia(D.filas),maxT=Math.max(1,...tn.map(x=>x.total));
+  const sub=omit=>D.filas.filter(f=>["periodo","movimiento","departamento"].every(k=>omit.includes(k)||!filtro[k]||f[k]===filtro[k]));   // cada gráfica ignora su propio filtro para poder cambiar de barra
+  const Fb=sub([]),M=metricas(Fb,"",hoy),A=M.atencion,V=aplicarFiltros(D.filas,filtro),Md=metricas(sub(["departamento"]),"",hoy);
+  const urg=prioridad(Fb,hoy),mv=movimientoPorEstado(sub(["movimiento"])),tn=tendencia(sub(["periodo"])),maxT=Math.max(1,...tn.map(x=>x.total));
   const ls=lecturas(M,M.porMovimiento[0],M.porDepartamento[0]);
   $("app").innerHTML=`
    <div class="px-top"><div><span class="px-eyebrow">Gerencia · Decisión de movimientos</span><h2>Centro de decisiones</h2><p>Lo que necesitas para decidir y sustentar cada movimiento de talento</p></div>
-     ${btnG()}<label class="gx-per"><i>${IC.cal}</i><span>Periodo<select id="fp">${todos.periodos.map(x=>`<option value="${esc(x)}"${x===filtro.periodo?" selected":""}>${esc(periodoTxt(x))}</option>`).join("")}<option value=""${filtro.periodo===""?" selected":""}>Todos los periodos</option></select></span></label></div>
+     ${btnG()}${chipsPeriodo(todos.periodos)}</div>
    <section class="px-lectura px-graf"><i>✦</i><div><b>Lectura rápida</b><ul>${ls.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section>
    <div class="px-kpis">
      ${kpiPx("primario",M.pendientes,"Por decidir",A.masAntiguo==null?"Nada pendiente":`El más antiguo lleva ${A.masAntiguo} ${A.masAntiguo===1?"día":"días"}`,"atencion:pendientes")}
@@ -186,19 +188,20 @@ function pintarGerencia(){
    </div>
    <div class="px-2 px-graf">
      <section class="gx-card"><h3>Evolución mensual</h3><p class="sub">Solicitudes recibidas por mes</p>
-       ${tn.length?`<div class="px-cols">${tn.map(x=>`<div class="px-col"><b>${esc(x.total)}</b><span class="t"><i class="ap" style="height:${Math.round(x.aprobadas/maxT*100)}%"></i><i class="re" style="height:${Math.round(x.rechazadas/maxT*100)}%"></i><i class="pe" style="height:${Math.round((x.total-x.aprobadas-x.rechazadas)/maxT*100)}%"></i></span><em>${esc(mesCorto(x.periodo))}</em></div>`).join("")}</div>`:'<p class="muted">Sin datos.</p>'}</section>
-     <section class="gx-card"><h3>Áreas que más piden</h3><p class="sub">Departamentos con más solicitudes</p>${barraPx("departamento",M.porDepartamento.slice(0,5))}</section>
+       ${tn.length?`<div class="px-cols">${tn.map(x=>`<button type="button" class="px-col${filtro.periodo===x.periodo?" on":""}" data-f="periodo:${esc(x.periodo)}" title="Ver solo ${esc(mesCorto(x.periodo))}"><b>${esc(x.total)}</b><span class="t"><i class="ap" style="height:${Math.round(x.aprobadas/maxT*100)}%"></i><i class="re" style="height:${Math.round(x.rechazadas/maxT*100)}%"></i><i class="pe" style="height:${Math.round((x.total-x.aprobadas-x.rechazadas)/maxT*100)}%"></i></span><em>${esc(mesCorto(x.periodo))}</em></button>`).join("")}</div>`:'<p class="muted">Sin datos.</p>'}</section>
+     <section class="gx-card"><h3>Áreas que más piden</h3><p class="sub">Departamentos con más solicitudes</p>${barraPx("departamento",Md.porDepartamento.slice(0,6))}</section>
    </div>
    ${tablaBandeja(D.filas,V,"gerencia")}`;
 }
-function pintarBP(F){
+function pintarBP(F0){
+  const sub=omit=>F0.filter(f=>["periodo","movimiento"].every(k=>omit.includes(k)||!filtro[k]||f[k]===filtro[k])),F=sub([]),Bm=metricasBP(sub(["movimiento"]),new Date());
   const B=metricasBP(F,new Date()),tot=Math.max(1,B.total),maxA=Math.max(1,...B.antiguedad.map(y=>y.n));
-  const seg=[["#F5B400",B.porRevisar,"Por revisar"],["#E07B39",B.devueltas,"Devueltas al jefe"],["#9AA6C4",B.enPausa,"En pausa"],["#3B6BFF",B.enGerencia,"En Gerencia"],["#1E9E5A",B.aprobadas,"Aprobadas"],["#D64545",B.rechazadas,"Rechazadas"]];
+  const seg=[["#F5B400",B.porRevisar,"Por revisar","Por revisar"],["#E07B39",B.devueltas,"Devueltas al jefe","Devuelto al jefe"],["#9AA6C4",B.enPausa,"En pausa","En pausa"],["#3B6BFF",B.enGerencia,"En Gerencia","Enviado a Gerencia"],["#1E9E5A",B.aprobadas,"Aprobadas","Aprobado"],["#D64545",B.rechazadas,"Rechazadas","Rechazado"]];
   let acc=0;const cono=seg.map(([c,n])=>{const a=acc/tot*100;acc+=n;return `${c} ${a}% ${acc/tot*100}%`}).join(",");
   const masViejo=B.cola.length?Math.max(...B.cola.map(x=>x.dias||0)):null;
-  return `<div class="px-top"><div><span class="px-eyebrow">Socio de negocio · Gestión</span><h2>Tu bandeja de solicitudes</h2><p>Revisa, devuelve, deriva o escala cada caso</p></div>${btnG()}</div>
+  return `<div class="px-top"><div><span class="px-eyebrow">Socio de negocio · Gestión</span><h2>Tu bandeja de solicitudes</h2><p>Revisa, devuelve, deriva o escala cada caso</p></div>${btnG()}${chipsPeriodo([...new Set(F0.map(f=>f.periodo).filter(Boolean))].sort().reverse())}</div>
    <div class="px-kpis">
-     ${kpiPx("primario",B.porRevisar,"Por revisar",masViejo==null?"Nada pendiente":`La más antigua lleva ${masViejo} ${masViejo===1?"día":"días"}`,"estado:En revisión BP")}
+     ${kpiPx("primario",B.porRevisar,"Por revisar",masViejo==null?"Nada pendiente":`La más antigua lleva ${masViejo} ${masViejo===1?"día":"días"}`,"estado:Por revisar")}
      ${kpiPx("ambar",B.devueltas,"Devueltas al jefe","Esperan corrección del líder","estado:Devuelto al jefe")}
      ${kpiPx("azul",B.enGerencia,"En Gerencia","Esperan decisión del comité","estado:Enviado a Gerencia")}
      ${kpiPx("verde",B.tasaAprobacion==null?"—":B.tasaAprobacion+"%","Tasa de aprobación","de lo que Gerencia ya resolvió","estado:Aprobado")}
@@ -211,8 +214,8 @@ function pintarBP(F){
    <div class="px-2 px-graf">
      <section class="gx-card"><h3>Dónde está tu trabajo</h3><p class="sub">Todas tus solicitudes según su etapa</p>
        <div class="px-dona"><div class="px-pie" style="background:conic-gradient(${B.total?cono:"#E8ECF6 0 100%"})"><b>${B.total}</b><span>solicitudes</span></div>
-       <ul class="px-leg">${seg.map(([c,n,t])=>`<li><i style="background:${c}"></i>${t}<b>${n}</b></li>`).join("")}</ul></div></section>
-     <section class="gx-card"><h3>Por movimiento</h3><p class="sub">Qué te están pidiendo más</p>${barraPx("",B.porMovimiento)}</section>
+       <ul class="px-leg">${seg.map(([c,n,t,e])=>`<li><button type="button" class="px-lk${filtro.estado===e?" on":""}" data-f="estado:${esc(e)}"><i style="background:${c}"></i>${t}<b>${n}</b></button></li>`).join("")}</ul></div></section>
+     <section class="gx-card"><h3>Por movimiento</h3><p class="sub">Qué te están pidiendo más</p>${barraPx("movimiento",Bm.porMovimiento)}</section>
    </div>`;
 }
 
@@ -223,7 +226,7 @@ $("app").onclick=e=>{const t=e.target;
   const ver=t.closest("[data-ver]");if(ver)return detalle(ver.dataset.ver);
   const fb=t.closest("[data-f]");   // tarjetas, barras y fichas del tablero filtran la bandeja; pulsar de nuevo quita el filtro
   if(fb){const i=fb.dataset.f.indexOf(":"),k=fb.dataset.f.slice(0,i),v=fb.dataset.f.slice(i+1);
-    if(k==="limpiar")Object.assign(filtro,{q:"",estado:"",movimiento:"",departamento:"",bp:"",atencion:""});else{filtro[k]=filtro[k]===v?"":v;if(k==="estado"&&filtro.estado)filtro.atencion="";if(k==="atencion"&&filtro.atencion)filtro.estado=""}
+    if(k==="limpiar")Object.assign(filtro,{q:"",estado:"",movimiento:"",departamento:"",bp:"",atencion:"",periodo:"",periodoElegido:true});else{filtro[k]=filtro[k]===v?"":v;if(k==="periodo")filtro.periodoElegido=true;if(k==="estado"&&filtro.estado)filtro.atencion="";if(k==="atencion"&&filtro.atencion)filtro.estado=""}
     pintar();const bj=$("bandeja");if(bj&&k!=="limpiar")bj.scrollIntoView({behavior:"smooth",block:"start"});return}
   const tr=t.closest("tr.f");if(tr)detalle(tr.dataset.id)};
 $("app").oninput=e=>{if(e.target.id==="fq"){filtro.q=e.target.value;const p=e.target.selectionStart;pintar();$("fq").focus();$("fq").setSelectionRange(p,p)}};
