@@ -708,9 +708,9 @@ function renumberApprovals(){document.querySelectorAll(".approval-card .n").forE
 function addApproval(p={}){
   const card=document.createElement("div");
   card.className="approval-card";
-  card.innerHTML=`<div class="inline" style="justify-content:space-between;margin-bottom:10px"><b>Aprobación <span class="n"></span></b><button type="button" class="secondary rm">Eliminar aprobación</button></div><div class="grid">${apF("ap-level","Nivel de aprobación","select",LEVELS)}${apF("ap-name","Nombre del aprobador","text")}${apF("ap-role","Cargo del aprobador","text")}${apF("ap-date","Fecha de aprobación","date")}${apF("ap-evidence","¿Cuenta con evidencia?","select",SN)}${apF("ap-type","Tipo de evidencia","select",EVID)}</div>`;
+  card.innerHTML=`<div class="inline" style="justify-content:space-between;margin-bottom:10px"><b>Aprobación <span class="n"></span></b><button type="button" class="secondary rm">Eliminar aprobación</button></div><div class="grid">${apF("ap-name","Nombre de quien aprobó","text")}${apF("ap-role","Cargo","text")}${apF("ap-date","Fecha de aprobación","date")}${apF("ap-type","Evidencia de la aprobación (obligatoria)","text")}<input type="hidden" class="ap-level" value="Gerencia"><input type="hidden" class="ap-evidence" value="Sí"></div><div class="help" style="margin-top:6px">Indica dónde está la evidencia: correo (asunto y fecha), captura o documento. Tu Socio de negocio podrá pedírtela.</div>`;
   $("approvals").appendChild(card);
-  [["level","ap-level"],["name","ap-name"],["role","ap-role"],["date","ap-date"],["evidence","ap-evidence"],["type","ap-type"]].forEach(([k,c])=>card.querySelector("."+c).value=p[k]||"");
+  [["level","ap-level"],["name","ap-name"],["role","ap-role"],["date","ap-date"],["evidence","ap-evidence"],["type","ap-type"]].forEach(([k,c])=>card.querySelector("."+c).value=p[k]||(k==="level"?"Gerencia":k==="evidence"?"Sí":""));
   card.querySelector(".rm").addEventListener("click",()=>{card.remove();renumberApprovals();refresh()});
   renumberApprovals();refresh();
 }
@@ -995,7 +995,7 @@ function detailRows(d,ev,bp=""){
     const raw=Number(dyn.propuestaNegocio||0),t=dyn.tipoPropuestaNegocio;
     rows.push(["propuestaNegocioFormateada","Propuesta del negocio formateada",t==="Monto en S/"?"S/ "+raw.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2}):t==="Porcentaje %"?raw.toLocaleString("es-PE",{maximumFractionDigits:2})+"%":String(dyn.propuestaNegocio)]);
   }
-  rows.push(["tieneAprobacion","¿Cuenta con aprobación previa?",d.tieneAprobacion],["presupuesto","¿Cuenta con presupuesto?",d.presupuesto],["fuentePresupuesto","Fuente de presupuesto",d.fuentePresupuesto],["validaPresupuesto","Quién valida presupuesto",d.validaPresupuesto],["montoPresupuesto","Monto disponible",d.montoPresupuesto],["urgencia","Urgencia",d.urgencia],["impacto","Nivel de impacto",d.impacto],["consecuencia","Consecuencia principal",d.consecuencia],["impactoDetalle","Detalle del impacto",d.impactoDetalle],["solicitudConcreta","Sustento ejecutivo para Comité",d.solicitudConcreta],["score","Índice de preparación",ev.score],["clasificacion","Clasificación",ev.label],["recomendacion","Recomendación del sistema",ev.recommendation]);
+  rows.push(["tieneAprobacion","¿Cuenta con la aprobación de la gerencia?",d.tieneAprobacion],["presupuesto","¿Cuenta con presupuesto?",d.presupuesto],["fuentePresupuesto","Fuente de presupuesto",d.fuentePresupuesto],["validaPresupuesto","Quién valida presupuesto",d.validaPresupuesto],["montoPresupuesto","Monto disponible",d.montoPresupuesto],["urgencia","Urgencia",d.urgencia],["impacto","Nivel de impacto",d.impacto],["consecuencia","Consecuencia principal",d.consecuencia],["impactoDetalle","Detalle del impacto",d.impactoDetalle],["solicitudConcreta","Sustento ejecutivo para Comité",d.solicitudConcreta],["score","Índice de preparación",ev.score],["clasificacion","Clasificación",ev.label],["recomendacion","Recomendación del sistema",ev.recommendation]);
   return rows;
 }
 function loadXLSX(){
@@ -1115,7 +1115,7 @@ function resetWholeSystem(){
 
 // ---------- Modo demo (solo con CONFIG.modoPrueba) ----------
 // Rellena los 7 pasos con una persona al azar de la base (solo si Firestore config/app.modoPrueba es true); solo falta pulsar «Enviar solicitud».
-const DEMO_PICK={tieneAprobacion:"Sí",presupuesto:"Sí",fuentePresupuesto:"Presupuesto aprobado",urgencia:"Dentro de 30 días",impacto:"Alto",consecuencia:"Retraso operativo",tipoPropuestaNegocio:"Porcentaje %","ap-level":"Gerencia General","ap-evidence":"Sí","ap-type":"Correo"};
+const DEMO_PICK={tieneAprobacion:"Sí",presupuesto:"Sí",fuentePresupuesto:"Presupuesto aprobado",urgencia:"Dentro de 30 días",impacto:"Alto",consecuencia:"Retraso operativo",tipoPropuestaNegocio:"Porcentaje %"};
 const DEMO_TEXT={validaPresupuesto:"Gerencia de Finanzas",montoPresupuesto:"4500",propuestaNegocio:"8",personasCargo:"3 personas",personasCargoPN:"2 personas",personasCargoReemplazo:"2 personas",equipoAdicional:"2 personas",cambioPersonasRev:"Sí, de 2 a 4 personas",periodoRenovacion:"3 meses",reportaA:"Subgerente de Talento y Cultura",puestoPropuesto:"Analista Senior",puestoEncargado:"Jefe de Área",aQuienReemplaza:"Jefe saliente (vacancia)",puestoReemplazo:"Analista Senior",personaOVacanteReemplazo:"Vacante por renuncia",puestoNuevo:"Analista de Datos de Talento",puestoDestino:"Analista Senior",areaDestino:"Selección y Desarrollo",tipoCasoEspecial:"Convenio de colaboración",vigenciaCaso:"6 meses",areaReestructura:"Área de Talento",areaApoyoHorizontal:"Gerencia de Talento y Cultura",puestoEncargaturaAnterior:"Coordinador de Área","ap-name":"Aprobador de ejemplo","ap-role":"Gerente General"};
 const DEMO_FRASES=["El colaborador asumió funciones de mayor alcance y responsabilidad en los últimos meses, con resultados verificables y reconocimiento del equipo.","La necesidad surge por el crecimiento de la operación, que hoy supera la capacidad de la estructura actual y afecta los plazos comprometidos.","Con esta decisión se asegura la continuidad del servicio, se reduce el riesgo de perder talento clave y se ordena la carga de trabajo del área."];
 function demoTexto(min,max){let t="",i=0;while(t.length<Math.max(min,60)+10&&i<12) t+=(t?" ":"")+DEMO_FRASES[i++%3];return t.slice(0,Math.max(1,max-1))}
@@ -1212,7 +1212,7 @@ function init(){
   $("g0a").innerHTML=G0A.map(qHTML).join("");
   $("g0b").innerHTML=G0B.map(qHTML).join("");
   $("g0c").innerHTML=CODE_HTML+G0C.map(qHTML).join("");
-  $("g2").innerHTML=qHTML(["tieneAprobacion","¿Cuenta con alguna aprobación previa?","select",SN]);
+  $("g2").innerHTML=qHTML(["tieneAprobacion","¿Cuenta con la aprobación de la gerencia?","select",SN,"La gerencia es el primer filtro. Una conversación en reunión no cuenta como aprobación: debe haber evidencia."]);
   $("g3").innerHTML=G3.map(qHTML).join("");
   $("presupuesto").addEventListener("change",presUI);presUI();
   $("g4").innerHTML=G4.map(qHTML).join("");
