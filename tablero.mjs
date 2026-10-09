@@ -48,3 +48,54 @@ export function aplicarFiltros(filas, f = {}) {
     (!q || [x.colaborador, x.area, x.movimiento, x.departamento, x.cliente, x.bp, x.id].join(' ').toLowerCase().includes(q))
   ).sort((a, b) => String(b.enviadoEl || b.fechaSolicitud).localeCompare(String(a.enviadoEl || a.fechaSolicitud)));
 }
+
+const URG_RANK = { 'Inmediato': 0, 'Dentro de 30 días': 1, 'Dentro de 60 días': 2, 'Más adelante': 3 };
+
+/** Lo que Gerencia debe decidir ya: pendientes ordenadas por urgencia y, a igual urgencia, por antigüedad. */
+export function prioridad(filas, hoy = new Date(), max = 6) {
+  return filas.filter(f => estadoDe(f) === 'Enviado a Gerencia')
+    .map(f => ({ ...f, dias: dias(f.fechaSolicitud, hoy) }))
+    .sort((a, b) => (URG_RANK[a.urgencia] ?? 4) - (URG_RANK[b.urgencia] ?? 4) || (b.dias ?? -1) - (a.dias ?? -1))
+    .slice(0, max);
+}
+
+/** Por movimiento: cuántas están pendientes, aprobadas y rechazadas (para barras apiladas). */
+export function movimientoPorEstado(filas, max = 6) {
+  const m = {};
+  filas.forEach(f => { const k = f.movimiento || '—', e = estadoDe(f); const r = (m[k] ||= { movimiento: k, pendientes: 0, aprobadas: 0, rechazadas: 0, total: 0 });
+    if (e === 'Aprobado') r.aprobadas++; else if (e === 'Rechazado') r.rechazadas++; else r.pendientes++; r.total++; });
+  return Object.values(m).sort((a, b) => b.total - a.total || a.movimiento.localeCompare(b.movimiento)).slice(0, max);
+}
+
+/** Solicitudes por mes (de más antiguo a más reciente), con resultado. */
+export function tendencia(filas, meses = 6) {
+  const m = {};
+  filas.forEach(f => { if (!f.periodo) return; const r = (m[f.periodo] ||= { periodo: f.periodo, total: 0, aprobadas: 0, rechazadas: 0 }); r.total++; if (estadoDe(f) === 'Aprobado') r.aprobadas++; if (estadoDe(f) === 'Rechazado') r.rechazadas++; });
+  return Object.values(m).sort((a, b) => a.periodo.localeCompare(b.periodo)).slice(-meses);
+}
+
+/** Frases de lectura rápida para explicar el tablero (sin inventar nada: solo cuentas). */
+export function lecturas(M, mov, depto) {
+  const l = [];
+  if (!M.total) return ['Todavía no hay solicitudes en este periodo.'];
+  l.push(M.pendientes ? `${M.pendientes} ${M.pendientes === 1 ? 'solicitud espera' : 'solicitudes esperan'} tu decisión${M.atencion.urgentes ? `, ${M.atencion.urgentes} de ellas urgente${M.atencion.urgentes === 1 ? '' : 's'}` : ''}.` : 'No tienes solicitudes pendientes de decisión.');
+  if (mov) l.push(`El movimiento más solicitado es «${mov[0]}» (${mov[1]} de ${M.total}).`);
+  if (depto) l.push(`${depto[0]} es el departamento con más solicitudes (${depto[1]}).`);
+  if (M.resueltas) l.push(`De lo ya resuelto, el ${Math.round(M.aprobadas / M.resueltas * 100)}% fue aprobado.`);
+  return l;
+}
+
+/** Indicadores del Business Partner: su trabajo del día a día. */
+export function metricasBP(filas, hoy = new Date()) {
+  const e = x => filas.filter(f => estadoDe(f) === x);
+  const revisar = filas.filter(f => ['Nuevo', 'En revisión BP'].includes(estadoDe(f)));
+  const cubo = [['Hasta 2 días', 0, 2], ['3 a 7 días', 3, 7], ['8 a 15 días', 8, 15], ['Más de 15 días', 16, 1e9]]
+    .map(([etiqueta, a, b]) => ({ etiqueta, n: revisar.filter(f => { const d = dias(f.fechaSolicitud, hoy); return d !== null && d >= a && d <= b; }).length }));
+  const apr = e('Aprobado').length, rec = e('Rechazado').length, esc = e('Enviado a Gerencia').length;
+  return {
+    total: filas.length, porRevisar: revisar.length, devueltas: e('Devuelto al jefe').length, enGerencia: esc, enPausa: e('En pausa').length, aprobadas: apr, rechazadas: rec,
+    tasaAprobacion: apr + rec ? Math.round(apr / (apr + rec) * 100) : null, antiguedad: cubo,
+    cola: revisar.map(f => ({ ...f, dias: dias(f.fechaSolicitud, hoy) })).sort((a, b) => (URG_RANK[a.urgencia] ?? 4) - (URG_RANK[b.urgencia] ?? 4) || (b.dias ?? -1) - (a.dias ?? -1)).slice(0, 6),
+    porMovimiento: Object.entries(filas.reduce((m, f) => (m[f.movimiento || '—'] = (m[f.movimiento || '—'] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).slice(0, 6)
+  };
+}
