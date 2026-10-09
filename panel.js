@@ -53,6 +53,22 @@ const API={
     await sesion();const s=await FB.getDoc(FB.doc(FB.db,"solicitudes",id));if(!s.exists())throw new Error("Solicitud no disponible");const d=s.data();
     return {puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
   },
+  async panelCortes(){
+    const q=await sesion();if(!q.vistas.includes("gerencia"))throw new Error("Sin acceso a los cortes");
+    return (await FB.getDocs(FB.collection(FB.db,"cortes"))).docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.creadoEl).localeCompare(String(a.creadoEl)));
+  },
+  async panelCrearCorte(titulo,nota,fechaCorte,ids){
+    const q=await sesion();if(!q.vistas.includes("gerencia"))throw new Error("Sin acceso a los cortes");
+    ids=[...new Set(ids)].slice(0,100);if(!ids.length)throw new Error("No hay casos para el corte.");
+    const [docs,n]=await Promise.all([Promise.all(ids.map(id=>FB.getDoc(FB.doc(FB.db,"solicitudes",id)))),nombres()]);
+    const t=v=>String(v==null?"":v);
+    const casos=docs.filter(s=>s.exists()).map(s=>{const d=s.data();return {id:s.id,colaborador:t(d.colaborador),movimiento:t(d.movimiento),departamento:t(d.departamento),area:t(d.area),cliente:t(d.cliente),cargoCliente:t(d.cargoCliente),
+      bp:t(n[d.bpId]),urgencia:t(d.urgencia),impacto:t(d.impacto),puntaje:t(d.puntaje),estado:t(d.estado),fechaSolicitud:t(d.fechaSolicitud),texto:t(d.textoGerencia||redactar(d,{comentarioBP:d.comentarioBP}).texto).slice(0,3500)}});
+    const pts=casos.map(c=>Number(c.puntaje)).filter(x=>x>0),pm={};casos.forEach(c=>{pm[c.movimiento]=(pm[c.movimiento]||0)+1});
+    const corte={titulo:t(titulo).slice(0,120),nota:t(nota).slice(0,1000),fechaCorte:t(fechaCorte),creadoPor:q.email,creadoEl:new Date().toISOString(),casos,
+      resumen:{total:casos.length,urgentes:casos.filter(c=>["Inmediato","Dentro de 30 días"].includes(c.urgencia)).length,preparacion:pts.length?Math.round(pts.reduce((a,b)=>a+b,0)/pts.length):0,porMovimiento:Object.entries(pm).map(([m,k])=>({m,n:k}))}};
+    const ref=FB.doc(FB.collection(FB.db,"cortes"));await FB.setDoc(ref,corte);return {id:ref.id,...corte};
+  },
   async panelActualizar(id,vista,estado,comentario,extra){
     const q=await sesion();if(!CFG[vista]||!CFG[vista].estados.includes(estado))throw new Error("Estado no permitido");
     const cambios={estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString()};
@@ -75,7 +91,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let TOKEN=null;
 const fail=e=>{const m=(e&&e.message||e)+"";if(/venci/.test(m)){TOKEN=null;return mostrarLogin(e)}$("err").hidden=false;$("err").textContent=m;$("app").innerHTML=""};
-$("salir").onclick=async()=>{await FB.signOut(FB.auth);TOKEN=null;mostrarLogin()};
+$("salir").onclick=async()=>{await FB.signOut(FB.auth);TOKEN=null;PRES=null;SEL.clear();mostrarLogin()};
 const TEXTOS={
   entrar:["Panel de revisión","Ingresa con tu correo institucional y tu clave (Socio de negocio o Gerencia).","Entrar"],
   crear:["Crear mi cuenta","Primera vez: usa tu correo institucional autorizado y elige tu clave (12 o más caracteres). Te enviaremos un enlace para confirmar tu correo.","Crear cuenta"],
@@ -110,7 +126,7 @@ function visibles(){const q=filtro.q.toLowerCase();
 function pintar(){
   $("quien").textContent=D.email;$("salir").style.display="";
   $("tabs").innerHTML=D.vistas.map(v=>`<button class="${v===vista?"on":""}" data-v="${v}">${TITULOS[v]}</button>`).join("");
-  if(vista==="gerencia")return pintarGerencia();
+  if(vista==="gerencia")return PRES?pintarPresentacion():pintarGerencia();
   const F=D.filas,pend=F.filter(f=>(vista==="gerencia"?["Enviado a Gerencia"]:["Nuevo","En revisión BP"]).includes(f.estado||"Nuevo")).length;
   let h=vista==="bp"?pintarBP(F):`<div class="kpis"><div class="card kpi"><b>${F.length}</b><span>Solicitudes</span></div><div class="card kpi"><b>${pend}</b><span>Por revisar</span></div>
    <div class="card kpi"><b>${F.filter(f=>f.estado==="Aprobado").length}</b><span>Aprobadas</span></div><div class="card kpi"><b>${F.filter(f=>f.estado==="Rechazado").length}</b><span>Rechazadas</span></div></div>`;
@@ -161,8 +177,9 @@ function tablaBandeja(F,V,rol){
    <div class="tools"><input id="fq" placeholder="Buscar por colaborador, área o movimiento…" value="${esc(filtro.q)}" style="min-width:240px;flex:1"><select id="fe"><option value="">Todos los estados</option>${(rol==="gerencia"?["Enviado a Gerencia","Aprobado","Rechazado"]:["Por revisar",...ALL]).map(x=>`<option value="${esc(x)}"${x===filtro.estado?" selected":""}>${esc(eb(x))}</option>`).join("")}</select>
    ${rol==="gerencia"?"":`<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select>`}<button class="p" id="xls">⬇ Descargar Excel</button></div>
    ${["periodo","movimiento","departamento","estado","atencion"].some(k=>filtro[k])?`<div class="tools">${["periodo","movimiento","departamento","estado","atencion"].filter(k=>filtro[k]).map(k=>`<button type="button" class="gx-chip" data-f="${k}:${esc(filtro[k])}">${esc(k==="periodo"?periodoTxt(filtro[k]):k==="atencion"?ETIQ[filtro[k]]:eb(filtro[k]))} ✕</button>`).join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
-   <div class="wrap"><table><tr><th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>Socio de negocio</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th></th></tr>
-   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
+   ${rol==="gerencia"&&SEL.size?`<div class="px-selbar"><b>${SEL.size}</b> caso${SEL.size===1?"":"s"} seleccionado${SEL.size===1?"":"s"}<button type="button" class="px-tog corte" id="btnCorte">✂ Hacer corte con la selección</button><button type="button" class="gx-chip" id="limpiarSel">Quitar selección</button></div>`:""}
+   <div class="wrap"><table><tr>${rol==="gerencia"?`<th class="csel"><input type="checkbox" class="sel" id="selTodo" title="Seleccionar lo visible"${V.length&&V.slice(0,100).every(f=>SEL.has(f.id))?" checked":""}></th>`:""}<th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>Socio de negocio</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th></th></tr>
+   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}">${rol==="gerencia"?`<td class="csel"><input type="checkbox" class="sel" data-sel="${esc(f.id)}"${SEL.has(f.id)?" checked":""}></td>`:""}<td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
 }
 function pintarGerencia(){
   const hoy=new Date(),todos=metricas(D.filas,"",hoy);
@@ -173,7 +190,7 @@ function pintarGerencia(){
   const ls=lecturas(M,M.porMovimiento[0],M.porDepartamento[0]);
   $("app").innerHTML=`
    <div class="px-top"><div><span class="px-eyebrow">Gerencia · Decisión de movimientos</span><h2>Centro de decisiones</h2><p>Lo que necesitas para decidir y sustentar cada movimiento de talento</p></div>
-     ${btnG()}${chipsPeriodo(todos.periodos)}</div>
+     <div class="px-acc">${btnG()}<button type="button" class="px-tog corte" id="btnCorte">✂ Hacer corte</button><button type="button" class="px-tog sec" id="btnHist">Historial de cortes</button></div>${chipsPeriodo(todos.periodos)}</div>
    <section class="px-lectura px-graf"><i>✦</i><div><b>Lectura rápida</b><ul>${ls.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section>
    <div class="px-kpis">
      ${kpiPx("primario",M.pendientes,"Por decidir",A.masAntiguo==null?"Nada pendiente":`El más antiguo lleva ${A.masAntiguo} ${A.masAntiguo===1?"día":"días"}`,"atencion:pendientes")}
@@ -220,9 +237,70 @@ function pintarBP(F0){
    </div>`;
 }
 
+// ---------- Cortes y modo presentación (Gerencia) ----------
+// Un corte es una copia congelada de los casos que Gerencia lleva a un comité: queda guardada como historial (nadie la edita) y se presenta sin que cambie.
+let PRES=null;const SEL=new Set();
+const hoyISO=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+const fechaHora=iso=>{const d=new Date(iso);return isNaN(d)?"":d.toLocaleString("es-PE",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})};
+const URG_ORD={"Inmediato":0,"Dentro de 30 días":1,"Dentro de 60 días":2,"Más adelante":3};
+function pendientesHasta(fecha){return aplicarFiltros(D.filas,{...filtro,estado:"Enviado a Gerencia",atencion:""}).filter(f=>String(f.fechaSolicitud||"")<=fecha)}
+function dialogoCorte(){
+  const dlg=$("dlg"),hay=SEL.size>0;
+  const lista=fecha=>hay?D.filas.filter(f=>SEL.has(f.id)):pendientesHasta(fecha);
+  dlg.innerHTML=`<div class="dh"><div><span class="mov">Corte para el comité</span><h2>Congelar los casos que vas a presentar</h2><div class="meta"><span>Se guarda una copia fija: lo que cambie después no altera el corte</span></div></div><button type="button" class="x" id="cx1" aria-label="Cerrar">✕</button></div>
+   <div class="db"><section class="sec"><h4>Qué casos entran</h4>
+     ${hay?`<p class="txt"><b>${SEL.size}</b> caso${SEL.size===1?"":"s"} que seleccionaste en la bandeja.</p><input type="hidden" id="cf" value="${hoyISO()}">`
+          :`<label class="kv"><span>Todo lo pendiente de decisión recibido hasta el día</span></label><input type="date" id="cf" value="${hoyISO()}" max="${hoyISO()}" style="font-size:16px"><p class="muted" id="cn"></p>`}
+   </section>
+   <section class="sec"><h4>Nombre del corte</h4><input id="ct" maxlength="120" style="width:100%;font-size:16px" value="Comité ${esc(hoyISO())}"></section>
+   <section class="sec"><h4>Nota (opcional)</h4><textarea id="cnota" rows="2" maxlength="1000" style="width:100%" placeholder="Ej.: casos del área comercial para el comité del jueves"></textarea></section></div>
+   <div class="df"><div class="acts"><button type="button" class="btn sec" id="ccancel">Cancelar</button><span class="sp"></span><button type="button" class="btn ok" id="cok">Congelar y presentar</button></div></div>`;
+  const cuenta=()=>{const n=lista($("cf").value).length;const e=$("cn");if(e)e.textContent=n?`${n} caso${n===1?"":"s"} entrarán al corte.`:"No hay casos pendientes con esa fecha.";return n};
+  if(!hay){$("cf").onchange=cuenta;cuenta()}
+  const cerrar=()=>dlg.close();$("cx1").onclick=cerrar;$("ccancel").onclick=cerrar;
+  $("cok").onclick=()=>{const L=lista($("cf").value).slice(0,100),titulo=$("ct").value.trim();
+    if(!L.length)return aviso("No hay casos para el corte");if(titulo.length<3)return aviso("Escribe un nombre para el corte");
+    if(!confirm(`¿Congelar ${L.length} caso${L.length===1?"":"s"} en «${titulo}»? Queda en el historial y no se puede modificar.`))return;
+    dlg.querySelectorAll("button").forEach(b=>b.disabled=true);
+    google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(b=>b.disabled=false);aviso(e.message||e)})
+      .withSuccessHandler(c=>{dlg.close();SEL.clear();PRES=c;pintar();scrollTo(0,0);aviso("✓ Corte guardado en el historial")}).panelCrearCorte(titulo,$("cnota").value.trim(),$("cf").value,L.map(f=>f.id))};
+  if(!dlg.open)dlg.showModal();
+}
+function dialogoHistorial(){
+  const dlg=$("dlg");dlg.innerHTML=`<div class="dh"><div><span class="mov">Historial</span><h2>Cortes anteriores</h2><div class="meta"><span>Copias congeladas de lo que se llevó a cada comité</span></div></div><button type="button" class="x" id="cx2" aria-label="Cerrar">✕</button></div><div class="db"><p class="muted">Cargando…</p></div><div class="df"><div class="acts"><button type="button" class="btn sec" id="ccl">Cerrar</button></div></div>`;
+  $("cx2").onclick=$("ccl").onclick=()=>dlg.close();if(!dlg.open)dlg.showModal();
+  google.script.run.withFailureHandler(e=>{dlg.querySelector(".db").innerHTML=`<p class="err">${esc(e.message||e)}</p>`}).withSuccessHandler(L=>{
+    dlg.querySelector(".db").innerHTML=L.length?`<section class="sec">${L.map(c=>`<div class="px-row"><i class="px-av">${esc(String((c.casos||[]).length))}</i><span class="px-mn"><b>${esc(c.titulo)}</b><em>${esc(fechaHora(c.creadoEl))} · ${esc(c.creadoPor)} · hasta ${esc(c.fechaCorte)}</em></span><button type="button" class="gx-ver" data-abrir="${esc(c.id)}">Presentar</button></div>`).join("")}</section>`:'<p class="muted">Todavía no hay cortes. Selecciona casos o pulsa «Hacer corte».</p>';
+    dlg.querySelectorAll("[data-abrir]").forEach(b=>b.onclick=()=>{PRES=L.find(c=>c.id===b.dataset.abrir);dlg.close();pintar();scrollTo(0,0)})}).panelCortes();
+}
+function pintarPresentacion(){
+  const c=PRES,casos=(c.casos||[]).slice().sort((a,b)=>(URG_ORD[a.urgencia]??4)-(URG_ORD[b.urgencia]??4)||(Number(b.puntaje)||0)-(Number(a.puntaje)||0));
+  const vivo=Object.fromEntries(D.filas.map(f=>[f.id,f.estado])),resueltos=casos.filter(k=>["Aprobado","Rechazado"].includes(vivo[k.id])).length;
+  const R=c.resumen||{},mov=(R.porMovimiento||[]).slice().sort((a,b)=>b.n-a.n);
+  $("app").innerHTML=`
+   <div class="px-top px-noprint"><div><span class="px-eyebrow">Modo presentación · corte congelado</span><h2>${esc(c.titulo)}</h2><p>Corte hasta el ${esc(c.fechaCorte)} · guardado el ${esc(fechaHora(c.creadoEl))} por ${esc(c.creadoPor)}${c.nota?" · "+esc(c.nota):""}</p></div>
+     <div class="px-acc"><button type="button" class="px-tog sec" id="btnImprimir">Imprimir / PDF</button><button type="button" class="px-tog" id="btnSalirPres">Salir de la presentación</button></div></div>
+   <div class="px-kpis"><div class="px-kpi primario"><span>Casos del corte</span><b>${esc(casos.length)}</b><em>${mov.slice(0,3).map(m=>esc(m.m)+" "+esc(m.n)).join(" · ")}</em></div>
+     <div class="px-kpi rojo"><span>Urgentes</span><b>${esc(R.urgentes||0)}</b><em>inmediatos o dentro de 30 días</em></div>
+     <div class="px-kpi neutro"><span>Preparación promedio</span><b>${esc(R.preparacion||"—")}</b><em>sobre 100 puntos</em></div>
+     <div class="px-kpi verde"><span>Ya decididos</span><b>${esc(resueltos)}</b><em>de ${esc(casos.length)} desde el corte</em></div></div>
+   ${casos.map((k,i)=>`<section class="gx-card pr-caso"><div class="px-row" style="border:0;cursor:default"><i class="px-av g">${esc(i+1)}</i><span class="px-mn"><b style="font-size:19px">${esc(k.colaborador||"—")}</b><em style="font-size:14px">${esc(k.movimiento)} · ${esc(k.departamento)} · solicita ${esc(k.cliente||"—")} · ${esc(k.bp||"")}</em></span>
+       <span class="pill ${PILL_U[k.urgencia]||"u4"}">${esc(k.urgencia||"—")}</span>${k.puntaje?`<span class="px-sc ${nivelP(+k.puntaje)}">${esc(k.puntaje)}</span>`:""}<span class="pill ${PILL_E[vivo[k.id]]||"e1"} px-noprint">${esc(eb(vivo[k.id]||k.estado||""))}</span><button type="button" class="gx-ver px-noprint" data-ver="${esc(k.id)}">Abrir caso</button></div>
+       <details class="pr-det" open><summary class="px-noprint">Sustento</summary><div class="px-sus">${resaltar(k.texto)}</div></details></section>`).join("")}`;
+}
+
 $("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
 $("app").onclick=e=>{const t=e.target;
   if(t.id==="xls")return descargar();
+  const repintar=()=>{const y=scrollY;pintar();scrollTo(0,y)};
+  if(t.id==="btnCorte")return dialogoCorte();
+  if(t.id==="btnHist")return dialogoHistorial();
+  if(t.id==="btnSalirPres"){PRES=null;return pintar()}
+  if(t.id==="btnImprimir")return print();
+  if(t.id==="limpiarSel"){SEL.clear();return repintar()}
+  if(t.id==="selTodo"){const L=aplicarFiltros(D.filas,filtro).slice(0,100),todos=L.every(f=>SEL.has(f.id));L.forEach(f=>todos?SEL.delete(f.id):SEL.add(f.id));return repintar()}
+  if(t.dataset&&t.dataset.sel){t.checked?SEL.add(t.dataset.sel):SEL.delete(t.dataset.sel);return repintar()}
+  if(t.closest&&t.closest("td.csel"))return;
   if(t.id==="togG"){const o=$("app").classList.toggle("sin-g");t.textContent=o?"Mostrar gráficas":"Ocultar gráficas";try{sessionStorage.setItem("px-sin-g",o?"1":"0")}catch(e){}return}
   const ver=t.closest("[data-ver]");if(ver)return detalle(ver.dataset.ver);
   const fb=t.closest("[data-f]");   // tarjetas, barras y fichas del tablero filtran la bandeja; pulsar de nuevo quita el filtro
