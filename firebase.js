@@ -58,11 +58,18 @@ export async function maestro(extra) {
   return s.exists() ? aItem(s.data()) : null;
 }
 
+/** Socio de negocio asignado a un departamento (solo el nombre, para que el jefe confirme a quién va su solicitud): texto, "" si no hay nombre o null si el departamento no tiene ruteo. */
+export async function socioDe(departamento) {
+  if (!departamento) return "";
+  const s = await getDoc(doc(db, "ruteo", departamento));
+  return s.exists() ? String(s.data().bpNombre || "") : null;
+}
+
 /** Guarda la solicitud. El BP sale del documento «ruteo» del departamento; las reglas verifican que coincida. */
 export async function enviar(plano) {
   const u = await conSesion();
   const rt = await getDoc(doc(db, "ruteo", plano.departamento));
-  if (!rt.exists()) throw new Error("Departamento sin Business Partner configurado.");
+  if (!rt.exists()) throw new Error("Departamento sin Socio de negocio configurado.");
   const bpId = rt.data().bpId;
   await setDoc(doc(db, "solicitudes", plano.id), { ...plano, enviadoPor: (u.email || plano.enviadoPor).toLowerCase(), uid: u.uid, bpId, estado: "Nuevo", comentarioBP: "", comentarioGerencia: "" });
   return { ok: true, bp: true };   // el jefe no ve nombres ni correos de los Business Partner

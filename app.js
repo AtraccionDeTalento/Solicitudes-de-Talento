@@ -1004,10 +1004,18 @@ function next(){
 }
 function toast(m){const t=$("toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2800)}
 
+const SOCIOS={};   // departamento → nombre del socio de negocio (se confirma al revisar)
+function socioTxt(dep){
+  if(!dep) return "Elige el departamento para saber a quién va";
+  const n=SOCIOS[dep];
+  if(n===undefined){(async()=>{try{SOCIOS[dep]=await (await FBp).socioDe(dep)}catch(e){SOCIOS[dep]=""}if(!$("reviewBox").closest(".hidden"))renderReview()})();return "Confirmando…"}
+  if(n===null) return "⚠ Este departamento no tiene socio de negocio asignado: avisa al administrador antes de enviar";
+  return n?`${n} · Socio de negocio asignado a ${dep} (asignación automática)`:"Socio de negocio del departamento indicado (asignación automática)";
+}
 function renderReview(){
   const d=gather(),ev=evaluateCase(d),cls=ev.score>=85?"ok":ev.score>=60?"warn":"bad";
   const li=a=>(a.length?a:["—"]).map(x=>`<li>${esc(x)}</li>`).join("");
-  const rows=[["Movimiento",d.movimiento],["Colaborador",`${d.colaborador} (${d.codigo})`],["Puesto",d.puestoActual],["Departamento / Área / Sección",[d.departamento,d.area,d.seccion].filter(Boolean).join(" · ")],["Líder solicitante",`${d.cliente} · ${d.cargoCliente} · ${d.emailCliente}`],["Se envía a","Socio de negocio del departamento indicado (asignación automática)"],["Aprobaciones",d.tieneAprobacion==="Sí"?`${d.approvals.length} registrada(s)`:"Sin aprobación previa"],["Presupuesto",`${d.presupuesto} · ${d.fuentePresupuesto}${d.montoPresupuesto?` · S/ ${d.montoPresupuesto}`:""}`],["Urgencia / impacto",`${d.urgencia} · ${d.impacto} · ${d.consecuencia}`],["Sustento ejecutivo",d.solicitudConcreta]];
+  const rows=[["Movimiento",d.movimiento],["Colaborador",`${d.colaborador} (${d.codigo})`],["Puesto",d.puestoActual],["Departamento / Área / Sección",[d.departamento,d.area,d.seccion].filter(Boolean).join(" · ")],["Líder solicitante",`${d.cliente} · ${d.cargoCliente} · ${d.emailCliente}`],["Se envía a",socioTxt(d.departamento)],["Aprobaciones",d.tieneAprobacion==="Sí"?`${d.approvals.length} registrada(s)`:"Sin aprobación previa"],["Presupuesto",`${d.presupuesto} · ${d.fuentePresupuesto}${d.montoPresupuesto?` · S/ ${d.montoPresupuesto}`:""}`],["Urgencia / impacto",`${d.urgencia} · ${d.impacto} · ${d.consecuencia}`],["Sustento ejecutivo",d.solicitudConcreta]];
   $("reviewBox").innerHTML=`<div class="scorebox"><div class="scorecircle"><strong>${ev.score}</strong><span>de 100</span></div><div><span class="badge ${cls}">${esc(ev.label)}</span><div class="grid2" style="margin-top:12px"><div class="result-block"><h4>Fortalezas</h4><ul class="list">${li(ev.strengths)}</ul></div><div class="result-block"><h4>Alertas</h4><ul class="list">${li(ev.alerts)}</ul></div></div><div class="notice">${esc(ev.recommendation)}</div></div></div><h3>Resumen de la solicitud</h3><dl class="sum">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
 }
 
@@ -1052,7 +1060,7 @@ function showDone(rec,sent,err){
   lastRec=rec;
   ["form","stepper","actionsBar","errSummary"].forEach(id=>$(id).classList.add("hidden"));
   const msg=!sent?`No se pudo enviar al servidor (${esc(err)}). Intenta de nuevo en unos minutos; tu borrador sigue guardado en este equipo.`
-    :CONFIG.endpoint?(!rec.sinBP?"Tu solicitud fue enviada a tu Socio de negocio.":"Tu solicitud fue registrada; aún no hay un Socio de negocio configurado para tu departamento y se derivó al coordinador.")
+    :CONFIG.endpoint?(!rec.sinBP?`Tu solicitud fue enviada a ${SOCIOS[rec.data.departamento]?"tu Socio de negocio, "+SOCIOS[rec.data.departamento]:"tu Socio de negocio"}.`:"Tu solicitud fue registrada; aún no hay un Socio de negocio configurado para tu departamento y se derivó al coordinador.")
     :"Tu solicitud quedó guardada en este equipo. Descarga el Excel y envíalo a tu Socio de negocio.";
   $("done").classList.remove("hidden");
   $("done").innerHTML=`<h2>${sent?"✔ Solicitud registrada":"⚠ Solicitud guardada, falta enviarla"}</h2><p>${msg}</p><dl class="sum"><dt>Código de seguimiento</dt><dd><b>${esc(rec.id)}</b></dd><dt>Movimiento</dt><dd>${esc(rec.data.movimiento)}</dd><dt>Índice de preparación</dt><dd>${rec.evaluation.score}/100 · ${esc(rec.evaluation.label)}</dd></dl><div class="inline" style="margin-top:16px"><button type="button" id="dlXls">Descargar Excel</button><button type="button" class="secondary" id="newReq">Nueva solicitud</button></div>`;

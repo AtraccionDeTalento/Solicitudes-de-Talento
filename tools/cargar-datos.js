@@ -61,7 +61,7 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   await lote(Object.entries(ruteo).map(([dep, bp]) => {
     const id = bpIds[norm(bp.correo)];
     if (!id) throw new Error("El BP del ruteo (" + dep + ") no tiene cuenta con rol bp en usuarios.json: " + bp.correo);
-    return [db.doc("ruteo/" + dep), { bpId: id }];
+    return [db.doc("ruteo/" + dep), { bpId: id, bpNombre: bp.nombre }];   // el nombre se muestra al jefe para confirmar a quién va su solicitud
   }));
   console.log("ruteo:", Object.keys(ruteo).length, "departamentos");
 
