@@ -73,13 +73,11 @@ const SETS = {
 "Reemplazo":[
  {t:"Posición a reemplazar",q:[
   ["puestoReemplazo","¿Qué posición requiere ser reemplazada?","text"],
-  ["cantidadPosiciones","¿Cuántas posiciones de este mismo tipo necesitas cubrir?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si hay varias vacantes iguales (por ejemplo 2 analistas comerciales), envíalas juntas en esta misma solicitud."],
   ["personaOVacanteReemplazo","¿A quién reemplaza o qué vacante ocupa?","text"],
   ["motivoVacanteReemplazo","¿Cuál es el motivo por el que la posición queda vacante?","select",["Renuncia","Cese","Promoción","Traslado","Cambio interno","Otro"]],
-  ["fechaVacanteReemplazo","¿Desde qué fecha se encuentra o se encontrará vacante la posición?","date"]]},
+  ["fechaVacanteReemplazo","¿Desde qué fecha se encuentra vacante la posición?","date"]]},
  {t:"Colaborador propuesto",q:[
-  ["fechaInicioReemplazo","¿Desde qué fecha se propone que el colaborador asuma la posición?","date"],
-  ["situacionPuestoActualReemplazo","¿Qué ocurrirá con la posición actual del colaborador propuesto?","select",["Quedará vacante","Será cubierta","Se elimina","Por definir","No aplica"]],
+  ["fechaInicioReemplazo","¿Desde qué fecha se propone que el colaborador asuma la posición? (fecha de ingreso)","date"],
   ["personasCargoReemplazo","¿Tendrá personas a cargo? ¿Cuántas?","text"],
   ["porQueColaboradorReemplazo","¿Por qué se propone a este colaborador para ocupar la posición?","textarea","Ej.: experiencia previa, conocimiento del proceso, resultados, continuidad operativa o preparación para asumir el rol."]]},
  {t:"Cambios en el rol",q:[
@@ -96,7 +94,7 @@ const SETS = {
   ["temporalPermanente","¿Es permanente o temporal?","select",["Permanente","Temporal","Por definir"]],
   ["reportaA","¿A quién reportará?","text"],
   ["personasCargoPN","¿Tendrá personal a cargo? ¿Cuánto?","text"],
-  ["fechaRequerida","Fecha requerida","date"]]},
+  ["fechaRequerida","Fecha de ingreso requerida","date"]]},
  {t:"Necesidad del negocio",q:[
   ["necesidadPuesto","¿Qué necesidad del negocio origina la creación del puesto?","textarea","Explica brevemente qué está pasando en el área o negocio."],
   ["problemaResuelve","¿Qué problema existe actualmente por no contar con esta posición?","textarea"],
@@ -570,6 +568,7 @@ function lockNew(reset){
   const mov=$("movimiento").value,isNew=NOCODE.includes(mov);
   ["correoColab","codigo","colaborador","puestoActual"].forEach(id=>$(id).readOnly=isNew);
   $("lookupEmployee").disabled=isNew;
+  ["correoColab","codigo","colaborador","puestoActual"].forEach(id=>$(id).closest(".q").classList.toggle("hidden",isNew));   // en Puesto nuevo no hay persona: no se muestran
   if(reset){
     if(isNew){
       $("correoColab").value="";$("codigo").value="No aplica";$("colaborador").value=mov==="Puesto nuevo"?"Vacante nueva":"Varios colaboradores";$("puestoActual").value="No aplica";
@@ -653,9 +652,14 @@ function qHTML([id,label,type,opts,help]){
   else if(type==="select") c=`<select id="${id}"><option value="">Seleccionar</option>${opts.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`;
   else c=`<input id="${id}" type="${type}"${type==="number"?' min="0" step="0.01"':' maxlength="'+max+'"'} placeholder="${ph}">`;
   if(id==="propuestaNegocio") help="Selecciona primero si la propuesta está en soles o porcentaje.";
+  if(INGRESO_IDS.includes(id)){help=AVISO_INGRESO;if(FECHAS_INGRESO.length) c=`<select id="${id}"><option value="">Seleccionar</option>${FECHAS_INGRESO.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`}
   return `<div class="q"><label for="${id}">${esc(label)}</label>${c}${help?`<div class="help"${id==="propuestaNegocio"?' id="propuestaNegocioHelp"':""}>${esc(help)}</div>`:""}<div class="err"></div></div>`;
 }
 const G0A=[["fechaSolicitud","Fecha de solicitud","date"],["movimiento","Tipo de movimiento","select",MOVS]];
+// Fechas de ingreso: la empresa tiene dos al mes. Cuando RR.HH. confirme el calendario, se escriben aquí («AAAA-MM-DD») y el campo pasa a ser una lista; vacío = fecha libre con aviso.
+const FECHAS_INGRESO=[];
+const INGRESO_IDS=["fechaInicioReemplazo","fechaRequerida"];
+const AVISO_INGRESO="Contamos con dos fechas de ingreso al mes. Si solicitas en octubre, la fecha disponible será el mes siguiente. Las posiciones gerenciales pueden tomar un mes como mínimo. En casos excepcionales, contacta al área.";
 const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
 const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS,"Define a qué Socio de negocio llega tu solicitud (asignación automática)."],["area","Área","text"],["seccion","Sección","text"]];
 const CODE_HTML=`<div class="q"><label for="correoColab">Correo del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
@@ -968,7 +972,7 @@ function resetForm(){
   $("confirmo").checked=false;store(draftKey());
   showShell();go(0);
 }
-function lockLeader(){["cliente","emailCliente"].forEach(id=>$(id).readOnly=!BP_MODE)}
+function lockLeader(){["cliente","emailCliente"].forEach(id=>$(id).readOnly=!BP_MODE);const e=$("registraComo");if(e)e.textContent=SESSION?`Registrando como ${SESSION.name} · ${SESSION.email}`:""}
 
 // ---------- Panel BP: histórico y exportación ----------
 function renderHistory(){

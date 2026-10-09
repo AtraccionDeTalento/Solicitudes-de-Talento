@@ -11,7 +11,7 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
 (async () => {
   const env = await initializeTestEnvironment({ projectId: 'demo-rules', firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 } });
   await env.clearFirestore();
-  const prueba = valor => env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: valor }));
+  const prueba = valor => env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: valor, accesoAnonimo: true }));   // los casos anteriores usan al jefe anónimo
   await env.withSecurityRulesDisabled(async c => {
     const db = c.firestore();
     await setDoc(doc(db, 'ruteo', DEP), { bpId: 'bpid-1' });
@@ -133,7 +133,7 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertSucceeds(getDoc(col(bp1)));
     await assertFails(getDoc(col(anon)));   // producción: modoPrueba apagado y sin marca
     await prueba(true); await assertSucceeds(getDoc(col(anon)));
-    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false, busquedaJefes: true }));
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false, busquedaJefes: true, accesoAnonimo: true }));
     await assertSucceeds(getDoc(col(anon)));
     await prueba(false); await assertFails(getDoc(col(anon)));
     await assertFails(getDocs(collection(bp1, 'colaboradores'))); await assertFails(getDoc(col(env.unauthenticatedContext().firestore())));
@@ -189,6 +189,27 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertFails(getDoc(e(bp2, 'e1'))); await assertFails(getDoc(e(anon, 'e1')));
     await assertSucceeds(getDocs(query(collection(bp1, 'eventos'), where('bpId', '==', 'bpid-1'))));
     await assertFails(getDocs(collection(bp1, 'eventos')));                   // un socio de negocio solo lista lo suyo
+  });
+  await t('jefes con correo verificado y clave: crean solo a su nombre y leen solo lo suyo; sin acceso a nombres de socios de negocio ni al maestro; el modo anónimo queda apagado', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false, accesoAnonimo: false }));
+    const jefe = env.authenticatedContext('uid-jefe', { email: JEFE, email_verified: true, firebase: { sign_in_provider: 'password' } }).firestore();
+    const sinVerificar = env.authenticatedContext('uid-nv', { email: OTRO, email_verified: false, firebase: { sign_in_provider: 'password' } }).firestore();
+    const propia = (id, extra = {}) => nueva(id, 'uid-jefe', { enviadoPor: JEFE, ...extra });
+    await assertSucceeds(setDoc(sol(jefe, 'J1'), propia('J1')));
+    await assertFails(setDoc(sol(jefe, 'J2'), propia('J2', { enviadoPor: OTRO })));        // a nombre de otro
+    await assertFails(setDoc(sol(sinVerificar, 'J3'), nueva('J3', 'uid-nv', { enviadoPor: OTRO })));   // correo sin verificar
+    await assertFails(setDoc(sol(anon, 'J4'), nueva('J4', 'u1')));                          // el anónimo ya no entra
+    await assertSucceeds(getDoc(sol(jefe, 'J1')));
+    await assertFails(getDoc(sol(jefe, 'S-NUEVA')));                                         // lo de otros no
+    await assertFails(getDocs(collection(jefe, 'solicitudes')));
+    await assertSucceeds(getDoc(doc(jefe, 'ruteo', DEP))); await assertSucceeds(getDoc(doc(jefe, 'lideres', JEFE)));
+    await assertSucceeds(getDoc(doc(jefe, 'colaboradores', 'jefe1@usil.edu.pe')));
+    await assertFails(getDoc(doc(jefe, 'bps', 'bpid-1'))); await assertFails(getDocs(collection(jefe, 'bps')));   // los nombres de socios no son para jefes
+    await assertFails(getDoc(doc(jefe, 'maestro', '0000000001')));
+    await assertFails(getDoc(doc(jefe, 'roles', BP1)));
+    await assertFails(getDoc(doc(jefe, 'cortes', 'c1'))); await assertFails(getDocs(collection(jefe, 'eventos')));
+    await assertFails(updateDoc(sol(jefe, 'J1'), { estado: 'Aprobado' }));
+    await prueba(false);
   });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');

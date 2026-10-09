@@ -6,6 +6,10 @@ service cloud.firestore {
   match /databases/{db}/documents {
     function usil() { return request.auth != null && request.auth.token.email_verified == true && request.auth.token.email.matches('.+@usil[.]edu[.]pe'); }
     function personal() { return usil() && request.auth.token.firebase.sign_in_provider == 'password'; }
+    // Los jefes ahora entran con correo institucional VERIFICADO y clave (personal()). El acceso anónimo anterior (nombre y correo sin verificar) queda apagado
+    // salvo que config/app.accesoAnonimo sea true (solo para migrar o probar).
+    function anonimoOk() { return anonimo() && get(/databases/$(db)/documents/config/app).data.get('accesoAnonimo', false) == true; }
+    function staff() { return personal() && exists(/databases/$(db)/documents/roles/$(yo())); }   // HRBP o Gerencia (con rol asignado)
     function anonimo() { return request.auth != null && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
     function prueba() { return get(/databases/$(db)/documents/config/app).data.modoPrueba == true; }
     function bpDe() { return get(/databases/$(db)/documents/roles/$(yo())).data.bpId; }
@@ -17,11 +21,11 @@ service cloud.firestore {
 
     match /roles/{correo} { allow get: if personal() && correo == yo(); }
     // El ruteo solo trae un identificador opaco (bpId): ni nombres ni correos de los Business Partner son legibles por un jefe.
-    match /ruteo/{dep}    { allow get: if personal() || anonimo(); }
-    match /bps/{id}       { allow get, list: if personal(); }   // bpId → nombre, solo para HRBP y Gerencia
+    match /ruteo/{dep}    { allow get: if personal() || anonimoOk(); }
+    match /bps/{id}       { allow get, list: if staff(); }   // bpId → nombre, solo para HRBP y Gerencia
     // Búsqueda del colaborador por correo (autorrelleno). Para los jefes sin verificar solo se abre en modo prueba o si config/app.busquedaJefes = true:
     // con ella cualquiera podría probar correos y ver nombre y puesto de esa persona, así que se enciende a conciencia (y junto con App Check).
-    match /colaboradores/{correo} { allow get: if personal() || (anonimo() && (prueba() || get(/databases/$(db)/documents/config/app).data.get('busquedaJefes', false) == true)); }
+    match /colaboradores/{correo} { allow get: if personal() || (anonimoOk() && (prueba() || get(/databases/$(db)/documents/config/app).data.get('busquedaJefes', false) == true)); }
     // Cortes de Gerencia: copia congelada de los casos que se llevan a un comité. Solo Gerencia los lee y los crea; nadie los edita ni los borra (historial).
     match /cortes/{id} {
       allow get, list: if tieneRol('gerencia');
@@ -45,15 +49,15 @@ service cloud.firestore {
     }
     match /lideres/{correo} { allow get: if personal() && correo == yo(); }
     match /maestro/{mat} {
-      allow get: if personal() || (anonimo() && prueba());
-      allow list: if (personal() || (anonimo() && prueba())) && request.query.limit <= 50 && prueba();
+      allow get: if staff() || (anonimoOk() && prueba());
+      allow list: if (staff() || (anonimoOk() && prueba())) && request.query.limit <= 50 && prueba();
     }
 
     match /solicitudes/{id} {
       // ponytail: sin Cloud Functions no hay límite de envíos por usuario; si hace falta, activar App Check o pasar a plan Blaze.
-      allow create: if anonimo() && request.resource.data.enviadoPor.matches('.+@usil[.]edu[.]pe') && nueva(id, request.resource.data);
+      allow create: if ((personal() && request.resource.data.enviadoPor == yo()) || (anonimoOk() && request.resource.data.enviadoPor.matches('.+@usil[.]edu[.]pe'))) && nueva(id, request.resource.data);
       allow get, list:
-        if (anonimo() && resource.data.uid == request.auth.uid)
+        if ((personal() || anonimo()) && resource.data.uid == request.auth.uid)
         || (tieneRol('bp') && resource.data.bpId == bpDe())
         || (tieneRol('gerencia') && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']);
       allow update:

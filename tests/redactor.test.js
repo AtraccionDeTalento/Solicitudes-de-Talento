@@ -102,7 +102,7 @@ ok('el texto de una respuesta con código se conserva como texto (no se interpre
   assert.ok(t.includes('<img src=x onerror=alert(1)>'));
 });
 ok('varias posiciones del mismo puesto van en una sola solicitud: el texto lo indica y con una posición no dice nada', () => {
-  ['Puesto nuevo', 'Reemplazo'].forEach(m => {
+  ['Puesto nuevo'].forEach(m => {
     const con = (n) => { const r = registro(m); r.levantamiento.find(x => x.i === 'cantidadPosiciones').r = n; return redactar(r).texto; };
     assert.ok(/\(3 posiciones\)/.test(con('3')), m); assert.ok(!/posiciones\)/.test(con('1')), m);
   });
