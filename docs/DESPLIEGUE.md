@@ -66,7 +66,7 @@ Es repetible: vuelve a ejecutarlo para cambiar claves o ruteo. `--borrar-solicit
 - **Lo que escribe un jefe no puede atacar al personal que lo lee:** todo dato se muestra escapado, y la CSP bloquea scripts inline y manejadores de eventos. Está probado con una solicitud con código en todos los campos: se ve como texto y no se ejecuta nada.
 - **La base solo acepta los campos que envía la app**, con tope de tamaño en los textos libres, 80 respuestas de levantamiento y 3 aprobaciones: nadie puede guardar datos ajenos al formulario ni documentos enormes. Las reglas no pueden pasar de 1000 expresiones (Firestore las corta y rechaza todo): `npm run test:rules` incluye una solicitud completa que lo vigila.
 - **Nada personal queda en el navegador:** borradores e historial viven en `sessionStorage` (se borran al cerrar la pestaña). El panel guarda la sesión solo mientras la pestaña esté abierta y la cierra tras 30 minutos sin actividad.
-- Las claves reales deben tener 12+ caracteres: `cargar-datos.js` se niega a cargar claves más cortas (en los emuladores sí permite `TALENTIN`).
+- Las claves reales deben tener 12+ caracteres: `cargar-datos.js` se niega a cargar claves más cortas (en los emuladores y en el piloto con datos de prueba sí permite claves cortas, definidas solo en tu `tools/usuarios.json`).
 - Cabeceras: `noindex`, sin caché, `Cross-Origin-Resource-Policy: same-origin`, `X-Frame-Options: DENY`, HSTS y CSP. Vercel no publica `.github`, `tools`, `tests`, `docs` ni `firestore.rules`.
 - Cada persona del panel solo lee su propio rol; nadie puede listar roles ni líderes.
 - Los correos y claves reales viven solo en `tools/usuarios.json` y `tools/ruteo.local.json` (ignorados por Git y excluidos de Vercel).
