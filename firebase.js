@@ -30,7 +30,12 @@ export async function entrarJefe(email, clave) {
   if (!esUsil(email)) throw new Error("Usa tu correo institucional (@usil.edu.pe).");
   await setPersistence(auth, browserSessionPersistence);
   let u;
-  try { u = (await signInWithEmailAndPassword(auth, normalizar(email), String(clave))).user; } catch (e) { throw new Error("Correo o clave incorrectos."); }
+  const intento = async correo => { try { return (await signInWithEmailAndPassword(auth, correo, String(clave))).user; } catch (e) { return null; } };
+  email = normalizar(email);
+  u = await intento(email);
+  // Socio de negocio o Gerencia que también pide como jefe: su cuenta del formulario es «usuario+jefe@…» (clave = su DNI); la del panel conserva la suya.
+  if (!u && !/\+/.test(email.split("@")[0])) u = await intento(email.replace("@", "+jefe@"));
+  if (!u) throw new Error("Correo o clave incorrectos.");
   if (!u.emailVerified) { await signOut(auth); throw new Error("Falta confirmar tu correo: abre el enlace que te enviamos y vuelve a entrar."); }
   return u;
 }
@@ -65,7 +70,7 @@ const aItem = d => ({ nombre: d.nombre, puesto: d.puesto, situacion: d.situacion
 /** Consulta al maestro (misma forma que antes): por matrícula, por correo del líder o una persona activa al azar de un departamento (solo modo prueba). */
 export async function maestro(extra) {
   const u = await conSesion();
-  if (extra.lider) { if (u.isAnonymous) return null; const s = await getDoc(doc(db, "lideres", normalizar(u.email))); return s.exists() ? aItem(s.data()) : null; }
+  if (extra.lider) { if (u.isAnonymous) return null; const s = await getDoc(doc(db, "lideres", normalizar(u.email).replace(/\+jefe(?=@)/, ""))); return s.exists() ? aItem(s.data()) : null; }
   if (extra.aleatorio) {
     const r = await getDocs(query(collection(db, "maestro"), where("departamento", "==", extra.departamento), where("situacion", "==", "Activo"), limit(30)));
     const filas = r.docs.filter(d => d.data().area && d.data().seccion);

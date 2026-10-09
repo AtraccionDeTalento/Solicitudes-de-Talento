@@ -86,3 +86,4 @@ Es repetible: vuelve a ejecutarlo para cambiar claves o ruteo. `--borrar-solicit
 - `node tools/cargar-datos.js <Maestro_recortado.csv> --jefes=tools/jefes-dni.csv` crea sus cuentas (correo verificado, clave = documento). Las cuentas que ya existen no se tocan. Firebase guarda solo el hash.
 - Socios de negocio y Gerencia entran por el panel con la clave que se les asigne (`tools/usuarios.json`).
 - Riesgo conocido: el DNI es fácil de averiguar. Mitigar con un cambio de clave obligatorio en el primer ingreso y App Check antes de producción.
+- Socios de negocio y Gerencia que también piden como jefe: `--jefes` les crea una cuenta aparte `usuario+jefe@usil.edu.pe` (clave = su DNI). En la pantalla de jefes el sistema prueba primero el correo tal cual (cuenta del panel, clave compartida) y, si la clave no corresponde, la cuenta `+jefe`.

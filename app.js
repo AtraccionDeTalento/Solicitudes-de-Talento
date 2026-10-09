@@ -1310,7 +1310,7 @@ async function boot(){
   try{
     const F=await Promise.race([FBp,new Promise((_,no)=>setTimeout(()=>no(new Error("sin Firebase")),10000))]),u=await F.sesion(),s=readSession();
     if(u&&await F.personal()) return location.replace(CONFIG.panelUrl);   // Socio de negocio o Gerencia ya con sesión: directo a su panel
-    if(s&&u&&s.email===u.email.toLowerCase()){SESSION=s;return enter()}
+    if(s&&u&&s.email===u.email.toLowerCase().replace(/\+jefe(?=@)/,"")){SESSION=s;return enter()}
     if(u) await F.salir();   // sesión de Firebase sin sesión de pantalla vigente (venció por inactividad)
   }catch(e){}
   showLogin();

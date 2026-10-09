@@ -18,12 +18,15 @@ for i, c in enumerate(cab):
 col = lambda *a: next(idx[norm(x)] for x in a if norm(x) in idx)
 c = dict(doc=col("Numero Documento"), mail=col("Email Trabajo"), puesto=col("Nombre Puesto"), nom=col("Nombre"), ap=col("Apellido Paterno"), sit=col("Situacion Trabajador"))
 t = lambda f, k: str(f[c[k]]).strip() if f[c[k]] not in (None, "") else ""
+import json, os
+ruta_usuarios = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usuarios.json")
+personal = {k.strip().lower() for k in json.load(open(ruta_usuarios, encoding="utf-8"))} if os.path.exists(ruta_usuarios) else set()   # Socios de negocio y Gerencia: entran aunque su puesto no sea de jefatura
 vistos, n = set(), 0
 with open(destino, "w", newline="", encoding="utf-8") as out:
     w = csv.writer(out); w.writerow(["email", "documento", "nombre", "puesto"])
     for f in filas:
         mail, doc, puesto = t(f, "mail").lower(), "".join(ch for ch in t(f, "doc") if ch.isalnum()), t(f, "puesto")
         if not mail.endswith("@usil.edu.pe") or len(doc) < 8 or mail in vistos: continue
-        if not any(k in norm(puesto) for k in LIDERAZGO): continue
+        if mail not in personal and not any(k in norm(puesto) for k in LIDERAZGO): continue
         vistos.add(mail); w.writerow([mail, doc, (t(f, "nom") + " " + t(f, "ap")).strip(), puesto]); n += 1
 print(n, "jefes escritos en", destino)
