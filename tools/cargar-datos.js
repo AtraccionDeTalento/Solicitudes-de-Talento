@@ -78,8 +78,8 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
     if (cab.length !== 8) throw new Error("El CSV debe tener las 8 columnas de preparar-maestro.py");
     const items = [];
     filas.forEach(([mat, nombre, puesto, situacion, departamento, area, seccion, mail]) => {
-      items.push([db.doc("maestro/" + mat), { nombre, puesto, situacion, departamento, area, seccion }]);
-      if (mail) { items.push([db.doc("lideres/" + norm(mail)), { nombre, puesto }]); items.push([db.doc("colaboradores/" + norm(mail)), { nombre, puesto, situacion, departamento, area, seccion, matricula: mat }]); }
+      if (args.includes("--maestro")) items.push([db.doc("maestro/" + mat), { nombre, puesto, situacion, departamento, area, seccion }]);   // por defecto NO se sube el maestro por matrícula: la búsqueda es solo por correo
+      if (mail && /@usil\.edu\.pe$/.test(norm(mail))) { items.push([db.doc("lideres/" + norm(mail)), { nombre, puesto }]); items.push([db.doc("colaboradores/" + norm(mail)), { nombre, puesto, situacion, departamento, area, seccion, matricula: mat }]); }
     });
     await lote(items);
     console.log("maestro:", filas.length, "personas");
