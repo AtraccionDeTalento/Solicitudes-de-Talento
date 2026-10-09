@@ -58,11 +58,12 @@ export function redactar(r, opciones = {}) {
   const T = id => usa(id, v(id));
 
   // ---- 1. Decisión que se solicita (una frase construida solo con datos del formulario)
+  const cantidad = () => { const n = T('cantidadPosiciones'); return n && n !== '1' ? ` (${n} posiciones)` : ''; };
   const clausula = {
     'Promoción': () => `la promoción de ${persona}${T('puestoPropuesto') ? ` al puesto de ${v('puestoPropuesto')}` : ''}${F('desdeCuando') ? `, con funciones desde ${fecha(v('desdeCuando'))}` : ''}`,
     'Encargatura': () => `${T('tipoEncargatura') ? 'la ' + minus(v('tipoEncargatura')) : 'la encargatura'} de ${persona}${T('puestoEncargado') ? ` en la posición de ${v('puestoEncargado')}` : ''}${T('aQuienReemplaza') ? `, en reemplazo de ${v('aQuienReemplaza')}` : ''}${F('fechaInicioEnc') && F('fechaFinEnc') ? `, del ${fecha(v('fechaInicioEnc'))} al ${fecha(v('fechaFinEnc'))}` : F('fechaInicioEnc') ? `, desde ${fecha(v('fechaInicioEnc'))}` : ''}`,
-    'Reemplazo': () => `que ${persona} asuma la posición de ${T('puestoReemplazo') || 'la posición indicada'}${T('personaOVacanteReemplazo') ? `, en reemplazo de ${v('personaOVacanteReemplazo')}` : ''}${F('fechaInicioReemplazo') ? `, desde ${fecha(v('fechaInicioReemplazo'))}` : ''}`,
-    'Puesto nuevo': () => `la creación del puesto ${T('puestoNuevo') || 'indicado'}${T('temporalPermanente') ? ` (${minus(v('temporalPermanente'))})` : ''}${T('reportaA') ? `, con reporte a ${v('reportaA')}` : ''}${F('fechaRequerida') ? `, requerido para ${fecha(v('fechaRequerida'))}` : ''}`,
+    'Reemplazo': () => `que ${persona} asuma la posición de ${T('puestoReemplazo') || 'la posición indicada'}${cantidad()}${T('personaOVacanteReemplazo') ? `, en reemplazo de ${v('personaOVacanteReemplazo')}` : ''}${F('fechaInicioReemplazo') ? `, desde ${fecha(v('fechaInicioReemplazo'))}` : ''}`,
+    'Puesto nuevo': () => `la creación del puesto ${T('puestoNuevo') || 'indicado'}${cantidad()}${T('temporalPermanente') ? ` (${minus(v('temporalPermanente'))})` : ''}${T('reportaA') ? `, con reporte a ${v('reportaA')}` : ''}${F('fechaRequerida') ? `, requerido para ${fecha(v('fechaRequerida'))}` : ''}`,
     'Incremento salarial': () => `un incremento salarial para ${persona}${T('motivoIncremento') ? `, por ${minus(v('motivoIncremento'))}` : ''}${v('propuestaNegocio') ? `, con una propuesta de ${usa('propuestaNegocio', importe(v('tipoPropuestaNegocio'), v('propuestaNegocio')))}` : ''}`,
     'Movimiento lateral': () => `el movimiento lateral de ${persona}${T('puestoDestino') ? ` al puesto de ${v('puestoDestino')}` : ''}${T('areaDestino') ? `, en ${v('areaDestino')}` : ''}`,
     'Movimiento horizontal': () => `un movimiento horizontal${T('tipoHorizontal') ? ` (${minus(v('tipoHorizontal'))})` : ''} para ${persona}${T('esTemporalHorizontal') ? `, de carácter ${minus(v('esTemporalHorizontal'))}` : ''}${F('desdeCuandoHorizontal') ? `, desde ${fecha(v('desdeCuandoHorizontal'))}` : ''}`,

@@ -395,7 +395,7 @@ function detalle(id){
       <div class="px-v"><span>Urgencia</span><b class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</b></div>
       <div class="px-v"><span>Impacto si no se ejecuta</span><b>${esc(f.impacto||"—")}</b><em>${esc(f.consecuencia||"")}</em></div>
       <div class="px-v"><span>Presupuesto</span><b>${esc(f.presupuesto||"—")}</b><em>${f.montoPresupuesto!==""&&f.montoPresupuesto!=null?"S/ "+esc(f.montoPresupuesto):esc(f.fuentePresupuesto||"")}</em></div>
-      <div class="px-v"><span>Aprobación previa</span><b>${d.aprobaciones.length?d.aprobaciones.length+" registrada"+(d.aprobaciones.length===1?"":"s"):"Sin aprobación"}</b></div></div></section>`;
+      ${(d.registro&&d.registro.levantamiento||[]).filter(x=>x.i==="cantidadPosiciones")[0]?`<div class="px-v"><span>Posiciones</span><b>${esc(d.registro.levantamiento.filter(x=>x.i==="cantidadPosiciones")[0].r)}</b></div>`:""}<div class="px-v"><span>Aprobación previa</span><b>${d.aprobaciones.length?d.aprobaciones.length+" registrada"+(d.aprobaciones.length===1?"":"s"):"Sin aprobación"}</b></div></div></section>`;
     const susten=base?`<section class="sec px-sus"><h4>Sustento del caso <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Socio de negocio":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Socio de negocio"}</span></h4>${resaltar(base)}</section>`:"";
     $("dlg").innerHTML=`
      <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>

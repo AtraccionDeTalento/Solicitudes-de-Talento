@@ -73,6 +73,7 @@ const SETS = {
 "Reemplazo":[
  {t:"Posición a reemplazar",q:[
   ["puestoReemplazo","¿Qué posición requiere ser reemplazada?","text"],
+  ["cantidadPosiciones","¿Cuántas posiciones de este mismo tipo necesitas cubrir?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si hay varias vacantes iguales (por ejemplo 2 analistas comerciales), envíalas juntas en esta misma solicitud."],
   ["personaOVacanteReemplazo","¿A quién reemplaza o qué vacante ocupa?","text"],
   ["motivoVacanteReemplazo","¿Cuál es el motivo por el que la posición queda vacante?","select",["Renuncia","Cese","Promoción","Traslado","Cambio interno","Otro"]],
   ["fechaVacanteReemplazo","¿Desde qué fecha se encuentra o se encontrará vacante la posición?","date"]]},
@@ -90,6 +91,7 @@ const SETS = {
 "Puesto nuevo":[
  {t:"El puesto solicitado",q:[
   ["puestoNuevo","Nombre del puesto solicitado","text"],
+  ["cantidadPosiciones","¿Cuántas posiciones de este puesto necesitas?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si necesitas varias posiciones iguales (por ejemplo 2 asistentes comerciales), envíalas juntas en esta misma solicitud."],
   ["temporalPermanente","¿Es permanente o temporal?","select",["Permanente","Temporal","Por definir"]],
   ["reportaA","¿A quién reportará?","text"],
   ["personasCargoPN","¿Tendrá personal a cargo? ¿Cuánto?","text"],
@@ -472,6 +474,7 @@ function buildExecutiveSummary(){
   let paragraphs=[];
 
   const add = txt => { if(cleanSentence(txt)) paragraphs.push(sentence(txt)); };
+  const cantPos=()=>{const n=direct("cantidadPosiciones");return n&&n!=="1"?` (${/^\d+$/.test(n)?n+" posiciones":n+" posiciones"})`:""};
   const usado=new Map();   // la misma respuesta escrita en dos preguntas distintas se cita una sola vez
   const direct = id => {const t=cleanSentence(val(id));if(t.length<25) return t;const k=t.toLowerCase();if(usado.has(k)&&usado.get(k)!==id) return "";usado.set(k,id);return t};
   const lowerLead = txt => {
@@ -539,7 +542,7 @@ function buildExecutiveSummary(){
     const reason=direct("motivoVacanteReemplazo");
     const start=direct("fechaInicioReemplazo");
 
-    add(`Se solicita el reemplazo ${replaced?`de ${replaced} `:""}en la posición de ${role||"la posición indicada"}`);
+    add(`Se solicita el reemplazo ${replaced?`de ${replaced} `:""}en la posición de ${role||"la posición indicada"}${cantPos()}`);
     if(reason) add(`Motivo de la vacante: ${stripEnd(reason)}`);
     if(start) add(`Se propone que ${person} asuma la posición a partir del ${start}`);
 
@@ -585,7 +588,7 @@ function buildExecutiveSummary(){
 
   else if(mov==="Puesto nuevo"){
     const role=direct("puestoNuevo");
-    add(`Se solicita la creación del puesto ${role||"propuesto"}`);
+    add(`Se solicita la creación del puesto ${role||"propuesto"}${cantPos()}`);
 
     if(direct("necesidadPuesto")) add(`La creación del puesto se origina: ${stripEnd(direct("necesidadPuesto"))}`);
     if(direct("problemaResuelve")) add(`Actualmente: ${stripEnd(direct("problemaResuelve"))}`);
