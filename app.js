@@ -5,7 +5,7 @@ const APP_VERSION="2.0.0";
 const FBp=new Promise(r=>addEventListener("fb",()=>r(window.FB)));   // firebase.js (módulo) avisa al cargar
 const CONFIG = {
   endpoint:"firebase",                  // «firebase» = las solicitudes se guardan en Firestore (firebase.js). Vacío = solo en este navegador.
-  camposObligatorios:false,            // false = ningún campo es obligatorio (solo Tipo de movimiento y Departamento, necesarios para el ruteo). true = exige todos como antes.
+  camposObligatorios:true,             // false = ningún campo es obligatorio (solo Tipo de movimiento y Departamento, necesarios para el ruteo). true = exige todos como antes.
   modoPrueba:true,                     // true = mínimos de caracteres reducidos (3) para probar. PONER EN false antes de abrirlo a los jefes.
   panelUrl:"panel.html",                // Panel de revisión de HRBP y Gerencia (misma carpeta del sitio).
   soporte:"",                          // Correo de soporte que se muestra al pie.
