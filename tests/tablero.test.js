@@ -1,6 +1,6 @@
 // Pruebas de los indicadores del tablero gerencial (tablero.mjs). Ejecutar: node tests/tablero.test.js
 const assert = require('assert');
-const { metricas, aplicarFiltros, prioridad, movimientoPorEstado, tendencia, lecturas, metricasBP } = require('../tablero.mjs');
+const { metricas, aplicarFiltros, prioridad, movimientoPorEstado, tendencia, lecturas, metricasBP, histogramaPuntaje, mapaCalor, porSemana, urgenciaPendientes } = require('../tablero.mjs');
 let n = 0; const ok = (t, f) => { f(); n++; console.log('  ✓', t); };
 const hoy = new Date(2026, 9, 10);   // 10-oct-2026
 const fila = (id, extra) => ({ id, periodo: '2026-10', fechaSolicitud: '2026-10-07', estado: 'Enviado a Gerencia', movimiento: 'Promoción', departamento: 'RECTORADO', bp: 'Ana', urgencia: 'Dentro de 30 días', puntaje: '80', cliente: 'Luis', colaborador: 'Persona ' + id, ...extra });
@@ -62,5 +62,11 @@ ok('indicadores del Business Partner: cola, antigüedad y tasa de aprobación', 
   const b = metricasBP(f, hoy);
   assert.deepStrictEqual([b.porRevisar, b.devueltas, b.aprobadas, b.rechazadas, b.tasaAprobacion], [2, 1, 2, 1, 67]);
   assert.deepStrictEqual(b.antiguedad.map(x => x.n), [1, 0, 0, 1]); assert.strictEqual(b.cola[0].id, '2'); assert.strictEqual(metricasBP([], hoy).tasaAprobacion, null);
+});
+ok('histograma de preparación, mapa de calor, semanas y urgencias', () => {
+  assert.deepStrictEqual(histogramaPuntaje(filas).map(x => x.n), [0, 2, 0, 2, 1]);
+  const m = mapaCalor(filas); assert.strictEqual(m.filas[0], 'RECTORADO'); assert.strictEqual(m.celdas[0][m.columnas.indexOf('Promoción')], 4 - 0);
+  const w = porSemana(filas, hoy); assert.strictEqual(w.length, 8); assert.strictEqual(w[7], 3);
+  assert.deepStrictEqual(urgenciaPendientes(filas).map(x => x[1]), [1, 1, 0, 0]);
 });
 console.log('\n' + n + ' pruebas del tablero OK');

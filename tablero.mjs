@@ -99,3 +99,31 @@ export function metricasBP(filas, hoy = new Date()) {
     porMovimiento: Object.entries(filas.reduce((m, f) => (m[f.movimiento || '—'] = (m[f.movimiento || '—'] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).slice(0, 6)
   };
 }
+
+/** Distribución de la preparación de los casos (puntaje) en cinco tramos. */
+export function histogramaPuntaje(filas) {
+  const t = [['Menos de 40', 0, 39], ['40 a 59', 40, 59], ['60 a 74', 60, 74], ['75 a 84', 75, 84], ['85 o más', 85, 100]].map(([etiqueta, a, b]) => ({ etiqueta, a, b, n: 0 }));
+  filas.forEach(f => { const p = num(f.puntaje); if (p === null || p <= 0) return; const x = t.find(y => p >= y.a && p <= y.b); if (x) x.n++; });
+  return t;
+}
+
+/** Mapa de calor: departamentos con más solicitudes × movimientos más pedidos. */
+export function mapaCalor(filas, nf = 6, nc = 5) {
+  const top = k => Object.entries(filas.reduce((m, f) => (m[f[k] || '—'] = (m[f[k] || '—'] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, k === 'departamento' ? nf : nc).map(x => x[0]);
+  const filasK = top('departamento'), cols = top('movimiento');
+  const celdas = filasK.map(d => cols.map(m => filas.filter(f => (f.departamento || '—') === d && (f.movimiento || '—') === m).length));
+  return { filas: filasK, columnas: cols, celdas, max: Math.max(1, ...celdas.flat()) };
+}
+
+/** Solicitudes recibidas por semana (la última es la semana actual). */
+export function porSemana(filas, hoy = new Date(), n = 8) {
+  const out = Array(n).fill(0);
+  filas.forEach(f => { const d = dias(f.fechaSolicitud, hoy); if (d === null) return; const w = Math.floor(d / 7); if (w < n) out[n - 1 - w]++; });
+  return out;
+}
+
+/** Pendientes de Gerencia por urgencia, en el orden de prioridad. */
+export function urgenciaPendientes(filas) {
+  const orden = ['Inmediato', 'Dentro de 30 días', 'Dentro de 60 días', 'Más adelante'];
+  return orden.map(u => [u, filas.filter(f => estadoDe(f) === 'Enviado a Gerencia' && f.urgencia === u).length]);
+}

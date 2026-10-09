@@ -1,6 +1,6 @@
 import * as FB from "./firebase.js";
 import { redactar } from "./redactor.mjs";
-import { metricas, aplicarFiltros, prioridad, movimientoPorEstado, tendencia, lecturas, metricasBP } from "./tablero.mjs";   // indicadores del tablero de Gerencia   // motor de redacción ejecutiva (determinista)
+import { metricas, aplicarFiltros, prioridad, movimientoPorEstado, tendencia, lecturas, metricasBP, histogramaPuntaje, mapaCalor, porSemana, urgenciaPendientes } from "./tablero.mjs";   // indicadores del tablero de Gerencia   // motor de redacción ejecutiva (determinista)
 // Panel de HRBP y Gerencia sobre Firestore. Las reglas (firestore.rules) deciden qué ve y qué cambia cada rol; aquí solo se consulta.
 const VISIBLE_GER=["Enviado a Gerencia","Aprobado","Rechazado"];
 const CFG={bp:{estados:["En revisión BP","Devuelto al jefe","Enviado a Gerencia","En pausa"],editables:["Nuevo","En revisión BP","Devuelto al jefe","En pausa"],campo:"comentarioBP"},
@@ -115,7 +115,7 @@ function pintar(){
   let h=vista==="bp"?pintarBP(F):`<div class="kpis"><div class="card kpi"><b>${F.length}</b><span>Solicitudes</span></div><div class="card kpi"><b>${pend}</b><span>Por revisar</span></div>
    <div class="card kpi"><b>${F.filter(f=>f.estado==="Aprobado").length}</b><span>Aprobadas</span></div><div class="card kpi"><b>${F.filter(f=>f.estado==="Rechazado").length}</b><span>Rechazadas</span></div></div>`;
   if(vista==="gerencia")h+=`<div class="row">${barras("Por estado",contar(F,"estado"))}${barras("Por Business Partner",contar(F,"bp"))}${barras("Por movimiento",contar(F,"movimiento"))}${barras("Por departamento",contar(F,"departamento"))}${barras("Por urgencia",contar(F,"urgencia"))}</div>`;
-  if(vista==="bp"){$("app").innerHTML=h+tablaBandeja(F,visibles(),"bp");return}
+  if(vista==="bp"){$("app").innerHTML=h+tablaBandeja(F,visibles(),"bp");montar();return}
   const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
   h+=`<div class="tools"><input id="fq" placeholder="Buscar…" value="${esc(filtro.q)}"><select id="fe"><option value="">Todos los estados</option>${ALL.map(e=>`<option ${e===filtro.estado?"selected":""}>${esc(e)}</option>`).join("")}</select>
    ${vista!=="jefe"?'<button class="p" id="xls" style="margin-left:auto">⬇ Descargar Excel</button>':""}<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select></div>`;
@@ -147,8 +147,26 @@ const filaCaso=f=>`<button type="button" class="px-row" data-ver="${esc(f.id)}">
   <span class="px-mn"><b>${esc(f.colaborador||"—")}</b><em>${esc(f.movimiento)} · ${esc(f.departamento)}</em></span>
   <span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span>${f.dias!=null?`<small class="px-ed">${edad(f.dias)}</small>`:""}
   ${f.puntaje?`<span class="px-sc ${nivelP(+f.puntaje)}" title="Preparación del caso">${esc(f.puntaje)}</span>`:""}</button>`;
-const kpiPx=(cl,n,t,s,f)=>`<button type="button" class="px-kpi ${cl}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em></button>`;
+// ---------- Gráficos (Chart.js, cargado desde jsDelivr con integridad verificada) ----------
+const COL={navy:"#00195A",royal:"#0036DC",azul:"#3B6BFF",oro:"#F5B400",verde:"#1E9E5A",rojo:"#D64545",gris:"#9AA6C4",ambar:"#E07B39"};
+let GRAF=[],VIVOS=[];
+const grafico=(id,cfg)=>{GRAF.push([id,cfg]);return id};
+const centro={id:"centro",afterDraw(c,_,o){if(!o||o.texto==null)return;const {ctx,chartArea:a}=c,x=(a.left+a.right)/2,y=(a.top+a.bottom)/2;ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=o.color||COL.navy;ctx.font="800 30px Segoe UI,Arial";ctx.fillText(o.texto,x,y-8);ctx.fillStyle=o.subColor||"#5B6A8F";ctx.font="12px Segoe UI,Arial";ctx.fillText(o.sub||"",x,y+16);ctx.restore()}};
+function montar(){
+  VIVOS.forEach(c=>c.destroy());VIVOS=[];
+  if(typeof Chart==="undefined"){GRAF=[];return}
+  Chart.defaults.font.family='"Segoe UI",Inter,Arial,sans-serif';Chart.defaults.color="#5B6A8F";Chart.defaults.animation.duration=900;Chart.defaults.animation.easing="easeOutQuart";
+  GRAF.forEach(([id,cfg])=>{const el=document.getElementById(id);if(el)VIVOS.push(new Chart(el,{plugins:[centro],...cfg}))});GRAF=[];
+}
+const ejes=(extra={})=>({x:{grid:{display:false},border:{display:false},...(extra.x||{})},y:{beginAtZero:true,grid:{color:"#EEF2FB"},border:{display:false},ticks:{precision:0},...(extra.y||{})}});
+const leyenda={position:"bottom",labels:{usePointStyle:true,pointStyle:"circle",boxWidth:8,padding:16}};
+const grad=(c,a,b)=>{const g=c.chart.ctx.createLinearGradient(0,c.chart.chartArea?c.chart.chartArea.top:0,0,c.chart.chartArea?c.chart.chartArea.bottom:200);g.addColorStop(0,a);g.addColorStop(1,b);return g};
+const spark=(id,datos,color)=>grafico(id,{type:"line",data:{labels:datos.map((_,i)=>i),datasets:[{data:datos,borderColor:color,borderWidth:2.5,tension:.4,pointRadius:0,fill:true,backgroundColor:c=>grad(c,color+"55",color+"00")}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false,beginAtZero:true}},layout:{padding:2}}});
+const delta=(arr)=>{if(arr.length<2)return"";const d=arr[arr.length-1]-arr[arr.length-2];return d===0?`<i class="px-d eq">= igual que el mes anterior</i>`:`<i class="px-d ${d>0?"up":"dn"}">${d>0?"▲":"▼"} ${Math.abs(d)} vs mes anterior</i>`};
+const kpiPx=(cl,n,t,s,f,sp)=>`<button type="button" class="px-kpi ${cl}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em>${sp?`<div class="px-spw"><canvas id="${sp}"></canvas></div>`:""}</button>`;
+const lienzo=(id,alto)=>`<div class="px-cv" style="height:${alto||260}px"><canvas id="${id}"></canvas></div>`;
 const barraPx=(clave,pares)=>{const max=Math.max(1,...pares.map(x=>x[1]));return pares.length?pares.map(([k,n])=>`<button type="button" class="px-bar${clave&&filtro[clave]===k?" on":""}" ${clave?`data-f="${clave}:${esc(k)}"`:""}><span class="n" title="${esc(k)}">${esc(k)}</span><span class="t"><i style="width:${Math.round(n/max*100)}%"></i></span><b>${n}</b></button>`).join(""):'<p class="muted">Sin datos.</p>'};
+const mapaHTML=m=>!m.filas.length?'<p class="muted">Sin datos.</p>':`<div class="px-mapa"><table><tr><th></th>${m.columnas.map(c=>`<th title="${esc(c)}">${esc(c)}</th>`).join("")}</tr>${m.filas.map((d,i)=>`<tr><th title="${esc(d)}">${esc(d)}</th>${m.celdas[i].map((n,j)=>{const a=n/m.max;return `<td${n?` data-f="departamento:${esc(d)}" style="background:rgba(0,54,220,${(.08+a*.8).toFixed(2)});color:${a>.5?"#fff":"#00195A"}"`:""}>${n||""}</td>`}).join("")}</tr>`).join("")}</table></div>`;
 function tablaBandeja(F,V,rol){
   const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
   return `<section class="gx-card" id="bandeja"><h3>${rol==="gerencia"?"Todas las solicitudes":"Bandeja completa"}</h3>
@@ -163,53 +181,79 @@ function pintarGerencia(){
   if(!filtro.periodoElegido)filtro.periodo="";   // por defecto se ve todo lo cargado
   const M=metricas(D.filas,filtro.periodo,hoy),A=M.atencion,V=aplicarFiltros(D.filas,filtro);
   const Fp=filtro.periodo?D.filas.filter(f=>f.periodo===filtro.periodo):D.filas;
-  const urg=prioridad(Fp,hoy),mv=movimientoPorEstado(Fp),tn=tendencia(D.filas),maxT=Math.max(1,...tn.map(x=>x.total));
+  const urg=prioridad(Fp,hoy),mv=movimientoPorEstado(Fp,7),tn=tendencia(D.filas,8),hist=histogramaPuntaje(Fp),mapa=mapaCalor(Fp),up=urgenciaPendientes(Fp);
   const ls=lecturas(M,M.porMovimiento[0],M.porDepartamento[0]);
+  const sA=tn.map(x=>x.aprobadas),sR=tn.map(x=>x.rechazadas),sT=tn.map(x=>x.total);
+  spark("spA",sA,COL.verde);spark("spR",sR,COL.rojo);spark("spT",sT,COL.azul);
+  grafico("gRes",{type:"doughnut",data:{labels:["Por decidir","Aprobadas","Rechazadas"],datasets:[{data:[M.pendientes,M.aprobadas,M.rechazadas],backgroundColor:[COL.oro,COL.verde,COL.rojo],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:"74%",plugins:{legend:{display:false},centro:{texto:M.pctResueltas+"%",sub:"resuelto",color:"#fff",subColor:"#C9D6F5"}}}});
+  grafico("gTen",{data:{labels:tn.map(x=>mesCorto(x.periodo)),datasets:[
+    {type:"bar",label:"Recibidas",data:sT,backgroundColor:c=>grad(c,"#3B6BFF","#C4D4FF"),borderRadius:10,maxBarThickness:46,order:2},
+    {type:"line",label:"Aprobadas",data:sA,borderColor:COL.verde,backgroundColor:COL.verde,tension:.35,borderWidth:3,pointRadius:4,pointBackgroundColor:"#fff",pointBorderWidth:2,order:1},
+    {type:"line",label:"Rechazadas",data:sR,borderColor:COL.rojo,backgroundColor:COL.rojo,tension:.35,borderWidth:3,pointRadius:4,pointBackgroundColor:"#fff",pointBorderWidth:2,order:1}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},plugins:{legend:leyenda},scales:ejes()}});
+  grafico("gMov",{type:"bar",data:{labels:mv.map(x=>x.movimiento),datasets:[{label:"Por decidir",data:mv.map(x=>x.pendientes),backgroundColor:COL.oro},{label:"Aprobadas",data:mv.map(x=>x.aprobadas),backgroundColor:COL.verde},{label:"Rechazadas",data:mv.map(x=>x.rechazadas),backgroundColor:COL.rojo,borderRadius:{topRight:8,bottomRight:8}}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:leyenda},scales:{x:{stacked:true,grid:{color:"#EEF2FB"},border:{display:false},ticks:{precision:0}},y:{stacked:true,grid:{display:false},border:{display:false}}}}});
+  grafico("gHis",{type:"bar",data:{labels:hist.map(x=>x.etiqueta),datasets:[{label:"Casos",data:hist.map(x=>x.n),backgroundColor:[COL.rojo,COL.ambar,COL.oro,"#7BC96F",COL.verde],borderRadius:10,maxBarThickness:60}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:ejes()}});
+  grafico("gUrg",{type:"polarArea",data:{labels:up.map(x=>x[0]),datasets:[{data:up.map(x=>x[1]),backgroundColor:["#D64545cc","#E07B39cc","#F5B400cc","#9AA6C4cc"],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:leyenda},scales:{r:{ticks:{display:false,precision:0},grid:{color:"#EEF2FB"}}}}});
+  grafico("gPre",{type:"doughnut",data:{datasets:[{data:[M.puntajePromedio||0,100-(M.puntajePromedio||0)],backgroundColor:[(M.puntajePromedio||0)>=85?COL.verde:(M.puntajePromedio||0)>=60?COL.oro:COL.rojo,"#E8ECF6"],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,rotation:-90,circumference:180,cutout:"78%",plugins:{legend:{display:false},tooltip:{enabled:false},centro:{texto:M.puntajePromedio==null?"—":String(M.puntajePromedio),sub:""}}}});
   $("app").innerHTML=`
    <div class="px-top"><div><span class="px-eyebrow">Gerencia · Decisión de movimientos</span><h2>Centro de decisiones</h2><p>Lo que necesitas para decidir y sustentar cada movimiento de talento</p></div>
      <label class="gx-per"><i>${IC.cal}</i><span>Periodo<select id="fp">${todos.periodos.map(x=>`<option value="${esc(x)}"${x===filtro.periodo?" selected":""}>${esc(periodoTxt(x))}</option>`).join("")}<option value=""${filtro.periodo===""?" selected":""}>Todos los periodos</option></select></span></label></div>
-   <section class="px-lectura"><i>✦</i><div><b>Lectura rápida</b><ul>${ls.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section>
    <div class="px-kpis">
-     ${kpiPx("primario",M.pendientes,"Por decidir",A.masAntiguo==null?"Nada pendiente":`El más antiguo lleva ${A.masAntiguo} ${A.masAntiguo===1?"día":"días"}`,"atencion:pendientes")}
-     ${kpiPx("verde",M.aprobadas,"Aprobadas",M.resueltas?Math.round(M.aprobadas/M.resueltas*100)+"% de lo resuelto":"—","estado:Aprobado")}
-     ${kpiPx("rojo",M.rechazadas,"Rechazadas",M.resueltas?Math.round(M.rechazadas/M.resueltas*100)+"% de lo resuelto":"—","estado:Rechazado")}
-     ${kpiPx("neutro",M.puntajePromedio==null?"—":M.puntajePromedio,"Preparación promedio",A.bajos?`${A.bajos} pendiente${A.bajos===1?"":"s"} con preparación baja`:"de 100 puntos","atencion:bajos")}
+     <button type="button" class="px-kpi primario grande" data-f="atencion:pendientes"><div class="txt"><span>Por decidir</span><b>${esc(M.pendientes)}</b><em>${A.masAntiguo==null?"Nada pendiente":`El más antiguo lleva ${A.masAntiguo} ${A.masAntiguo===1?"día":"días"}`}${A.urgentes?` · ${A.urgentes} urgente${A.urgentes===1?"":"s"}`:""}</em></div><div class="px-cv mini"><canvas id="gRes"></canvas></div></button>
+     ${kpiPx("verde",M.aprobadas,"Aprobadas",M.resueltas?Math.round(M.aprobadas/M.resueltas*100)+"% de lo resuelto":"—","estado:Aprobado","spA")}
+     ${kpiPx("rojo",M.rechazadas,"Rechazadas",M.resueltas?Math.round(M.rechazadas/M.resueltas*100)+"% de lo resuelto":"—","estado:Rechazado","spR")}
+     <button type="button" class="px-kpi neutro" data-f="atencion:bajos"><span>Preparación promedio</span><div class="px-gauge"><canvas id="gPre"></canvas></div><em>${A.bajos?`${A.bajos} pendiente${A.bajos===1?"":"s"} con preparación baja`:"sobre 100 puntos"}</em></button>
    </div>
+   <section class="px-lectura"><i>✦</i><div><b>Lectura rápida</b><ul>${ls.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section>
    <div class="px-2">
      <section class="gx-card"><h3>Para decidir ahora</h3><p class="sub">Primero lo más urgente y lo que más espera</p>${urg.length?urg.map(filaCaso).join(""):'<p class="muted">No hay casos pendientes. Todo está al día.</p>'}${M.pendientes>urg.length?`<button type="button" class="px-mas" data-f="atencion:pendientes">Ver los ${M.pendientes} pendientes →</button>`:""}</section>
-     <section class="gx-card"><h3>Qué se está pidiendo</h3><p class="sub">Movimientos solicitados y cómo van</p>
-       ${mv.length?mv.map(x=>`<button type="button" class="px-stk${filtro.movimiento===x.movimiento?" on":""}" data-f="movimiento:${esc(x.movimiento)}"><span class="n">${esc(x.movimiento)}</span><span class="t" style="width:${Math.round(x.total/mv[0].total*100)}%"><i class="pe" style="flex:${esc(x.pendientes)}"></i><i class="ap" style="flex:${esc(x.aprobadas)}"></i><i class="re" style="flex:${esc(x.rechazadas)}"></i></span><b>${esc(x.total)}</b></button>`).join(""):'<p class="muted">Sin datos.</p>'}
-       <div class="px-leyenda"><span><i class="pe"></i>Por decidir</span><span><i class="ap"></i>Aprobadas</span><span><i class="re"></i>Rechazadas</span></div></section>
+     <section class="gx-card"><h3>Urgencia de lo pendiente</h3><p class="sub">Cuánto apremia cada caso que espera tu decisión</p>${lienzo("gUrg",300)}</section>
    </div>
-   <div class="px-2">
-     <section class="gx-card"><h3>Evolución mensual</h3><p class="sub">Solicitudes recibidas por mes</p>
-       ${tn.length?`<div class="px-cols">${tn.map(x=>`<div class="px-col"><b>${esc(x.total)}</b><span class="t"><i class="ap" style="height:${Math.round(x.aprobadas/maxT*100)}%"></i><i class="re" style="height:${Math.round(x.rechazadas/maxT*100)}%"></i><i class="pe" style="height:${Math.round((x.total-x.aprobadas-x.rechazadas)/maxT*100)}%"></i></span><em>${esc(mesCorto(x.periodo))}</em></div>`).join("")}</div>`:'<p class="muted">Sin datos.</p>'}</section>
-     <section class="gx-card"><h3>Áreas que más piden</h3><p class="sub">Departamentos con más solicitudes</p>${barraPx("departamento",M.porDepartamento.slice(0,5))}</section>
+   <div class="px-2 a">
+     <section class="gx-card"><h3>Evolución de las solicitudes</h3><p class="sub">Recibidas, aprobadas y rechazadas por mes ${delta(sT)}</p>${lienzo("gTen",300)}</section>
+     <section class="gx-card"><h3>Cómo van las decisiones</h3><p class="sub">Estado de todas las solicitudes</p>${lienzo("gRes2",300)}</section>
    </div>
+   <div class="px-2 b">
+     <section class="gx-card"><h3>Qué se está pidiendo</h3><p class="sub">Movimientos solicitados y cómo van</p>${lienzo("gMov",320)}</section>
+     <section class="gx-card"><h3>Qué tan bien preparados llegan los casos</h3><p class="sub">Puntaje de preparación (0 a 100) de cada solicitud</p>${lienzo("gHis",320)}</section>
+   </div>
+   <section class="gx-card"><h3>Dónde se concentran los pedidos</h3><p class="sub">Departamentos con más solicitudes según el movimiento · toca una celda para filtrar</p>${mapaHTML(mapa)}</section>
    ${tablaBandeja(D.filas,V,"gerencia")}`;
+  GRAF.push(["gRes2",{type:"doughnut",data:{labels:["Por decidir","Aprobadas","Rechazadas"],datasets:[{data:[M.pendientes,M.aprobadas,M.rechazadas],backgroundColor:[COL.oro,COL.verde,COL.rojo],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:"68%",plugins:{legend:leyenda,centro:{texto:String(M.total),sub:"solicitudes"}}}}]);
+  montar();
 }
 function pintarBP(F){
-  const B=metricasBP(F,new Date()),tot=Math.max(1,B.total),maxA=Math.max(1,...B.antiguedad.map(y=>y.n));
-  const seg=[["#F5B400",B.porRevisar,"Por revisar"],["#E07B39",B.devueltas,"Devueltas al jefe"],["#9AA6C4",B.enPausa,"En pausa"],["#3B6BFF",B.enGerencia,"En Gerencia"],["#1E9E5A",B.aprobadas,"Aprobadas"],["#D64545",B.rechazadas,"Rechazadas"]];
-  let acc=0;const cono=seg.map(([c,n])=>{const a=acc/tot*100;acc+=n;return `${c} ${a}% ${acc/tot*100}%`}).join(",");
-  const masViejo=B.cola.length?Math.max(...B.cola.map(x=>x.dias||0)):null;
+  const B=metricasBP(F,new Date()),hoy=new Date(),tn=tendencia(F,8),sem=porSemana(F,hoy,8),maxA=Math.max(1,...B.antiguedad.map(y=>y.n));
+  const seg=[[COL.oro,B.porRevisar,"Por revisar"],[COL.ambar,B.devueltas,"Devueltas al jefe"],[COL.gris,B.enPausa,"En pausa"],[COL.azul,B.enGerencia,"En Gerencia"],[COL.verde,B.aprobadas,"Aprobadas"],[COL.rojo,B.rechazadas,"Rechazadas"]];
+  const masViejo=B.cola.length?Math.max(...B.cola.map(x=>x.dias||0)):null,enPlazo=B.antiguedad[0].n+B.antiguedad[1].n,sla=B.porRevisar?Math.round(enPlazo/B.porRevisar*100):100;
+  const revisadas=B.total-B.porRevisar,escaladas=B.enGerencia+B.aprobadas+B.rechazadas;
+  spark("spD",tn.map(x=>x.total),COL.azul);spark("spE",sem,COL.oro);
+  grafico("gEt",{type:"doughnut",data:{labels:seg.map(x=>x[2]),datasets:[{data:seg.map(x=>x[1]),backgroundColor:seg.map(x=>x[0]),borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:"70%",plugins:{legend:{...leyenda,position:"right"},centro:{texto:String(B.total),sub:"solicitudes"}}}});
+  grafico("gSem",{type:"line",data:{labels:sem.map((_,i)=>i===sem.length-1?"Esta semana":`Hace ${sem.length-1-i} sem.`),datasets:[{label:"Solicitudes recibidas",data:sem,borderColor:COL.royal,borderWidth:3,tension:.4,fill:true,backgroundColor:c=>grad(c,"#3B6BFF66","#3B6BFF00"),pointRadius:5,pointBackgroundColor:"#fff",pointBorderColor:COL.royal,pointBorderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:ejes()}});
+  grafico("gAnt",{type:"bar",data:{labels:B.antiguedad.map(x=>x.etiqueta),datasets:[{data:B.antiguedad.map(x=>x.n),backgroundColor:["#7BC96F",COL.oro,COL.ambar,COL.rojo],borderRadius:12,maxBarThickness:64}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:ejes({y:{suggestedMax:maxA+1}})}});
+  grafico("gEmb",{type:"bar",data:{labels:["Recibidas","Revisadas","Escaladas a Gerencia","Aprobadas"],datasets:[{data:[B.total,revisadas,escaladas,B.aprobadas],backgroundColor:[COL.navy,COL.royal,COL.azul,COL.verde],borderRadius:10,barPercentage:.82}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:"#EEF2FB"},border:{display:false},ticks:{precision:0}},y:{grid:{display:false},border:{display:false}}}}});
+  grafico("gMovBP",{type:"bar",data:{labels:B.porMovimiento.map(x=>x[0]),datasets:[{data:B.porMovimiento.map(x=>x[1]),backgroundColor:c=>grad(c,"#3B6BFF","#00195A"),borderRadius:10,maxBarThickness:44}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:ejes({x:{ticks:{maxRotation:35,minRotation:0}}})}});
+  grafico("gSla",{type:"doughnut",data:{datasets:[{data:[sla,100-sla],backgroundColor:[sla>=80?COL.verde:sla>=50?COL.oro:COL.rojo,"#E8ECF6"],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,rotation:-90,circumference:180,cutout:"78%",plugins:{legend:{display:false},tooltip:{enabled:false},centro:{texto:sla+"%",sub:""}}}});
   return `<div class="px-top"><div><span class="px-eyebrow">Business Partner · Gestión</span><h2>Tu bandeja de solicitudes</h2><p>Revisa, devuelve, deriva o escala cada caso</p></div></div>
    <div class="px-kpis">
-     ${kpiPx("primario",B.porRevisar,"Por revisar",masViejo==null?"Nada pendiente":`La más antigua lleva ${masViejo} ${masViejo===1?"día":"días"}`,"estado:En revisión BP")}
+     ${kpiPx("primario",B.porRevisar,"Por revisar",masViejo==null?"Nada pendiente":`La más antigua lleva ${masViejo} ${masViejo===1?"día":"días"}`,"estado:En revisión BP","spE")}
      ${kpiPx("ambar",B.devueltas,"Devueltas al jefe","Esperan corrección del líder","estado:Devuelto al jefe")}
-     ${kpiPx("azul",B.enGerencia,"En Gerencia","Esperan decisión del comité","estado:Enviado a Gerencia")}
-     ${kpiPx("verde",B.tasaAprobacion==null?"—":B.tasaAprobacion+"%","Tasa de aprobación","de lo que Gerencia ya resolvió","estado:Aprobado")}
+     ${kpiPx("azul",B.enGerencia,"En Gerencia","Esperan decisión del comité","estado:Enviado a Gerencia","spD")}
+     <button type="button" class="px-kpi neutro" data-f="estado:Aprobado"><span>Aprobación en Gerencia</span><b>${B.tasaAprobacion==null?"—":B.tasaAprobacion+"%"}</b><em>${B.aprobadas} aprobada${B.aprobadas===1?"":"s"} · ${B.rechazadas} rechazada${B.rechazadas===1?"":"s"}</em></button>
    </div>
    <div class="px-2">
      <section class="gx-card"><h3>Para revisar ahora</h3><p class="sub">Ordenadas por urgencia y por cuánto llevan esperando</p>${B.cola.length?B.cola.map(filaCaso).join(""):'<p class="muted">No tienes solicitudes por revisar.</p>'}</section>
-     <section class="gx-card"><h3>Cuánto llevan esperando</h3><p class="sub">Solicitudes por revisar según su antigüedad</p>${B.antiguedad.map((x,i)=>`<div class="px-bar"><span class="n">${esc(x.etiqueta)}</span><span class="t"><i class="${["","","am","ro"][i]}" style="width:${Math.round(x.n/maxA*100)}%"></i></span><b>${esc(x.n)}</b></div>`).join("")}
-       <p class="px-nota">${B.antiguedad[3].n?`⚠ ${B.antiguedad[3].n} ${B.antiguedad[3].n===1?"lleva":"llevan"} más de 15 días: conviene priorizar.`:"Nada con más de 15 días de espera."}</p></section>
+     <section class="gx-card"><h3>Cuánto llevan esperando</h3><p class="sub">Solicitudes por revisar según su antigüedad</p>${lienzo("gAnt",230)}
+       <div class="px-sla"><div class="px-gauge s"><canvas id="gSla"></canvas></div><div><b>${sla}% dentro de plazo</b><span>${B.antiguedad[3].n?`⚠ ${B.antiguedad[3].n} ${B.antiguedad[3].n===1?"lleva":"llevan"} más de 15 días: conviene priorizar.`:"Nada con más de 15 días de espera."}</span></div></div></section>
    </div>
-   <div class="px-2">
-     <section class="gx-card"><h3>Dónde está tu trabajo</h3><p class="sub">Todas tus solicitudes según su etapa</p>
-       <div class="px-dona"><div class="px-pie" style="background:conic-gradient(${B.total?cono:"#E8ECF6 0 100%"})"><b>${B.total}</b><span>solicitudes</span></div>
-       <ul class="px-leg">${seg.map(([c,n,t])=>`<li><i style="background:${c}"></i>${t}<b>${n}</b></li>`).join("")}</ul></div></section>
-     <section class="gx-card"><h3>Por movimiento</h3><p class="sub">Qué te están pidiendo más</p>${barraPx("",B.porMovimiento)}</section>
+   <div class="px-2 a">
+     <section class="gx-card"><h3>Ritmo de llegada</h3><p class="sub">Solicitudes recibidas por semana (últimas 8)</p>${lienzo("gSem",280)}</section>
+     <section class="gx-card"><h3>Dónde está tu trabajo</h3><p class="sub">Todas tus solicitudes según su etapa</p>${lienzo("gEt",280)}</section>
+   </div>
+   <div class="px-2 b">
+     <section class="gx-card"><h3>Del ingreso a la decisión</h3><p class="sub">Cuántas llegaron, se revisaron, escalaron y se aprobaron</p>${lienzo("gEmb",280)}</section>
+     <section class="gx-card"><h3>Qué te piden más</h3><p class="sub">Solicitudes por tipo de movimiento</p>${lienzo("gMovBP",280)}</section>
    </div>`;
 }
 
