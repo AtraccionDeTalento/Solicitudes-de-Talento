@@ -53,6 +53,12 @@ const API={
     await sesion();const s=await FB.getDoc(FB.doc(FB.db,"solicitudes",id));if(!s.exists())throw new Error("Solicitud no disponible");const d=s.data();
     return {puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
   },
+  async panelEventos(vista){
+    const q=await sesion();if(!CFG[vista]||!q.vistas.includes(vista))throw new Error("Sin acceso");
+    const c=FB.collection(FB.db,"eventos");
+    const r=await FB.getDocs(vista==="bp"?FB.query(c,FB.where("bpId","==",q.bpId)):c);
+    return r.docs.map(d=>d.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  },
   async panelCortes(){
     const q=await sesion();if(!q.vistas.includes("gerencia"))throw new Error("Sin acceso a los cortes");
     return (await FB.getDocs(FB.collection(FB.db,"cortes"))).docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.creadoEl).localeCompare(String(a.creadoEl)));
@@ -76,8 +82,14 @@ const API={
       if(extra.textoGerencia!=null){cambios.textoGerencia=String(extra.textoGerencia).slice(0,20000);cambios.textoOrigen=String(extra.textoOrigen||"").slice(0,30)}
       if(extra.derivarA){if(extra.derivarA===q.bpId)throw new Error("Elige a otro Socio de negocio.");cambios.bpId=String(extra.derivarA);cambios.derivadoDe=q.bpId;cambios.estado="En revisión BP"}   // pasa a la bandeja de otro BP
     }
+    let previo=null;try{previo=(await FB.getDoc(FB.doc(FB.db,"solicitudes",id))).data()}catch(e){/* sin lectura previa: el evento sale sin «de» */}
     try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),cambios)}
     catch(e){throw new Error(e.code==="permission-denied"?"Esta solicitud ya no está en tu etapa.":e.message)}
+    // Trazabilidad: queda escrito quién hizo qué y cuándo (las reglas solo aceptan el evento si coincide con lo que acaba de pasar en la solicitud).
+    const de=previo?String(previo.estado||"Nuevo"):"",bpAhora=cambios.bpId||(previo&&previo.bpId)||"";
+    const tipo=cambios.derivadoDe?"Derivación":cambios.textoGerencia!=null?"Escalada a Gerencia":de&&de!==cambios.estado?"Cambio de estado":"Comentario";
+    try{await FB.setDoc(FB.doc(FB.collection(FB.db,"eventos")),{solicitudId:id,bpId:bpAhora,tipo,de,a:cambios.estado,por:q.email,rol:vista,fecha:cambios.gestionadoEl,comentario:String(cambios[CFG[vista].campo]||"").slice(0,1000)})}
+    catch(e){console.warn("No se pudo registrar el evento de trazabilidad",e.code)}
     return {ok:true};
   }
 };
@@ -410,6 +422,29 @@ function construirExcel(ExcelJS, rows, meta) {
     f.eachCell(c => { c.alignment = { vertical: "top", wrapText: true }; c.border = borde; });
   }));
   wa.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 8 } };
+
+  // ---- Trazabilidad: qué le pasó a cada caso (envío del jefe y cada gestión posterior, en orden)
+  const wt = wb.addWorksheet("Trazabilidad", { views: [{ state: "frozen", ySplit: 1 }], properties: { tabColor: { argb: "FF1E9E5A" } } });
+  wt.columns = [{ header: "ID caso", key: "id", width: 24 }, { header: "Colaborador", key: "col", width: 28 }, { header: "Movimiento", key: "mov", width: 22 }, { header: "Fecha y hora", key: "f", width: 20 }, { header: "Evento", key: "ev", width: 22 },
+    { header: "De", key: "de", width: 20 }, { header: "A", key: "a", width: 20 }, { header: "Por", key: "por", width: 30 }, { header: "Rol", key: "rol", width: 14 }, { header: "Comentario", key: "c", width: 70 }];
+  cabecera(wt.getRow(1));
+  const hora = iso => { const d = new Date(iso); return isNaN(d) ? txt(iso) : d.toLocaleString("es-PE", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); };
+  const porCaso = {}; (meta.eventos || []).forEach(e => { (porCaso[e.solicitudId] ||= []).push(e); });
+  ordenadas.forEach(r => {
+    const filasCaso = [{ f: r.enviadoEl, ev: "Envío", de: "", a: "Nuevo", por: txt(r.enviadoPor), rol: "jefe", c: "" }, ...(porCaso[r.id] || []).map(e => ({ f: e.fecha, ev: e.tipo, de: e.de, a: e.a, por: e.por, rol: e.rol === "bp" ? "socio de negocio" : e.rol, c: e.comentario }))];
+    filasCaso.forEach(x => { const f = wt.addRow({ id: r.id, col: txt(r.colaborador), mov: txt(r.movimiento), f: hora(x.f), ev: txt(x.ev), de: txt(x.de), a: txt(x.a), por: txt(x.por), rol: txt(x.rol), c: txt(x.c) });
+      f.eachCell(c => { c.alignment = { vertical: "top", wrapText: true }; c.border = borde; }); f.getCell("ev").font = { bold: true, color: { argb: NAVY } }; });
+  });
+  wt.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } };
+
+  // ---- Cortes (solo Gerencia): qué casos se llevaron a cada comité
+  if ((meta.cortes || []).length) {
+    const wc = wb.addWorksheet("Cortes", { views: [{ state: "frozen", ySplit: 1 }], properties: { tabColor: { argb: "FFB87400" } } });
+    wc.columns = [{ header: "Corte", key: "t", width: 30 }, { header: "Hasta la fecha", key: "h", width: 16 }, { header: "Guardado el", key: "g", width: 20 }, { header: "Por", key: "p", width: 28 }, { header: "ID caso", key: "id", width: 24 }, { header: "Colaborador", key: "c", width: 28 }, { header: "Movimiento", key: "m", width: 22 }, { header: "Urgencia", key: "u", width: 18 }, { header: "Puntaje", key: "s", width: 10 }];
+    cabecera(wc.getRow(1));
+    meta.cortes.forEach(k => (k.casos || []).forEach(c => { const f = wc.addRow({ t: txt(k.titulo), h: txt(k.fechaCorte), g: hora(k.creadoEl), p: txt(k.creadoPor), id: txt(c.id), c: txt(c.colaborador), m: txt(c.movimiento), u: txt(c.urgencia), s: txt(c.puntaje) }); f.eachCell(x => { x.border = borde; }); }));
+    wc.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 9 } };
+  }
   return wb;
 }
 // </excel>
@@ -419,8 +454,9 @@ function descargar(){
   btn("Preparando…",true);
   google.script.run.withFailureHandler(e=>{btn("⬇ Descargar Excel",false);alert(e.message||e)}).withSuccessHandler(async rows=>{
     try{
+      const eventos=await API.panelEventos(vista).catch(()=>[]),cortes=vista==="gerencia"?await API.panelCortes().catch(()=>[]):[];
       if(typeof ExcelJS==="undefined") throw new Error("No se pudo cargar la librería de Excel. Revisa tu conexión y recarga.");
-      const wb=construirExcel(ExcelJS,rows,{titulo:"Solicitudes de Talento · "+TITULOS[vista],usuario:D.email,fecha:new Date().toLocaleString("es-PE")});
+      const wb=construirExcel(ExcelJS,rows,{eventos,cortes,titulo:"Solicitudes de Talento · "+TITULOS[vista],usuario:D.email,fecha:new Date().toLocaleString("es-PE")});
       const buf=await wb.xlsx.writeBuffer();
       const a=document.createElement("a");
       a.href=URL.createObjectURL(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
