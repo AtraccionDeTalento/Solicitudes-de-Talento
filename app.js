@@ -685,19 +685,19 @@ function buildExecutiveSummary(){
 // ---------- Búsqueda de colaborador ----------
 function lockNew(reset){
   const mov=$("movimiento").value,isNew=NOCODE.includes(mov);
-  ["codigo","colaborador","puestoActual"].forEach(id=>$(id).readOnly=isNew);
+  ["correoColab","codigo","colaborador","puestoActual"].forEach(id=>$(id).readOnly=isNew);
   $("lookupEmployee").disabled=isNew;
   if(reset){
     if(isNew){
-      $("codigo").value="No aplica";$("colaborador").value=mov==="Puesto nuevo"?"Vacante nueva":"Varios colaboradores";$("puestoActual").value="No aplica";
+      $("correoColab").value="";$("codigo").value="No aplica";$("colaborador").value=mov==="Puesto nuevo"?"Vacante nueva":"Varios colaboradores";$("puestoActual").value="No aplica";
       ["departamento","area","seccion"].forEach(id=>$(id).value="");
     }else if($("codigo").value==="No aplica"){
-      ["codigo","colaborador","puestoActual","departamento","area","seccion"].forEach(id=>$(id).value="");
+      ["correoColab","codigo","colaborador","puestoActual","departamento","area","seccion"].forEach(id=>$(id).value="");
     }
   }
   $("codigoHelp").textContent=isNew
     ? (mov==="Puesto nuevo"?"Puesto nuevo":"Reestructuración")+": no hay matrícula individual; completa manualmente Departamento, Área y Sección."
-    : "Ingresa el código; se completa a 10 dígitos y se busca en la base maestra si está disponible. Si no aparece, completa los datos manualmente.";
+    : "Escribe el correo institucional del colaborador y pulsa Buscar: se completan nombre, puesto, departamento, área, sección y matrícula. Si no aparece, complétalos manualmente.";
 }
 
 // Consulta al maestro en Firestore (por matrícula, sin listar): devuelve solo la persona buscada.
@@ -719,6 +719,24 @@ async function lookupRemote(code){
     if(!r.item.area||!r.item.seccion) msg+=" Esta persona no tiene Área o Sección en la base: puedes continuar sin completarlas.";
     help.textContent=msg;afterAuto();
   }catch(e){help.textContent="No se pudo consultar la base ahora. Completa los datos manualmente."}
+}
+// Búsqueda del colaborador por su correo institucional: completa nombre, puesto, departamento, área, sección y matrícula.
+async function lookupEmployeeByEmail(){
+  if(NOCODE.includes($("movimiento").value)) return;
+  const help=$("codigoHelp"),mail=$("correoColab").value.trim().toLowerCase();
+  if(!mail){help.textContent="Escribe el correo institucional del colaborador.";return}
+  if(!/^[^@\s]+@usil\.edu\.pe$/.test(mail)){help.textContent="Usa el correo institucional del colaborador (@usil.edu.pe).";return}
+  help.textContent="Buscando en la base…";
+  const r=await postMaestro({correo:mail});
+  if($("correoColab").value.trim().toLowerCase()!==mail) return;   // el usuario cambió el correo mientras tanto
+  if(!r.ok){help.textContent=`${r.error||"No se pudo consultar la base."} Completa los datos manualmente.`;return}
+  if(!r.item){help.textContent="No se encontró ese correo en la base. Revisa que esté bien escrito o completa los datos manualmente.";return}
+  if(r.item.codigo) $("codigo").value=r.item.codigo;
+  setEmployeeFields(r.item);
+  let msg="Datos completados desde la base de personal: nombre, puesto, departamento, área, sección y matrícula.";
+  if(r.item.situacion&&normalizeTextKey(r.item.situacion)!=="activo") msg+=` Atención: Situación = ${r.item.situacion}.`;
+  if(!r.item.area||!r.item.seccion) msg+=" Esta persona no tiene Área o Sección en la base: puedes continuar sin completarlas.";
+  help.textContent=msg;afterAuto();
 }
 async function autoLider(){
   if(!CONFIG.endpoint||!SESSION||$("cargoCliente").value) return;
@@ -757,7 +775,7 @@ function qHTML([id,label,type,opts,help]){
 const G0A=[["fechaSolicitud","Fecha de solicitud","date"],["movimiento","Tipo de movimiento","select",MOVS]];
 const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
 const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el código"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS,"Define a qué Business Partner llega tu solicitud (asignación automática)."],["area","Área","text"],["seccion","Sección","text"]];
-const CODE_HTML=`<div class="q"><label for="codigo">Código del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="codigo" inputmode="numeric" placeholder="Ej. 2458 o 0000001234"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div>`;
+const CODE_HTML=`<div class="q"><label for="correoColab">Correo del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
 const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SNC],["fuentePresupuesto","Fuente de presupuesto","select",["Presupuesto aprobado","Vacante disponible","Ahorro interno","Reasignación","Presupuesto adicional","No identificada","Otro"]],["validaPresupuesto","Quién confirma / valida el presupuesto","text","Nombre, cargo o estado de validación"],["montoPresupuesto","Monto disponible (S/)","number","0.00","Obligatorio si cuenta con presupuesto."]];
 const G4=[["urgencia","¿Cuándo se necesita implementar?","select",["Inmediato","Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
 const LEVELS=["Presidencia","Gerencia General","Líder de Unidad","Líder de Área","Líder inmediato","Otro"], EVID=["Correo","Acta","Reunión","Documento","Otro"];
@@ -1269,7 +1287,8 @@ function init(){
   $("form").addEventListener("input",onAny);$("form").addEventListener("change",onAny);
   $("stepper").addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b&&!b.disabled) go(+b.dataset.go)});
   $("prevBtn").onclick=()=>go(cur-1);$("nextBtn").onclick=next;
-  $("lookupEmployee").onclick=lookupEmployeeByCode;
+  $("lookupEmployee").onclick=lookupEmployeeByEmail;
+  $("correoColab").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupEmployeeByEmail()}});
   $("codigo").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupEmployeeByCode()}});
   $("addApproval").onclick=()=>addApproval();
   $("generateExecutive").onclick=()=>{

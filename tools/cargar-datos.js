@@ -27,7 +27,7 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
 
 (async () => {
   const args = process.argv.slice(2), archivo = args.find(a => !a.startsWith("--"));
-  await db.doc("config/app").set({ modoPrueba: true });   // en producción: cambiar a false (desde la consola de Firebase)
+  await db.doc("config/app").set({ modoPrueba: true, busquedaJefes: false });   // busquedaJefes: ver firestore.rules (colaboradores)   // en producción: cambiar a false (desde la consola de Firebase)
   const validos = require("./departamentos"), rf = path.join(__dirname, "ruteo.local.json");
   // En los emuladores, si existen tools/ruteo.local.json y tools/usuarios.json se usan también: así pruebas con tus cuentas reales sin tocar la nube.
   if (!PRUEBA && !fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
@@ -68,7 +68,9 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   if (PRUEBA) {   // personal inventado: 6 por departamento
     const items = []; let n = 0;
     validos.forEach(dep => { for (let i = 1; i <= 6; i++) { const mat = String(++n).padStart(10, "0");
-      items.push([db.doc("maestro/" + mat), { nombre: "Persona Prueba " + n, puesto: "ANALISTA " + i, situacion: "Activo", departamento: dep, area: "AREA " + i, seccion: "SECCION " + i }]); } });
+      const ficha = { nombre: "Persona Prueba " + n, puesto: "ANALISTA " + i, situacion: "Activo", departamento: dep, area: "AREA " + i, seccion: "SECCION " + i };
+      items.push([db.doc("maestro/" + mat), ficha]);
+      items.push([db.doc("colaboradores/" + "persona" + n + "@usil.edu.pe"), { ...ficha, matricula: mat }]); } });   // correos inventados: persona1@…, persona2@…
     await lote(items); console.log("maestro de prueba:", n, "personas inventadas");
   }
   if (archivo) {
@@ -77,7 +79,7 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
     const items = [];
     filas.forEach(([mat, nombre, puesto, situacion, departamento, area, seccion, mail]) => {
       items.push([db.doc("maestro/" + mat), { nombre, puesto, situacion, departamento, area, seccion }]);
-      if (mail) items.push([db.doc("lideres/" + norm(mail)), { nombre, puesto }]);
+      if (mail) { items.push([db.doc("lideres/" + norm(mail)), { nombre, puesto }]); items.push([db.doc("colaboradores/" + norm(mail)), { nombre, puesto, situacion, departamento, area, seccion, matricula: mat }]); }
     });
     await lote(items);
     console.log("maestro:", filas.length, "personas");

@@ -16,6 +16,8 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     const db = c.firestore();
     await setDoc(doc(db, 'ruteo', DEP), { bpId: 'bpid-1' });
     await setDoc(doc(db, 'bps', 'bpid-1'), { nombre: 'HRBP Uno' });
+    await setDoc(doc(db, 'bps', 'bpid-2'), { nombre: 'HRBP Dos' });
+    await setDoc(doc(db, 'colaboradores', 'jefe1@usil.edu.pe'), { matricula: '0000000001', nombre: 'Ana', puesto: 'ANALISTA', departamento: DEP });
     await setDoc(doc(db, 'lideres', JEFE), { nombre: 'Jefe Uno', puesto: 'JEFE' });
     await setDoc(doc(db, 'roles', BP1), { roles: ['bp'], bpId: 'bpid-1' });
     await setDoc(doc(db, 'roles', BP2), { roles: ['bp'], bpId: 'bpid-2' });
@@ -125,6 +127,32 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertFails(updateDoc(sol(bp1, 'T1'), gestion({ textoGerencia: 'texto', otroCampo: 'x' })));
     await assertSucceeds(updateDoc(sol(bp1, 'T1'), gestion({ textoGerencia: 'SOLICITUD DE PROMOCIÓN\n1. DECISIÓN QUE SE SOLICITA', textoOrigen: 'motor+editado' })));
     await assertFails(updateDoc(sol(ger, 'S-GER'), { estado: 'Aprobado', comentarioGerencia: 'x', gestionadoPor: GER, gestionadoEl: 'hoy', textoGerencia: 'Gerencia no reescribe el texto del BP' }));
+  });
+  await t('buscar colaborador por correo: el personal siempre; los jefes solo en modo prueba o con busquedaJefes; nunca en lista', async () => {
+    const col = c => doc(c, 'colaboradores', 'jefe1@usil.edu.pe');
+    await assertSucceeds(getDoc(col(bp1)));
+    await assertFails(getDoc(col(anon)));   // producción: modoPrueba apagado y sin marca
+    await prueba(true); await assertSucceeds(getDoc(col(anon)));
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false, busquedaJefes: true }));
+    await assertSucceeds(getDoc(col(anon)));
+    await prueba(false); await assertFails(getDoc(col(anon)));
+    await assertFails(getDocs(collection(bp1, 'colaboradores'))); await assertFails(getDoc(col(env.unauthenticatedContext().firestore())));
+    await assertFails(setDoc(doc(bp1, 'colaboradores', 'x@usil.edu.pe'), { nombre: 'x' }));
+  });
+  await t('derivar a otro Business Partner: solo el BP actual, a un BP que existe y distinto; el original deja de verla', async () => {
+    for (const id of ['V1', 'V2']) await assertSucceeds(setDoc(sol(anon, id), nueva(id, 'u1')));
+    const der = extra => ({ estado: 'En revisión BP', comentarioBP: 'motivo', gestionadoPor: BP1, gestionadoEl: 'hoy', bpId: 'bpid-2', derivadoDe: 'bpid-1', ...extra });
+    await assertFails(updateDoc(sol(bp1, 'V1'), der({ derivadoDe: 'bpid-9' })));            // origen falso
+    await assertFails(updateDoc(sol(bp1, 'V1'), der({ bpId: 'bpid-1' })));                  // a sí mismo
+    await assertFails(updateDoc(sol(bp1, 'V1'), der({ bpId: 'no-existe' })));               // destino inexistente
+    await assertFails(updateDoc(sol(bp1, 'V1'), der({ estado: 'Enviado a Gerencia' })));    // derivar y escalar a la vez
+    const sinOrigen = der(); delete sinOrigen.derivadoDe; await assertFails(updateDoc(sol(bp1, 'V1'), sinOrigen));
+    await assertFails(updateDoc(sol(bp2, 'V1'), der({ gestionadoPor: BP2, derivadoDe: 'bpid-2', bpId: 'bpid-1' })));   // un BP ajeno no puede arrebatarla
+    await assertFails(updateDoc(sol(ger, 'S-GER'), { estado: 'Aprobado', comentarioGerencia: 'x', gestionadoPor: GER, gestionadoEl: 'hoy', bpId: 'bpid-2', derivadoDe: 'bpid-1' }));
+    await assertSucceeds(updateDoc(sol(bp1, 'V1'), der()));
+    await assertFails(getDoc(sol(bp1, 'V1')));       // el BP original ya no la ve
+    await assertSucceeds(getDoc(sol(bp2, 'V1')));    // el destino sí
+    await assertSucceeds(updateDoc(sol(bp2, 'V1'), { estado: 'En pausa', comentarioBP: 'ok', gestionadoPor: BP2, gestionadoEl: 'hoy' }));
   });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');

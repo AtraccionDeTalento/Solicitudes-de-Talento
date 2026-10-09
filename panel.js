@@ -22,7 +22,7 @@ const filas=async(vista,q)=>{
   const c=FB.collection(FB.db,"solicitudes");
   if(vista==="bp"&&!q.bpId)throw new Error("Tu cuenta no tiene un Business Partner asignado.");
   const [docs,n]=await Promise.all([FB.getDocs(vista==="bp"?FB.query(c,FB.where("bpId","==",q.bpId)):FB.query(c,FB.where("estado","in",VISIBLE_GER))),nombres()]);
-  return docs.docs.map(d=>({...d.data(),bp:n[d.data().bpId]||"—"}));
+  return docs.docs.map(d=>({...d.data(),bp:n[d.data().bpId]||"—",derivadoPor:d.data().derivadoDe?(n[d.data().derivadoDe]||"otro BP"):""}));
 };
 const API={
   // Cada Business Partner / Gerencia crea su propia cuenta con su correo y la clave que elija; el correo se confirma con un enlace.
@@ -47,7 +47,7 @@ const API={
     return sesion();
   },
   panelQuien:sesion,
-  async panelDatos(vista){const q=await sesion();return {email:q.email,vistas:q.vistas,vista,filas:(await filas(vista,q)).map(d=>plano(d)),estados:CFG[vista].estados,editables:CFG[vista].editables}},
+  async panelDatos(vista){const q=await sesion();return {email:q.email,bpId:q.bpId,vistas:q.vistas,vista,filas:(await filas(vista,q)).map(d=>plano(d)),estados:CFG[vista].estados,editables:CFG[vista].editables}},
   async panelExportar(vista){return (await filas(vista,await sesion())).map(d=>({...plano(d),levantamiento:pares(d),aprobaciones:d.aprobaciones||[]}))},
   async panelDetalle(id,vista){
     await sesion();const s=await FB.getDoc(FB.doc(FB.db,"solicitudes",id));if(!s.exists())throw new Error("Solicitud no disponible");const d=s.data();
@@ -55,7 +55,12 @@ const API={
   },
   async panelActualizar(id,vista,estado,comentario,extra){
     const q=await sesion();if(!CFG[vista]||!CFG[vista].estados.includes(estado))throw new Error("Estado no permitido");
-    try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),{estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString(),...(vista==="bp"&&extra&&typeof extra==="object"?{textoGerencia:String(extra.textoGerencia||"").slice(0,20000),textoOrigen:String(extra.textoOrigen||"").slice(0,30)}:{})})}
+    const cambios={estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString()};
+    if(vista==="bp"&&extra&&typeof extra==="object"){
+      if(extra.textoGerencia!=null){cambios.textoGerencia=String(extra.textoGerencia).slice(0,20000);cambios.textoOrigen=String(extra.textoOrigen||"").slice(0,30)}
+      if(extra.derivarA){if(extra.derivarA===q.bpId)throw new Error("Elige a otro Business Partner.");cambios.bpId=String(extra.derivarA);cambios.derivadoDe=q.bpId;cambios.estado="En revisión BP"}   // pasa a la bandeja de otro BP
+    }
+    try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),cambios)}
     catch(e){throw new Error(e.code==="permission-denied"?"Esta solicitud ya no está en tu etapa.":e.message)}
     return {ok:true};
   }
@@ -115,7 +120,7 @@ function pintar(){
    ${vista!=="jefe"?'<button class="p" id="xls" style="margin-left:auto">⬇ Descargar Excel</button>':""}<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select></div>`;
   const V=visibles();
   h+=`<div class="wrap"><table><tr><th>Fecha</th><th>Movimiento</th><th>Colaborador</th><th>Departamento</th>${vista!=="jefe"?"<th>Líder</th>":""}<th>BP</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th></tr>
-  ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.departamento)}</td>${vista!=="jefe"?`<td>${esc(f.cliente)}</td>`:""}<td>${esc(f.bp)}</td><td>${esc(f.urgencia)}</td><td>${esc(f.puntaje||"—")}</td><td><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span></td></tr>`).join("")||'<tr><td colspan="9" class="muted">Sin solicitudes.</td></tr>'}</table></div>`;
+  ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.departamento)}</td>${vista!=="jefe"?`<td>${esc(f.cliente)}</td>`:""}<td>${esc(f.bp)}</td><td>${esc(f.urgencia)}</td><td>${esc(f.puntaje||"—")}</td><td><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span>${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Business Partner">↪ ${esc(f.derivadoPor)}</span>`:""}</td></tr>`).join("")||'<tr><td colspan="9" class="muted">Sin solicitudes.</td></tr>'}</table></div>`;
   $("app").innerHTML=h;
 }
 // ---------- Tablero gerencial (vista de Gerencia): indicadores, flujo, casos que requieren atención, gráficos y bandeja ----------
@@ -307,7 +312,7 @@ const lis=s=>String(s||"").split(" | ").filter(Boolean).map(x=>`<li>${esc(x)}</l
 const fila=(k,v)=>v==null||String(v).trim()===""?"":`<div class="kv"><span>${esc(k)}</span><b>${esc(v)}</b></div>`;
 // Acciones por rol: [texto, estado nuevo (null = conservar el actual), estilo, exige comentario, aviso de éxito, pide confirmación]
 const ACCIONES={
-  bp:[["Guardar observación",null,"sec",false,"Observación guardada",false],["Devolver al jefe","Devuelto al jefe","warn",true,"Solicitud devuelta al jefe",false],["Pausar","En pausa","sec",false,"Solicitud en pausa",false],["Escalar a Gerencia ➜","Enviado a Gerencia","ok",false,"Solicitud escalada: ya está en la bandeja de Gerencia",true]],
+  bp:[["Guardar observación",null,"sec",false,"Observación guardada",false],["Devolver al jefe","Devuelto al jefe","warn",true,"Solicitud devuelta al jefe",false],["Pausar","En pausa","sec",false,"Solicitud en pausa",false],["Derivar a otro BP",null,"sec",false,"",false],["Escalar a Gerencia ➜","Enviado a Gerencia","ok",false,"Solicitud escalada: ya está en la bandeja de Gerencia",true]],
   gerencia:[["Guardar comentario",null,"sec",false,"Comentario guardado",false],["Devolver al BP","En revisión BP","warn",true,"Solicitud devuelta al Business Partner",false],["Rechazar","Rechazado","bad",true,"Solicitud rechazada",true],["Aprobar ✓","Aprobado","ok",false,"Solicitud aprobada",true]]
 };
 function detalle(id){
@@ -323,7 +328,7 @@ function detalle(id){
       ${tg||auto?`<section class="sec"><h4>Texto para Gerencia <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Business Partner":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Business Partner"}</span></h4><pre class="texto">${esc(tg||auto.texto)}</pre></section>`:""}
       <section class="sec"><h4>Resumen</h4><div class="grid">
         ${fila("Líder solicitante",f.cliente+" · "+f.cargoCliente)}${fila("Departamento",f.departamento)}${fila("Área",f.area)}${fila("Sección",f.seccion)}
-        ${fila("Matrícula",f.codigo)}${fila("Puesto actual",f.puestoActual)}${fila("Business Partner",f.bp)}${fila("Urgencia",f.urgencia)}
+        ${fila("Matrícula",f.codigo)}${fila("Puesto actual",f.puestoActual)}${fila("Business Partner",f.bp)}${fila("Derivada por",f.derivadoPor)}${fila("Urgencia",f.urgencia)}
         ${fila("Impacto si no se ejecuta",f.impacto)}${fila("Consecuencia",f.consecuencia)}</div></section>
       <section class="sec"><h4>Presupuesto</h4><div class="grid">${fila("¿Cuenta con presupuesto?",f.presupuesto)}${fila("Fuente",f.fuentePresupuesto)}${fila("Quién valida",f.validaPresupuesto)}${fila("Monto",f.montoPresupuesto!==""?"S/ "+f.montoPresupuesto:"")}</div></section>
       ${d.puntaje?`<section class="sec"><h4>Evaluación automática</h4>
@@ -357,10 +362,26 @@ function detalle(id){
         if(!confirm("¿Enviar a Gerencia con este texto? Esta acción se registra a tu nombre."))return;
         aplicar("Enviado a Gerencia",coment,{textoGerencia:t,textoOrigen:t===base.texto.trim()?"motor":"motor+editado"},"Solicitud escalada: ya está en la bandeja de Gerencia")};
     };
+    // Derivar: pasa la solicitud a otro Business Partner (el actual deja de verla; el otro la recibe marcada como derivada).
+    const derivar=async coment=>{
+      const n=await nombres(),otros=Object.entries(n).filter(([k])=>k!==D.bpId).sort((a,b)=>a[1].localeCompare(b[1]));
+      if(!otros.length)return aviso("No hay otros Business Partner disponibles");
+      dlg.innerHTML=`<div class="dh"><div><span class="mov">Derivar</span><h2>¿A qué Business Partner la derivas?</h2><div class="meta"><span>Dejarás de verla; el otro Business Partner la recibe en su bandeja</span></div></div><button type="button" class="x" id="cerrarX3" aria-label="Cerrar">✕</button></div>
+       <div class="db"><section class="sec"><h4>Business Partner destino</h4><div class="ops">${otros.map(([k,nom])=>`<label class="op"><input type="radio" name="dest" value="${esc(k)}"><span>${esc(nom)}</span></label>`).join("")}</div></section>
+        <section class="sec"><h4>Motivo de la derivación</h4><textarea id="motivo" rows="3" style="width:100%" placeholder="Por qué la derivas (lo verá quien la reciba)">${esc(coment)}</textarea></section></div>
+       <div class="df"><div class="acts"><button type="button" class="btn sec" id="volver3">← Volver al detalle</button><span class="sp"></span><button type="button" class="btn ok" id="derivarOk">Derivar</button></div></div>`;
+      $("cerrarX3").onclick=()=>dlg.close();$("volver3").onclick=()=>detalle(id);
+      $("derivarOk").onclick=()=>{const dest=dlg.querySelector("input[name=dest]:checked"),motivo=$("motivo").value.trim();
+        if(!dest)return aviso("Elige a quién derivarla");
+        if(motivo.length<5){$("motivo").focus();return aviso("Escribe el motivo de la derivación")}
+        const nom=n[dest.value];if(!confirm(`¿Derivar esta solicitud a ${nom}? Dejarás de verla.`))return;
+        aplicar("En revisión BP",motivo,{derivarA:dest.value},"Solicitud derivada a "+nom)};
+    };
     if(ed)dlg.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{
       const [txt,nuevo,,exige,ok,confirma]=ACCIONES[vista][b.dataset.i],coment=$("nc").value.trim();
       const estado=nuevo||(D.estados.includes(f.estado)?f.estado:D.estados[0]);
       if(exige&&!coment){$("nc").focus();$("nc").classList.add("falta");return aviso("Escribe una observación para continuar")}
+      if(vista==="bp"&&txt==="Derivar a otro BP")return derivar(coment);
       if(vista==="bp"&&nuevo==="Enviado a Gerencia")return componer(coment);
       if(confirma&&!confirm(`¿${txt.replace(/[➜✓]/g,"").trim()}? Esta acción se registra a tu nombre.`))return;
       aplicar(estado,coment,null,ok)});

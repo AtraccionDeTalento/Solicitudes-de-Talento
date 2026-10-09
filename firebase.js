@@ -53,6 +53,7 @@ export async function maestro(extra) {
     const d = v[Math.floor(Math.random() * v.length)];
     return { ...aItem(d.data()), codigo: d.id };
   }
+  if (extra.correo) { const s = await getDoc(doc(db, "colaboradores", normalizar(extra.correo))); return s.exists() ? { ...aItem(s.data()), codigo: s.data().matricula } : null; }
   const s = await getDoc(doc(db, "maestro", String(extra.codigo)));
   return s.exists() ? aItem(s.data()) : null;
 }

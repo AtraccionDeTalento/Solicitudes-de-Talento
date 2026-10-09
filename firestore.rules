@@ -19,6 +19,9 @@ service cloud.firestore {
     // El ruteo solo trae un identificador opaco (bpId): ni nombres ni correos de los Business Partner son legibles por un jefe.
     match /ruteo/{dep}    { allow get: if personal() || anonimo(); }
     match /bps/{id}       { allow get, list: if personal(); }   // bpId → nombre, solo para HRBP y Gerencia
+    // Búsqueda del colaborador por correo (autorrelleno). Para los jefes sin verificar solo se abre en modo prueba o si config/app.busquedaJefes = true:
+    // con ella cualquiera podría probar correos y ver nombre y puesto de esa persona, así que se enciende a conciencia (y junto con App Check).
+    match /colaboradores/{correo} { allow get: if personal() || (anonimo() && (prueba() || get(/databases/$(db)/documents/config/app).data.get('busquedaJefes', false) == true)); }
     match /lideres/{correo} { allow get: if personal() && correo == yo(); }
     match /maestro/{mat} {
       allow get: if personal() || (anonimo() && prueba());
@@ -36,7 +39,7 @@ service cloud.firestore {
         if (tieneRol('bp') && resource.data.bpId == bpDe()
           && resource.data.estado in ['Nuevo', 'En revisión BP', 'Devuelto al jefe', 'En pausa']
           && request.resource.data.estado in ['En revisión BP', 'Devuelto al jefe', 'Enviado a Gerencia', 'En pausa']
-          && gestion(['comentarioBP', 'textoGerencia', 'textoOrigen']))
+          && gestion(['comentarioBP', 'textoGerencia', 'textoOrigen', 'bpId', 'derivadoDe']) && derivacion())
         || (tieneRol('gerencia')
           && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']
           && request.resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado', 'En revisión BP']
@@ -49,6 +52,14 @@ service cloud.firestore {
         && request.resource.data.gestionadoPor == yo()
         && request.resource.data.get(comentario[0], '').size() <= 1000
         && request.resource.data.get('textoGerencia', '').size() <= 20000 && request.resource.data.get('textoOrigen', '').size() <= 30;   // texto redactado para Gerencia (solo lo envía el BP al escalar)
+    }
+
+    // Derivar a otro Business Partner: cambian juntos bpId y derivadoDe; el destino debe existir y ser distinto del actual.
+    function derivacion() {
+      let cambio = request.resource.data.diff(resource.data).affectedKeys();
+      return cambio.hasAny(['bpId']) == cambio.hasAny(['derivadoDe'])
+        && (!cambio.hasAny(['bpId']) || (request.resource.data.derivadoDe == bpDe() && request.resource.data.bpId != bpDe()
+            && exists(/databases/$(db)/documents/bps/$(request.resource.data.bpId)) && request.resource.data.estado == 'En revisión BP'));
     }
 
     function s(d, k, n) { return !(k in d) || (d[k] is string && d[k].size() <= n); }
