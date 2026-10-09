@@ -119,7 +119,7 @@ ok('el colaborador se busca por correo (autorrelleno) y los Business Partner pue
   assert.ok(/id="correoColab"/.test(js) && /lookupEmployeeByEmail/.test(js) && /postMaestro\(\{correo:mail\}\)/.test(js), 'falta la búsqueda por correo');
   assert.ok(/extra\.correo/.test(fbjs) && /colaboradores/.test(fbjs));
   assert.ok(/match \/colaboradores\/\{correo\}/.test(rules) && /busquedaJefes/.test(rules), 'la búsqueda por correo debe tener reglas propias');
-  assert.ok(/Derivar a otro BP/.test(panel) && /derivarA/.test(panel) && /function derivacion\(\)/.test(rules));
+  assert.ok(/Derivar a otro socio/.test(panel) && /derivarA/.test(panel) && /function derivacion\(\)/.test(rules));
 });
 
 console.log('\n' + n + ' pruebas OK');

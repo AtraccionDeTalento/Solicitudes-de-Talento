@@ -20,12 +20,12 @@ const nombres=async()=>{if(!nombres.c){nombres.c={};(await FB.getDocs(FB.collect
 const filas=async(vista,q)=>{
   if(!CFG[vista]||!q.vistas.includes(vista))throw new Error("Sin acceso a esta vista");
   const c=FB.collection(FB.db,"solicitudes");
-  if(vista==="bp"&&!q.bpId)throw new Error("Tu cuenta no tiene un Business Partner asignado.");
+  if(vista==="bp"&&!q.bpId)throw new Error("Tu cuenta no tiene un Socio de negocio asignado.");
   const [docs,n]=await Promise.all([FB.getDocs(vista==="bp"?FB.query(c,FB.where("bpId","==",q.bpId)):FB.query(c,FB.where("estado","in",VISIBLE_GER))),nombres()]);
   return docs.docs.map(d=>({...d.data(),bp:n[d.data().bpId]||"—",derivadoPor:d.data().derivadoDe?(n[d.data().derivadoDe]||"otro BP"):""}));
 };
 const API={
-  // Cada Business Partner / Gerencia crea su propia cuenta con su correo y la clave que elija; el correo se confirma con un enlace.
+  // Cada Socio de negocio / Gerencia crea su propia cuenta con su correo y la clave que elija; el correo se confirma con un enlace.
   // Solo entran los correos que el administrador autorizó (documento roles/{correo}); una cuenta sin autorización no ve nada.
   async panelCrear(email,clave,clave2){
     email=FB.normalizar(email);
@@ -58,7 +58,7 @@ const API={
     const cambios={estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString()};
     if(vista==="bp"&&extra&&typeof extra==="object"){
       if(extra.textoGerencia!=null){cambios.textoGerencia=String(extra.textoGerencia).slice(0,20000);cambios.textoOrigen=String(extra.textoOrigen||"").slice(0,30)}
-      if(extra.derivarA){if(extra.derivarA===q.bpId)throw new Error("Elige a otro Business Partner.");cambios.bpId=String(extra.derivarA);cambios.derivadoDe=q.bpId;cambios.estado="En revisión BP"}   // pasa a la bandeja de otro BP
+      if(extra.derivarA){if(extra.derivarA===q.bpId)throw new Error("Elige a otro Socio de negocio.");cambios.bpId=String(extra.derivarA);cambios.derivadoDe=q.bpId;cambios.estado="En revisión BP"}   // pasa a la bandeja de otro BP
     }
     try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),cambios)}
     catch(e){throw new Error(e.code==="permission-denied"?"Esta solicitud ya no está en tu etapa.":e.message)}
@@ -68,7 +68,7 @@ const API={
 // Misma interfaz que google.script.run de Apps Script, para no tocar el resto del panel.
 const mk=(ok,ko)=>new Proxy({},{get:(_,k)=>k==="withSuccessHandler"?f=>mk(f,ko):k==="withFailureHandler"?f=>mk(ok,f):(...a)=>API[k](...a).then(d=>ok&&ok(d),e=>ko&&ko(e))});
 const google={script:{run:mk()}};
-const TITULOS={jefe:"Mis solicitudes",bp:"Bandeja del Business Partner",gerencia:"Gerencia · vista final"};
+const TITULOS={jefe:"Mis solicitudes",bp:"Bandeja del Socio de negocio",gerencia:"Gerencia · vista final"};
 const ALL=["Nuevo","En revisión BP","Devuelto al jefe","Enviado a Gerencia","Aprobado","Rechazado","En pausa"];
 let D=null,vista=null,filtro={q:"",estado:"",periodo:"",movimiento:"",departamento:"",bp:"",atencion:""};
 const $=id=>document.getElementById(id);
@@ -77,7 +77,7 @@ let TOKEN=null;
 const fail=e=>{const m=(e&&e.message||e)+"";if(/venci/.test(m)){TOKEN=null;return mostrarLogin(e)}$("err").hidden=false;$("err").textContent=m;$("app").innerHTML=""};
 $("salir").onclick=async()=>{await FB.signOut(FB.auth);TOKEN=null;mostrarLogin()};
 const TEXTOS={
-  entrar:["Panel de revisión","Ingresa con tu correo institucional y tu clave (Business Partner o Gerencia).","Entrar"],
+  entrar:["Panel de revisión","Ingresa con tu correo institucional y tu clave (Socio de negocio o Gerencia).","Entrar"],
   crear:["Crear mi cuenta","Primera vez: usa tu correo institucional autorizado y elige tu clave (12 o más caracteres). Te enviaremos un enlace para confirmar tu correo.","Crear cuenta"],
   olvide:["Recuperar mi clave","Te enviaremos un enlace al correo para elegir una clave nueva.","Enviar enlace"]};
 function mostrarLogin(e,modo){
@@ -114,14 +114,14 @@ function pintar(){
   const F=D.filas,pend=F.filter(f=>(vista==="gerencia"?["Enviado a Gerencia"]:["Nuevo","En revisión BP"]).includes(f.estado||"Nuevo")).length;
   let h=vista==="bp"?pintarBP(F):`<div class="kpis"><div class="card kpi"><b>${F.length}</b><span>Solicitudes</span></div><div class="card kpi"><b>${pend}</b><span>Por revisar</span></div>
    <div class="card kpi"><b>${F.filter(f=>f.estado==="Aprobado").length}</b><span>Aprobadas</span></div><div class="card kpi"><b>${F.filter(f=>f.estado==="Rechazado").length}</b><span>Rechazadas</span></div></div>`;
-  if(vista==="gerencia")h+=`<div class="row">${barras("Por estado",contar(F,"estado"))}${barras("Por Business Partner",contar(F,"bp"))}${barras("Por movimiento",contar(F,"movimiento"))}${barras("Por departamento",contar(F,"departamento"))}${barras("Por urgencia",contar(F,"urgencia"))}</div>`;
-  if(vista==="bp"){$("app").innerHTML=h+tablaBandeja(F,visibles(),"bp");montar();return}
+  if(vista==="gerencia")h+=`<div class="row">${barras("Por estado",contar(F,"estado"))}${barras("Por Socio de negocio",contar(F,"bp"))}${barras("Por movimiento",contar(F,"movimiento"))}${barras("Por departamento",contar(F,"departamento"))}${barras("Por urgencia",contar(F,"urgencia"))}</div>`;
+  if(vista==="bp"){$("app").innerHTML=h+tablaBandeja(F,visibles(),"bp");return}
   const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
   h+=`<div class="tools"><input id="fq" placeholder="Buscar…" value="${esc(filtro.q)}"><select id="fe"><option value="">Todos los estados</option>${ALL.map(e=>`<option ${e===filtro.estado?"selected":""}>${esc(e)}</option>`).join("")}</select>
    ${vista!=="jefe"?'<button class="p" id="xls" style="margin-left:auto">⬇ Descargar Excel</button>':""}<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select></div>`;
   const V=visibles();
-  h+=`<div class="wrap"><table><tr><th>Fecha</th><th>Movimiento</th><th>Colaborador</th><th>Departamento</th>${vista!=="jefe"?"<th>Líder</th>":""}<th>BP</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th></tr>
-  ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.departamento)}</td>${vista!=="jefe"?`<td>${esc(f.cliente)}</td>`:""}<td>${esc(f.bp)}</td><td>${esc(f.urgencia)}</td><td>${esc(f.puntaje||"—")}</td><td><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span>${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Business Partner">↪ ${esc(f.derivadoPor)}</span>`:""}</td></tr>`).join("")||'<tr><td colspan="9" class="muted">Sin solicitudes.</td></tr>'}</table></div>`;
+  h+=`<div class="wrap"><table><tr><th>Fecha</th><th>Movimiento</th><th>Colaborador</th><th>Departamento</th>${vista!=="jefe"?"<th>Líder</th>":""}<th>Socio de negocio</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th></tr>
+  ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.departamento)}</td>${vista!=="jefe"?`<td>${esc(f.cliente)}</td>`:""}<td>${esc(f.bp)}</td><td>${esc(f.urgencia)}</td><td>${esc(f.puntaje||"—")}</td><td><span class="tag ${esc(f.estado)}">${esc(eb(f.estado||"Nuevo"))}</span>${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td></tr>`).join("")||'<tr><td colspan="9" class="muted">Sin solicitudes.</td></tr>'}</table></div>`;
   $("app").innerHTML=h;
 }
 // ---------- Tablero gerencial (vista de Gerencia): indicadores, flujo, casos que requieren atención, gráficos y bandeja ----------
@@ -138,6 +138,9 @@ const IC={
 const ETIQ={urgentes:"Urgentes pendientes",bajos:"Preparación baja (<60)",pendientes:"Pendientes de decisión"};
 const PILL_U={"Inmediato":"u1","Dentro de 30 días":"u2","Dentro de 60 días":"u3","Más adelante":"u4"},PILL_E={"Enviado a Gerencia":"e1","Aprobado":"e2","Rechazado":"e3"};
 const casos=n=>n===1?"caso":"casos";
+const btnG=()=>`<button type="button" class="px-tog" id="togG">${$("app").classList.contains("sin-g")?"Mostrar gráficas":"Ocultar gráficas"}</button>`;
+try{if(sessionStorage.getItem("px-sin-g")==="1")$("app").classList.add("sin-g")}catch(e){}
+const eb=s=>String(s==null?"":s).replace("En revisión BP","En revisión");
 const iniciales=n=>String(n||"?").trim().split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase();
 const nivelP=p=>p>=85?"alto":p>=60?"medio":"bajo";
 const edad=d=>d==null?"":d===0?"hoy":d===1?"hace 1 día":`hace ${d} días`;
@@ -147,119 +150,76 @@ const filaCaso=f=>`<button type="button" class="px-row" data-ver="${esc(f.id)}">
   <span class="px-mn"><b>${esc(f.colaborador||"—")}</b><em>${esc(f.movimiento)} · ${esc(f.departamento)}</em></span>
   <span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span>${f.dias!=null?`<small class="px-ed">${edad(f.dias)}</small>`:""}
   ${f.puntaje?`<span class="px-sc ${nivelP(+f.puntaje)}" title="Preparación del caso">${esc(f.puntaje)}</span>`:""}</button>`;
-// ---------- Gráficos (Chart.js, cargado desde jsDelivr con integridad verificada) ----------
-const COL={navy:"#00195A",royal:"#0036DC",azul:"#3B6BFF",oro:"#F5B400",verde:"#1E9E5A",rojo:"#D64545",gris:"#9AA6C4",ambar:"#E07B39"};
-let GRAF=[],VIVOS=[];
-const grafico=(id,cfg)=>{GRAF.push([id,cfg]);return id};
-const centro={id:"centro",afterDraw(c,_,o){if(!o||o.texto==null)return;const {ctx,chartArea:a}=c,x=(a.left+a.right)/2,y=(a.top+a.bottom)/2;ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=o.color||COL.navy;ctx.font="800 30px Segoe UI,Arial";ctx.fillText(o.texto,x,y-8);ctx.fillStyle=o.subColor||"#5B6A8F";ctx.font="12px Segoe UI,Arial";ctx.fillText(o.sub||"",x,y+16);ctx.restore()}};
-function montar(){
-  VIVOS.forEach(c=>c.destroy());VIVOS=[];
-  if(typeof Chart==="undefined"){GRAF=[];return}
-  Chart.defaults.font.family='"Segoe UI",Inter,Arial,sans-serif';Chart.defaults.color="#5B6A8F";Chart.defaults.animation.duration=900;Chart.defaults.animation.easing="easeOutQuart";
-  GRAF.forEach(([id,cfg])=>{const el=document.getElementById(id);if(el)VIVOS.push(new Chart(el,{plugins:[centro],...cfg}))});GRAF=[];
-}
-const ejes=(extra={})=>({x:{grid:{display:false},border:{display:false},...(extra.x||{})},y:{beginAtZero:true,grid:{color:"#EEF2FB"},border:{display:false},ticks:{precision:0},...(extra.y||{})}});
-const leyenda={position:"bottom",labels:{usePointStyle:true,pointStyle:"circle",boxWidth:8,padding:16}};
-const grad=(c,a,b)=>{const g=c.chart.ctx.createLinearGradient(0,c.chart.chartArea?c.chart.chartArea.top:0,0,c.chart.chartArea?c.chart.chartArea.bottom:200);g.addColorStop(0,a);g.addColorStop(1,b);return g};
-const spark=(id,datos,color)=>grafico(id,{type:"line",data:{labels:datos.map((_,i)=>i),datasets:[{data:datos,borderColor:color,borderWidth:2.5,tension:.4,pointRadius:0,fill:true,backgroundColor:c=>grad(c,color+"55",color+"00")}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false,beginAtZero:true}},layout:{padding:2}}});
-const delta=(arr)=>{if(arr.length<2)return"";const d=arr[arr.length-1]-arr[arr.length-2];return d===0?`<i class="px-d eq">= igual que el mes anterior</i>`:`<i class="px-d ${d>0?"up":"dn"}">${d>0?"▲":"▼"} ${Math.abs(d)} vs mes anterior</i>`};
-const kpiPx=(cl,n,t,s,f,sp)=>`<button type="button" class="px-kpi ${cl}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em>${sp?`<div class="px-spw"><canvas id="${sp}"></canvas></div>`:""}</button>`;
-const lienzo=(id,alto)=>`<div class="px-cv" style="height:${alto||260}px"><canvas id="${id}"></canvas></div>`;
+const kpiPx=(cl,n,t,s,f)=>`<button type="button" class="px-kpi ${cl}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em></button>`;
 const barraPx=(clave,pares)=>{const max=Math.max(1,...pares.map(x=>x[1]));return pares.length?pares.map(([k,n])=>`<button type="button" class="px-bar${clave&&filtro[clave]===k?" on":""}" ${clave?`data-f="${clave}:${esc(k)}"`:""}><span class="n" title="${esc(k)}">${esc(k)}</span><span class="t"><i style="width:${Math.round(n/max*100)}%"></i></span><b>${n}</b></button>`).join(""):'<p class="muted">Sin datos.</p>'};
-const mapaHTML=m=>!m.filas.length?'<p class="muted">Sin datos.</p>':`<div class="px-mapa"><table><tr><th></th>${m.columnas.map(c=>`<th title="${esc(c)}">${esc(c)}</th>`).join("")}</tr>${m.filas.map((d,i)=>`<tr><th title="${esc(d)}">${esc(d)}</th>${m.celdas[i].map((n,j)=>{const a=n/m.max;return `<td${n?` data-f="departamento:${esc(d)}" style="background:rgba(0,54,220,${(.08+a*.8).toFixed(2)});color:${a>.5?"#fff":"#00195A"}"`:""}>${n||""}</td>`}).join("")}</tr>`).join("")}</table></div>`;
 function tablaBandeja(F,V,rol){
   const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
   return `<section class="gx-card" id="bandeja"><h3>${rol==="gerencia"?"Todas las solicitudes":"Bandeja completa"}</h3>
-   <div class="tools"><input id="fq" placeholder="Buscar por colaborador, área o movimiento…" value="${esc(filtro.q)}" style="min-width:240px;flex:1"><select id="fe"><option value="">Todos los estados</option>${(rol==="gerencia"?["Enviado a Gerencia","Aprobado","Rechazado"]:ALL).map(x=>`<option${x===filtro.estado?" selected":""}>${esc(x)}</option>`).join("")}</select>
+   <div class="tools"><input id="fq" placeholder="Buscar por colaborador, área o movimiento…" value="${esc(filtro.q)}" style="min-width:240px;flex:1"><select id="fe"><option value="">Todos los estados</option>${(rol==="gerencia"?["Enviado a Gerencia","Aprobado","Rechazado"]:ALL).map(x=>`<option value="${esc(x)}"${x===filtro.estado?" selected":""}>${esc(eb(x))}</option>`).join("")}</select>
    ${rol==="gerencia"?"":`<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select>`}<button class="p" id="xls">⬇ Descargar Excel</button></div>
-   ${filtro.estado||filtro.movimiento||filtro.departamento?`<div class="tools">${[filtro.estado,filtro.movimiento,filtro.departamento].filter(Boolean).map(v=>`<span class="gx-chip">${esc(v)}</span>`).join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
-   <div class="wrap"><table><tr><th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>BP</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th></th></tr>
-   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Business Partner">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(f.estado||"Nuevo")}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
+   ${filtro.estado||filtro.movimiento||filtro.departamento?`<div class="tools">${[filtro.estado,filtro.movimiento,filtro.departamento].filter(Boolean).map(v=>`<span class="gx-chip">${esc(eb(v))}</span>`).join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
+   <div class="wrap"><table><tr><th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>Socio de negocio</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th></th></tr>
+   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}"><td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
 }
 function pintarGerencia(){
   const hoy=new Date(),todos=metricas(D.filas,"",hoy);
   if(!filtro.periodoElegido)filtro.periodo="";   // por defecto se ve todo lo cargado
   const M=metricas(D.filas,filtro.periodo,hoy),A=M.atencion,V=aplicarFiltros(D.filas,filtro);
   const Fp=filtro.periodo?D.filas.filter(f=>f.periodo===filtro.periodo):D.filas;
-  const urg=prioridad(Fp,hoy),mv=movimientoPorEstado(Fp,7),tn=tendencia(D.filas,8),hist=histogramaPuntaje(Fp),mapa=mapaCalor(Fp),up=urgenciaPendientes(Fp);
+  const urg=prioridad(Fp,hoy),mv=movimientoPorEstado(Fp),tn=tendencia(D.filas),maxT=Math.max(1,...tn.map(x=>x.total));
   const ls=lecturas(M,M.porMovimiento[0],M.porDepartamento[0]);
-  const sA=tn.map(x=>x.aprobadas),sR=tn.map(x=>x.rechazadas),sT=tn.map(x=>x.total);
-  spark("spA",sA,COL.verde);spark("spR",sR,COL.rojo);spark("spT",sT,COL.azul);
-  grafico("gRes",{type:"doughnut",data:{labels:["Por decidir","Aprobadas","Rechazadas"],datasets:[{data:[M.pendientes,M.aprobadas,M.rechazadas],backgroundColor:[COL.oro,COL.verde,COL.rojo],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:"74%",plugins:{legend:{display:false},centro:{texto:M.pctResueltas+"%",sub:"resuelto",color:"#fff",subColor:"#C9D6F5"}}}});
-  grafico("gTen",{data:{labels:tn.map(x=>mesCorto(x.periodo)),datasets:[
-    {type:"bar",label:"Recibidas",data:sT,backgroundColor:c=>grad(c,"#3B6BFF","#C4D4FF"),borderRadius:10,maxBarThickness:46,order:2},
-    {type:"line",label:"Aprobadas",data:sA,borderColor:COL.verde,backgroundColor:COL.verde,tension:.35,borderWidth:3,pointRadius:4,pointBackgroundColor:"#fff",pointBorderWidth:2,order:1},
-    {type:"line",label:"Rechazadas",data:sR,borderColor:COL.rojo,backgroundColor:COL.rojo,tension:.35,borderWidth:3,pointRadius:4,pointBackgroundColor:"#fff",pointBorderWidth:2,order:1}]},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},plugins:{legend:leyenda},scales:ejes()}});
-  grafico("gMov",{type:"bar",data:{labels:mv.map(x=>x.movimiento),datasets:[{label:"Por decidir",data:mv.map(x=>x.pendientes),backgroundColor:COL.oro},{label:"Aprobadas",data:mv.map(x=>x.aprobadas),backgroundColor:COL.verde},{label:"Rechazadas",data:mv.map(x=>x.rechazadas),backgroundColor:COL.rojo,borderRadius:{topRight:8,bottomRight:8}}]},
-    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:leyenda},scales:{x:{stacked:true,grid:{color:"#EEF2FB"},border:{display:false},ticks:{precision:0}},y:{stacked:true,grid:{display:false},border:{display:false}}}}});
-  grafico("gHis",{type:"bar",data:{labels:hist.map(x=>x.etiqueta),datasets:[{label:"Casos",data:hist.map(x=>x.n),backgroundColor:[COL.rojo,COL.ambar,COL.oro,"#7BC96F",COL.verde],borderRadius:10,maxBarThickness:60}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:ejes()}});
-  grafico("gUrg",{type:"polarArea",data:{labels:up.map(x=>x[0]),datasets:[{data:up.map(x=>x[1]),backgroundColor:["#D64545cc","#E07B39cc","#F5B400cc","#9AA6C4cc"],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:leyenda},scales:{r:{ticks:{display:false,precision:0},grid:{color:"#EEF2FB"}}}}});
-  grafico("gPre",{type:"doughnut",data:{datasets:[{data:[M.puntajePromedio||0,100-(M.puntajePromedio||0)],backgroundColor:[(M.puntajePromedio||0)>=85?COL.verde:(M.puntajePromedio||0)>=60?COL.oro:COL.rojo,"#E8ECF6"],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,rotation:-90,circumference:180,cutout:"78%",plugins:{legend:{display:false},tooltip:{enabled:false},centro:{texto:M.puntajePromedio==null?"—":String(M.puntajePromedio),sub:""}}}});
   $("app").innerHTML=`
    <div class="px-top"><div><span class="px-eyebrow">Gerencia · Decisión de movimientos</span><h2>Centro de decisiones</h2><p>Lo que necesitas para decidir y sustentar cada movimiento de talento</p></div>
-     <label class="gx-per"><i>${IC.cal}</i><span>Periodo<select id="fp">${todos.periodos.map(x=>`<option value="${esc(x)}"${x===filtro.periodo?" selected":""}>${esc(periodoTxt(x))}</option>`).join("")}<option value=""${filtro.periodo===""?" selected":""}>Todos los periodos</option></select></span></label></div>
+     ${btnG()}<label class="gx-per"><i>${IC.cal}</i><span>Periodo<select id="fp">${todos.periodos.map(x=>`<option value="${esc(x)}"${x===filtro.periodo?" selected":""}>${esc(periodoTxt(x))}</option>`).join("")}<option value=""${filtro.periodo===""?" selected":""}>Todos los periodos</option></select></span></label></div>
+   <section class="px-lectura px-graf"><i>✦</i><div><b>Lectura rápida</b><ul>${ls.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section>
    <div class="px-kpis">
-     <button type="button" class="px-kpi primario grande" data-f="atencion:pendientes"><div class="txt"><span>Por decidir</span><b>${esc(M.pendientes)}</b><em>${A.masAntiguo==null?"Nada pendiente":`El más antiguo lleva ${A.masAntiguo} ${A.masAntiguo===1?"día":"días"}`}${A.urgentes?` · ${A.urgentes} urgente${A.urgentes===1?"":"s"}`:""}</em></div><div class="px-cv mini"><canvas id="gRes"></canvas></div></button>
-     ${kpiPx("verde",M.aprobadas,"Aprobadas",M.resueltas?Math.round(M.aprobadas/M.resueltas*100)+"% de lo resuelto":"—","estado:Aprobado","spA")}
-     ${kpiPx("rojo",M.rechazadas,"Rechazadas",M.resueltas?Math.round(M.rechazadas/M.resueltas*100)+"% de lo resuelto":"—","estado:Rechazado","spR")}
-     <button type="button" class="px-kpi neutro" data-f="atencion:bajos"><span>Preparación promedio</span><div class="px-gauge"><canvas id="gPre"></canvas></div><em>${A.bajos?`${A.bajos} pendiente${A.bajos===1?"":"s"} con preparación baja`:"sobre 100 puntos"}</em></button>
+     ${kpiPx("primario",M.pendientes,"Por decidir",A.masAntiguo==null?"Nada pendiente":`El más antiguo lleva ${A.masAntiguo} ${A.masAntiguo===1?"día":"días"}`,"atencion:pendientes")}
+     ${kpiPx("verde",M.aprobadas,"Aprobadas",M.resueltas?Math.round(M.aprobadas/M.resueltas*100)+"% de lo resuelto":"—","estado:Aprobado")}
+     ${kpiPx("rojo",M.rechazadas,"Rechazadas",M.resueltas?Math.round(M.rechazadas/M.resueltas*100)+"% de lo resuelto":"—","estado:Rechazado")}
+     ${kpiPx("neutro",M.puntajePromedio==null?"—":M.puntajePromedio,"Preparación promedio",A.bajos?`${A.bajos} pendiente${A.bajos===1?"":"s"} con preparación baja`:"de 100 puntos","atencion:bajos")}
    </div>
-   <section class="px-lectura"><i>✦</i><div><b>Lectura rápida</b><ul>${ls.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section>
-   <div class="px-2">
+   <div class="px-2 px-graf">
      <section class="gx-card"><h3>Para decidir ahora</h3><p class="sub">Primero lo más urgente y lo que más espera</p>${urg.length?urg.map(filaCaso).join(""):'<p class="muted">No hay casos pendientes. Todo está al día.</p>'}${M.pendientes>urg.length?`<button type="button" class="px-mas" data-f="atencion:pendientes">Ver los ${M.pendientes} pendientes →</button>`:""}</section>
-     <section class="gx-card"><h3>Urgencia de lo pendiente</h3><p class="sub">Cuánto apremia cada caso que espera tu decisión</p>${lienzo("gUrg",300)}</section>
+     <section class="gx-card"><h3>Qué se está pidiendo</h3><p class="sub">Movimientos solicitados y cómo van</p>
+       ${mv.length?mv.map(x=>`<button type="button" class="px-stk${filtro.movimiento===x.movimiento?" on":""}" data-f="movimiento:${esc(x.movimiento)}"><span class="n">${esc(x.movimiento)}</span><span class="t" style="width:${Math.round(x.total/mv[0].total*100)}%"><i class="pe" style="flex:${esc(x.pendientes)}"></i><i class="ap" style="flex:${esc(x.aprobadas)}"></i><i class="re" style="flex:${esc(x.rechazadas)}"></i></span><b>${esc(x.total)}</b></button>`).join(""):'<p class="muted">Sin datos.</p>'}
+       <div class="px-leyenda"><span><i class="pe"></i>Por decidir</span><span><i class="ap"></i>Aprobadas</span><span><i class="re"></i>Rechazadas</span></div></section>
    </div>
-   <div class="px-2 a">
-     <section class="gx-card"><h3>Evolución de las solicitudes</h3><p class="sub">Recibidas, aprobadas y rechazadas por mes ${delta(sT)}</p>${lienzo("gTen",300)}</section>
-     <section class="gx-card"><h3>Cómo van las decisiones</h3><p class="sub">Estado de todas las solicitudes</p>${lienzo("gRes2",300)}</section>
+   <div class="px-2 px-graf">
+     <section class="gx-card"><h3>Evolución mensual</h3><p class="sub">Solicitudes recibidas por mes</p>
+       ${tn.length?`<div class="px-cols">${tn.map(x=>`<div class="px-col"><b>${esc(x.total)}</b><span class="t"><i class="ap" style="height:${Math.round(x.aprobadas/maxT*100)}%"></i><i class="re" style="height:${Math.round(x.rechazadas/maxT*100)}%"></i><i class="pe" style="height:${Math.round((x.total-x.aprobadas-x.rechazadas)/maxT*100)}%"></i></span><em>${esc(mesCorto(x.periodo))}</em></div>`).join("")}</div>`:'<p class="muted">Sin datos.</p>'}</section>
+     <section class="gx-card"><h3>Áreas que más piden</h3><p class="sub">Departamentos con más solicitudes</p>${barraPx("departamento",M.porDepartamento.slice(0,5))}</section>
    </div>
-   <div class="px-2 b">
-     <section class="gx-card"><h3>Qué se está pidiendo</h3><p class="sub">Movimientos solicitados y cómo van</p>${lienzo("gMov",320)}</section>
-     <section class="gx-card"><h3>Qué tan bien preparados llegan los casos</h3><p class="sub">Puntaje de preparación (0 a 100) de cada solicitud</p>${lienzo("gHis",320)}</section>
-   </div>
-   <section class="gx-card"><h3>Dónde se concentran los pedidos</h3><p class="sub">Departamentos con más solicitudes según el movimiento · toca una celda para filtrar</p>${mapaHTML(mapa)}</section>
    ${tablaBandeja(D.filas,V,"gerencia")}`;
-  GRAF.push(["gRes2",{type:"doughnut",data:{labels:["Por decidir","Aprobadas","Rechazadas"],datasets:[{data:[M.pendientes,M.aprobadas,M.rechazadas],backgroundColor:[COL.oro,COL.verde,COL.rojo],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:"68%",plugins:{legend:leyenda,centro:{texto:String(M.total),sub:"solicitudes"}}}}]);
-  montar();
 }
 function pintarBP(F){
-  const B=metricasBP(F,new Date()),hoy=new Date(),tn=tendencia(F,8),sem=porSemana(F,hoy,8),maxA=Math.max(1,...B.antiguedad.map(y=>y.n));
-  const seg=[[COL.oro,B.porRevisar,"Por revisar"],[COL.ambar,B.devueltas,"Devueltas al jefe"],[COL.gris,B.enPausa,"En pausa"],[COL.azul,B.enGerencia,"En Gerencia"],[COL.verde,B.aprobadas,"Aprobadas"],[COL.rojo,B.rechazadas,"Rechazadas"]];
-  const masViejo=B.cola.length?Math.max(...B.cola.map(x=>x.dias||0)):null,enPlazo=B.antiguedad[0].n+B.antiguedad[1].n,sla=B.porRevisar?Math.round(enPlazo/B.porRevisar*100):100;
-  const revisadas=B.total-B.porRevisar,escaladas=B.enGerencia+B.aprobadas+B.rechazadas;
-  spark("spD",tn.map(x=>x.total),COL.azul);spark("spE",sem,COL.oro);
-  grafico("gEt",{type:"doughnut",data:{labels:seg.map(x=>x[2]),datasets:[{data:seg.map(x=>x[1]),backgroundColor:seg.map(x=>x[0]),borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:"70%",plugins:{legend:{...leyenda,position:"right"},centro:{texto:String(B.total),sub:"solicitudes"}}}});
-  grafico("gSem",{type:"line",data:{labels:sem.map((_,i)=>i===sem.length-1?"Esta semana":`Hace ${sem.length-1-i} sem.`),datasets:[{label:"Solicitudes recibidas",data:sem,borderColor:COL.royal,borderWidth:3,tension:.4,fill:true,backgroundColor:c=>grad(c,"#3B6BFF66","#3B6BFF00"),pointRadius:5,pointBackgroundColor:"#fff",pointBorderColor:COL.royal,pointBorderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:ejes()}});
-  grafico("gAnt",{type:"bar",data:{labels:B.antiguedad.map(x=>x.etiqueta),datasets:[{data:B.antiguedad.map(x=>x.n),backgroundColor:["#7BC96F",COL.oro,COL.ambar,COL.rojo],borderRadius:12,maxBarThickness:64}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:ejes({y:{suggestedMax:maxA+1}})}});
-  grafico("gEmb",{type:"bar",data:{labels:["Recibidas","Revisadas","Escaladas a Gerencia","Aprobadas"],datasets:[{data:[B.total,revisadas,escaladas,B.aprobadas],backgroundColor:[COL.navy,COL.royal,COL.azul,COL.verde],borderRadius:10,barPercentage:.82}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:"#EEF2FB"},border:{display:false},ticks:{precision:0}},y:{grid:{display:false},border:{display:false}}}}});
-  grafico("gMovBP",{type:"bar",data:{labels:B.porMovimiento.map(x=>x[0]),datasets:[{data:B.porMovimiento.map(x=>x[1]),backgroundColor:c=>grad(c,"#3B6BFF","#00195A"),borderRadius:10,maxBarThickness:44}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:ejes({x:{ticks:{maxRotation:35,minRotation:0}}})}});
-  grafico("gSla",{type:"doughnut",data:{datasets:[{data:[sla,100-sla],backgroundColor:[sla>=80?COL.verde:sla>=50?COL.oro:COL.rojo,"#E8ECF6"],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,rotation:-90,circumference:180,cutout:"78%",plugins:{legend:{display:false},tooltip:{enabled:false},centro:{texto:sla+"%",sub:""}}}});
-  return `<div class="px-top"><div><span class="px-eyebrow">Business Partner · Gestión</span><h2>Tu bandeja de solicitudes</h2><p>Revisa, devuelve, deriva o escala cada caso</p></div></div>
+  const B=metricasBP(F,new Date()),tot=Math.max(1,B.total),maxA=Math.max(1,...B.antiguedad.map(y=>y.n));
+  const seg=[["#F5B400",B.porRevisar,"Por revisar"],["#E07B39",B.devueltas,"Devueltas al jefe"],["#9AA6C4",B.enPausa,"En pausa"],["#3B6BFF",B.enGerencia,"En Gerencia"],["#1E9E5A",B.aprobadas,"Aprobadas"],["#D64545",B.rechazadas,"Rechazadas"]];
+  let acc=0;const cono=seg.map(([c,n])=>{const a=acc/tot*100;acc+=n;return `${c} ${a}% ${acc/tot*100}%`}).join(",");
+  const masViejo=B.cola.length?Math.max(...B.cola.map(x=>x.dias||0)):null;
+  return `<div class="px-top"><div><span class="px-eyebrow">Socio de negocio · Gestión</span><h2>Tu bandeja de solicitudes</h2><p>Revisa, devuelve, deriva o escala cada caso</p></div>${btnG()}</div>
    <div class="px-kpis">
-     ${kpiPx("primario",B.porRevisar,"Por revisar",masViejo==null?"Nada pendiente":`La más antigua lleva ${masViejo} ${masViejo===1?"día":"días"}`,"estado:En revisión BP","spE")}
+     ${kpiPx("primario",B.porRevisar,"Por revisar",masViejo==null?"Nada pendiente":`La más antigua lleva ${masViejo} ${masViejo===1?"día":"días"}`,"estado:En revisión BP")}
      ${kpiPx("ambar",B.devueltas,"Devueltas al jefe","Esperan corrección del líder","estado:Devuelto al jefe")}
-     ${kpiPx("azul",B.enGerencia,"En Gerencia","Esperan decisión del comité","estado:Enviado a Gerencia","spD")}
-     <button type="button" class="px-kpi neutro" data-f="estado:Aprobado"><span>Aprobación en Gerencia</span><b>${B.tasaAprobacion==null?"—":B.tasaAprobacion+"%"}</b><em>${B.aprobadas} aprobada${B.aprobadas===1?"":"s"} · ${B.rechazadas} rechazada${B.rechazadas===1?"":"s"}</em></button>
+     ${kpiPx("azul",B.enGerencia,"En Gerencia","Esperan decisión del comité","estado:Enviado a Gerencia")}
+     ${kpiPx("verde",B.tasaAprobacion==null?"—":B.tasaAprobacion+"%","Tasa de aprobación","de lo que Gerencia ya resolvió","estado:Aprobado")}
    </div>
-   <div class="px-2">
+   <div class="px-2 px-graf">
      <section class="gx-card"><h3>Para revisar ahora</h3><p class="sub">Ordenadas por urgencia y por cuánto llevan esperando</p>${B.cola.length?B.cola.map(filaCaso).join(""):'<p class="muted">No tienes solicitudes por revisar.</p>'}</section>
-     <section class="gx-card"><h3>Cuánto llevan esperando</h3><p class="sub">Solicitudes por revisar según su antigüedad</p>${lienzo("gAnt",230)}
-       <div class="px-sla"><div class="px-gauge s"><canvas id="gSla"></canvas></div><div><b>${sla}% dentro de plazo</b><span>${B.antiguedad[3].n?`⚠ ${B.antiguedad[3].n} ${B.antiguedad[3].n===1?"lleva":"llevan"} más de 15 días: conviene priorizar.`:"Nada con más de 15 días de espera."}</span></div></div></section>
+     <section class="gx-card"><h3>Cuánto llevan esperando</h3><p class="sub">Solicitudes por revisar según su antigüedad</p>${B.antiguedad.map((x,i)=>`<div class="px-bar"><span class="n">${esc(x.etiqueta)}</span><span class="t"><i class="${["","","am","ro"][i]}" style="width:${Math.round(x.n/maxA*100)}%"></i></span><b>${esc(x.n)}</b></div>`).join("")}
+       <p class="px-nota">${B.antiguedad[3].n?`⚠ ${B.antiguedad[3].n} ${B.antiguedad[3].n===1?"lleva":"llevan"} más de 15 días: conviene priorizar.`:"Nada con más de 15 días de espera."}</p></section>
    </div>
-   <div class="px-2 a">
-     <section class="gx-card"><h3>Ritmo de llegada</h3><p class="sub">Solicitudes recibidas por semana (últimas 8)</p>${lienzo("gSem",280)}</section>
-     <section class="gx-card"><h3>Dónde está tu trabajo</h3><p class="sub">Todas tus solicitudes según su etapa</p>${lienzo("gEt",280)}</section>
-   </div>
-   <div class="px-2 b">
-     <section class="gx-card"><h3>Del ingreso a la decisión</h3><p class="sub">Cuántas llegaron, se revisaron, escalaron y se aprobaron</p>${lienzo("gEmb",280)}</section>
-     <section class="gx-card"><h3>Qué te piden más</h3><p class="sub">Solicitudes por tipo de movimiento</p>${lienzo("gMovBP",280)}</section>
+   <div class="px-2 px-graf">
+     <section class="gx-card"><h3>Dónde está tu trabajo</h3><p class="sub">Todas tus solicitudes según su etapa</p>
+       <div class="px-dona"><div class="px-pie" style="background:conic-gradient(${B.total?cono:"#E8ECF6 0 100%"})"><b>${B.total}</b><span>solicitudes</span></div>
+       <ul class="px-leg">${seg.map(([c,n,t])=>`<li><i style="background:${c}"></i>${t}<b>${n}</b></li>`).join("")}</ul></div></section>
+     <section class="gx-card"><h3>Por movimiento</h3><p class="sub">Qué te están pidiendo más</p>${barraPx("",B.porMovimiento)}</section>
    </div>`;
 }
 
 $("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
 $("app").onclick=e=>{const t=e.target;
   if(t.id==="xls")return descargar();
+  if(t.id==="togG"){const o=$("app").classList.toggle("sin-g");t.textContent=o?"Mostrar gráficas":"Ocultar gráficas";try{sessionStorage.setItem("px-sin-g",o?"1":"0")}catch(e){}return}
   const ver=t.closest("[data-ver]");if(ver)return detalle(ver.dataset.ver);
   const fb=t.closest("[data-f]");   // tarjetas, barras y fichas del tablero filtran la bandeja; pulsar de nuevo quita el filtro
   if(fb){const i=fb.dataset.f.indexOf(":"),k=fb.dataset.f.slice(0,i),v=fb.dataset.f.slice(i+1);
@@ -308,14 +268,14 @@ function construirExcel(ExcelJS, rows, meta) {
     return fila0 + datos.length + 2;
   };
   const e = contar("estado"), b = contar("bp"), mv = contar("movimiento"), dp = contar("departamento");
-  const f1 = tabla(1, 7, "Por estado", e); tabla(4, 7, "Por Business Partner", b);
+  const f1 = tabla(1, 7, "Por estado", e); tabla(4, 7, "Por Socio de negocio", b);
   const f2 = Math.max(f1, 7 + b.length + 2); tabla(1, f2, "Por tipo de movimiento", mv); tabla(4, f2, "Por departamento", dp);
 
   // ---- Solicitudes (una fila por solicitud)
   const COLS = [
     ["ID", "id", 22], ["Fecha de solicitud", "fechaSolicitud", 14], ["Estado", "estado", 20], ["Puntaje (0-100)", "puntaje", 11], ["Tipo de movimiento", "movimiento", 24],
     ["Colaborador", "colaborador", 30], ["Matrícula", "codigo", 13], ["Puesto actual", "puestoActual", 30], ["Departamento", "departamento", 34], ["Área", "area", 28], ["Sección", "seccion", 28],
-    ["Líder solicitante", "cliente", 26], ["Cargo del líder", "cargoCliente", 28], ["Correo del líder", "enviadoPor", 28], ["BP asignado", "bp", 20],
+    ["Líder solicitante", "cliente", 26], ["Cargo del líder", "cargoCliente", 28], ["Correo del líder", "enviadoPor", 28], ["Socio de negocio asignado", "bp", 20],
     ["Urgencia", "urgencia", 18], ["Impacto", "impacto", 11], ["Consecuencia de no aprobar", "consecuencia", 28], ["Detalle del impacto", "impactoDetalle", 50],
     ["¿Presupuesto?", "presupuesto", 14], ["Fuente de presupuesto", "fuentePresupuesto", 24], ["Quién valida", "validaPresupuesto", 24], ["Monto (S/)", "montoPresupuesto", 13], ["¿Aprobación previa?", "tieneAprobacion", 13],
     ["Comentario del BP", "comentarioBP", 40], ["Comentario de Gerencia", "comentarioGerencia", 40],
@@ -395,8 +355,8 @@ const lis=s=>String(s||"").split(" | ").filter(Boolean).map(x=>`<li>${esc(x)}</l
 const fila=(k,v)=>v==null||String(v).trim()===""?"":`<div class="kv"><span>${esc(k)}</span><b>${esc(v)}</b></div>`;
 // Acciones por rol: [texto, estado nuevo (null = conservar el actual), estilo, exige comentario, aviso de éxito, pide confirmación]
 const ACCIONES={
-  bp:[["Guardar observación",null,"sec",false,"Observación guardada",false],["Devolver al jefe","Devuelto al jefe","warn",true,"Solicitud devuelta al jefe",false],["Pausar","En pausa","sec",false,"Solicitud en pausa",false],["Derivar a otro BP",null,"sec",false,"",false],["Escalar a Gerencia ➜","Enviado a Gerencia","ok",false,"Solicitud escalada: ya está en la bandeja de Gerencia",true]],
-  gerencia:[["Guardar comentario",null,"sec",false,"Comentario guardado",false],["Devolver al BP","En revisión BP","warn",true,"Solicitud devuelta al Business Partner",false],["Rechazar","Rechazado","bad",true,"Solicitud rechazada",true],["Aprobar ✓","Aprobado","ok",false,"Solicitud aprobada",true]]
+  bp:[["Guardar observación",null,"sec",false,"Observación guardada",false],["Devolver al jefe","Devuelto al jefe","warn",true,"Solicitud devuelta al jefe",false],["Pausar","En pausa","sec",false,"Solicitud en pausa",false],["Derivar a otro socio",null,"sec",false,"",false],["Escalar a Gerencia ➜","Enviado a Gerencia","ok",false,"Solicitud escalada: ya está en la bandeja de Gerencia",true]],
+  gerencia:[["Guardar comentario",null,"sec",false,"Comentario guardado",false],["Devolver al socio","En revisión BP","warn",true,"Solicitud devuelta al Socio de negocio",false],["Rechazar","Rechazado","bad",true,"Solicitud rechazada",true],["Aprobar ✓","Aprobado","ok",false,"Solicitud aprobada",true]]
 };
 /** Texto del motor con lo importante en negrita: títulos de sección, etiquetas, importes, fechas, porcentajes y plazos. */
 const CLAVES=/(S\/\s?[\d.,]+|\d+(?:[.,]\d+)?\s?%|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|\b\d+\s+(?:personas?|días|meses|colaboradores?|posiciones?)\b|\b\d{1,3}\/100\b|\b(?:Inmediato|Crítico)\b)/g;
@@ -411,12 +371,12 @@ function resaltar(texto){
 function detalle(id){
   const f=D.filas.find(x=>x.id===id),ed=D.editables.includes(f.estado||"Nuevo");
   google.script.run.withFailureHandler(fail).withSuccessHandler(d=>{
-    const p=Number(d.puntaje),nivel=p>=85?"alto":p>=60?"medio":"bajo",previos=[["Business Partner",f.comentarioBP],["Gerencia",f.comentarioGerencia]].filter(x=>x[1]);
+    const p=Number(d.puntaje),nivel=p>=85?"alto":p>=60?"medio":"bajo",previos=[["Socio de negocio",f.comentarioBP],["Gerencia",f.comentarioGerencia]].filter(x=>x[1]);
     const tg=d.registro&&d.registro.textoGerencia,auto=!tg&&d.registro&&vista==="gerencia"?redactar(d.registro,{comentarioBP:f.comentarioBP}):null;
-    const secTexto=`${tg||auto?`<section class="sec"><h4>Texto para Gerencia <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Business Partner":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Business Partner"}</span></h4><pre class="texto">${esc(tg||auto.texto)}</pre></section>`:""}`;
+    const secTexto=`${tg||auto?`<section class="sec"><h4>Texto para Gerencia <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Socio de negocio":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Socio de negocio"}</span></h4><pre class="texto">${esc(tg||auto.texto)}</pre></section>`:""}`;
     const secResumen=`<section class="sec"><h4>Resumen</h4><div class="grid">
         ${fila("Líder solicitante",f.cliente+" · "+f.cargoCliente)}${fila("Departamento",f.departamento)}${fila("Área",f.area)}${fila("Sección",f.seccion)}
-        ${fila("Matrícula",f.codigo)}${fila("Puesto actual",f.puestoActual)}${fila("Business Partner",f.bp)}${fila("Derivada por",f.derivadoPor)}${fila("Urgencia",f.urgencia)}
+        ${fila("Matrícula",f.codigo)}${fila("Puesto actual",f.puestoActual)}${fila("Socio de negocio",f.bp)}${fila("Derivada por",f.derivadoPor)}${fila("Urgencia",f.urgencia)}
         ${fila("Impacto si no se ejecuta",f.impacto)}${fila("Consecuencia",f.consecuencia)}</div></section>`;
     const secResto=`<section class="sec"><h4>Presupuesto</h4><div class="grid">${fila("¿Cuenta con presupuesto?",f.presupuesto)}${fila("Fuente",f.fuentePresupuesto)}${fila("Quién valida",f.validaPresupuesto)}${fila("Monto",f.montoPresupuesto!==""?"S/ "+f.montoPresupuesto:"")}</div></section>
       ${d.puntaje?`<section class="sec"><h4>Evaluación automática</h4>
@@ -429,17 +389,17 @@ function detalle(id){
       ${previos.length?`<section class="sec"><h4>Comentarios anteriores</h4>${previos.map(([q,t])=>`<div class="qa"><span>${esc(q)}</span><p>${esc(t)}</p></div>`).join("")}</section>`:""}`;
     const base=tg||(auto&&auto.texto)||"";
     const resumenG=auto?auto.resumen:"";
-    const solic=`<section class="sec px-sol"><h4>Quién lo solicita</h4><div class="px-quien"><i class="px-av g">${esc(iniciales(f.cliente))}</i><div><b>${esc(f.cliente||"—")}</b><span>${esc(f.cargoCliente||"Líder de área")}</span></div><div class="px-area"><span>Área solicitante</span><b>${esc(f.area||f.departamento||"—")}</b><em>${esc(f.departamento||"")}</em></div><div class="px-area"><span>Business Partner</span><b>${esc(f.bp||"—")}</b></div></div></section>`;
+    const solic=`<section class="sec px-sol"><h4>Quién lo solicita</h4><div class="px-quien"><i class="px-av g">${esc(iniciales(f.cliente))}</i><div><b>${esc(f.cliente||"—")}</b><span>${esc(f.cargoCliente||"Líder de área")}</span></div><div class="px-area"><span>Área solicitante</span><b>${esc(f.area||f.departamento||"—")}</b><em>${esc(f.departamento||"")}</em></div><div class="px-area"><span>Socio de negocio</span><b>${esc(f.bp||"—")}</b></div></div></section>`;
     const visib=`<section class="sec"><h4>Visibilidad del caso</h4><div class="px-vis">
       <div class="px-v"><span>Preparación</span><div class="px-sc ${nivel} g">${esc(d.puntaje||"—")}</div><em>${esc(d.clasificacion||"")}</em></div>
       <div class="px-v"><span>Urgencia</span><b class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</b></div>
       <div class="px-v"><span>Impacto si no se ejecuta</span><b>${esc(f.impacto||"—")}</b><em>${esc(f.consecuencia||"")}</em></div>
       <div class="px-v"><span>Presupuesto</span><b>${esc(f.presupuesto||"—")}</b><em>${f.montoPresupuesto!==""&&f.montoPresupuesto!=null?"S/ "+esc(f.montoPresupuesto):esc(f.fuentePresupuesto||"")}</em></div>
       <div class="px-v"><span>Aprobación previa</span><b>${d.aprobaciones.length?d.aprobaciones.length+" registrada"+(d.aprobaciones.length===1?"":"s"):"Sin aprobación"}</b></div></div></section>`;
-    const susten=base?`<section class="sec px-sus"><h4>Sustento del caso <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Business Partner":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Business Partner"}</span></h4>${resaltar(base)}</section>`:"";
+    const susten=base?`<section class="sec px-sus"><h4>Sustento del caso <span class="orig">${tg?(d.registro.textoOrigen==="motor+editado"?"· redactado por el motor y editado por el Socio de negocio":"· redactado por el motor"):"· generado al abrir, aún sin revisión del Socio de negocio"}</span></h4>${resaltar(base)}</section>`:"";
     $("dlg").innerHTML=`
      <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
-       <div class="meta"><span class="tag ${esc(f.estado)}">${esc(f.estado||"Nuevo")}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
+       <div class="meta"><span class="tag ${esc(f.estado)}">${esc(eb(f.estado||"Nuevo"))}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
        <button type="button" class="x" id="cerrarX" aria-label="Cerrar">✕</button></div>
      <div class="db">${vista==="gerencia"?`${solic}${visib}${susten}<button type="button" class="px-det" id="verDet" aria-expanded="false">Ver detallado ▾</button><div id="det" hidden>${secResumen}${secResto}</div>`:`${secTexto}${secResumen}${secResto}`}
      </div>
@@ -453,12 +413,12 @@ function detalle(id){
     dlg.onclick=e=>{if(e.target===dlg)cerrar()};   // clic fuera de la ventana
     const aplicar=(estado,coment,extra,ok)=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=true);
       google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=false);aviso(e.message||e)}).withSuccessHandler(()=>{dlg.close();cargar(vista);aviso("✓ "+ok)}).panelActualizar(id,vista,estado,coment,extra)};
-    // Escalar: el BP revisa (y puede editar) el texto que recibirá Gerencia; el motor señala lo que falta o no cuadra.
+    // Escalar: el socio de negocio revisa (y puede editar) el texto que recibirá Gerencia; el motor señala lo que falta o no cuadra.
     const componer=coment=>{
       const base=redactar(d.registro,{comentarioBP:coment});
       dlg.innerHTML=`<div class="dh"><div><span class="mov">Escalar a Gerencia</span><h2>Texto para Gerencia</h2><div class="meta"><span>Armado con las respuestas del jefe: revísalo y edítalo antes de enviar</span></div></div><button type="button" class="x" id="cerrarX2" aria-label="Cerrar">✕</button></div>
        <div class="db">${base.alertas.length?`<section class="sec"><h4>Puntos a validar antes de enviar (${base.alertas.length})</h4><ul class="ptos">${base.alertas.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></section>`:'<section class="sec good">Sin puntos pendientes: los datos mínimos están completos.</section>'}
-        <section class="sec"><h4>Texto que recibirá Gerencia</h4><textarea id="tg" class="tg" rows="20" spellcheck="true">${esc(base.texto)}</textarea><p class="muted">Cada dato sale de las respuestas del formulario. Si lo editas, queda registrado como «editado por el Business Partner».</p></section></div>
+        <section class="sec"><h4>Texto que recibirá Gerencia</h4><textarea id="tg" class="tg" rows="20" spellcheck="true">${esc(base.texto)}</textarea><p class="muted">Cada dato sale de las respuestas del formulario. Si lo editas, queda registrado como «editado por el Socio de negocio».</p></section></div>
        <div class="df"><div class="acts"><button type="button" class="btn sec" id="volver">← Volver al detalle</button><button type="button" class="btn sec" id="regenerar">Regenerar</button><span class="sp"></span><button type="button" class="btn ok" id="enviarG">Enviar a Gerencia ➜</button></div></div>`;
       $("cerrarX2").onclick=()=>dlg.close();$("volver").onclick=()=>detalle(id);
       $("regenerar").onclick=()=>{$("tg").value=base.texto;aviso("Texto regenerado desde los datos")};
@@ -466,12 +426,12 @@ function detalle(id){
         if(!confirm("¿Enviar a Gerencia con este texto? Esta acción se registra a tu nombre."))return;
         aplicar("Enviado a Gerencia",coment,{textoGerencia:t,textoOrigen:t===base.texto.trim()?"motor":"motor+editado"},"Solicitud escalada: ya está en la bandeja de Gerencia")};
     };
-    // Derivar: pasa la solicitud a otro Business Partner (el actual deja de verla; el otro la recibe marcada como derivada).
+    // Derivar: pasa la solicitud a otro Socio de negocio (el actual deja de verla; el otro la recibe marcada como derivada).
     const derivar=async coment=>{
       const n=await nombres(),otros=Object.entries(n).filter(([k])=>k!==D.bpId).sort((a,b)=>a[1].localeCompare(b[1]));
-      if(!otros.length)return aviso("No hay otros Business Partner disponibles");
-      dlg.innerHTML=`<div class="dh"><div><span class="mov">Derivar</span><h2>¿A qué Business Partner la derivas?</h2><div class="meta"><span>Dejarás de verla; el otro Business Partner la recibe en su bandeja</span></div></div><button type="button" class="x" id="cerrarX3" aria-label="Cerrar">✕</button></div>
-       <div class="db"><section class="sec"><h4>Business Partner destino</h4><div class="ops">${otros.map(([k,nom])=>`<label class="op"><input type="radio" name="dest" value="${esc(k)}"><span>${esc(nom)}</span></label>`).join("")}</div></section>
+      if(!otros.length)return aviso("No hay otros Socio de negocio disponibles");
+      dlg.innerHTML=`<div class="dh"><div><span class="mov">Derivar</span><h2>¿A qué Socio de negocio la derivas?</h2><div class="meta"><span>Dejarás de verla; el otro Socio de negocio la recibe en su bandeja</span></div></div><button type="button" class="x" id="cerrarX3" aria-label="Cerrar">✕</button></div>
+       <div class="db"><section class="sec"><h4>Socio de negocio destino</h4><div class="ops">${otros.map(([k,nom])=>`<label class="op"><input type="radio" name="dest" value="${esc(k)}"><span>${esc(nom)}</span></label>`).join("")}</div></section>
         <section class="sec"><h4>Motivo de la derivación</h4><textarea id="motivo" rows="3" style="width:100%" placeholder="Por qué la derivas (lo verá quien la reciba)">${esc(coment)}</textarea></section></div>
        <div class="df"><div class="acts"><button type="button" class="btn sec" id="volver3">← Volver al detalle</button><span class="sp"></span><button type="button" class="btn ok" id="derivarOk">Derivar</button></div></div>`;
       $("cerrarX3").onclick=()=>dlg.close();$("volver3").onclick=()=>detalle(id);
@@ -485,7 +445,7 @@ function detalle(id){
       const [txt,nuevo,,exige,ok,confirma]=ACCIONES[vista][b.dataset.i],coment=$("nc").value.trim();
       const estado=nuevo||(D.estados.includes(f.estado)?f.estado:D.estados[0]);
       if(exige&&!coment){$("nc").focus();$("nc").classList.add("falta");return aviso("Escribe una observación para continuar")}
-      if(vista==="bp"&&txt==="Derivar a otro BP")return derivar(coment);
+      if(vista==="bp"&&txt==="Derivar a otro socio")return derivar(coment);
       if(vista==="bp"&&nuevo==="Enviado a Gerencia")return componer(coment);
       if(confirma&&!confirm(`¿${txt.replace(/[➜✓]/g,"").trim()}? Esta acción se registra a tu nombre.`))return;
       aplicar(estado,coment,null,ok)});

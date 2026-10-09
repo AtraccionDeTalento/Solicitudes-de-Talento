@@ -772,7 +772,7 @@ function qHTML([id,label,type,opts,help]){
 }
 const G0A=[["fechaSolicitud","Fecha de solicitud","date"],["movimiento","Tipo de movimiento","select",MOVS]];
 const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
-const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS,"Define a qué Business Partner llega tu solicitud (asignación automática)."],["area","Área","text"],["seccion","Sección","text"]];
+const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS,"Define a qué Socio de negocio llega tu solicitud (asignación automática)."],["area","Área","text"],["seccion","Sección","text"]];
 const CODE_HTML=`<div class="q"><label for="correoColab">Correo del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
 const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SNC],["fuentePresupuesto","Fuente de presupuesto","select",["Presupuesto aprobado","Vacante disponible","Ahorro interno","Reasignación","Presupuesto adicional","No identificada","Otro"]],["validaPresupuesto","Quién confirma / valida el presupuesto","text","Nombre, cargo o estado de validación"],["montoPresupuesto","Monto disponible (S/)","number","0.00","Obligatorio si cuenta con presupuesto."]];
 const G4=[["urgencia","¿Cuándo se necesita implementar?","select",["Inmediato","Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
@@ -1004,7 +1004,7 @@ function toast(m){const t=$("toast");t.textContent=m;t.classList.remove("hidden"
 function renderReview(){
   const d=gather(),ev=evaluateCase(d),cls=ev.score>=85?"ok":ev.score>=60?"warn":"bad";
   const li=a=>(a.length?a:["—"]).map(x=>`<li>${esc(x)}</li>`).join("");
-  const rows=[["Movimiento",d.movimiento],["Colaborador",`${d.colaborador} (${d.codigo})`],["Puesto",d.puestoActual],["Departamento / Área / Sección",[d.departamento,d.area,d.seccion].filter(Boolean).join(" · ")],["Líder solicitante",`${d.cliente} · ${d.cargoCliente} · ${d.emailCliente}`],["Se envía a","Business Partner del departamento indicado (asignación automática)"],["Aprobaciones",d.tieneAprobacion==="Sí"?`${d.approvals.length} registrada(s)`:"Sin aprobación previa"],["Presupuesto",`${d.presupuesto} · ${d.fuentePresupuesto}${d.montoPresupuesto?` · S/ ${d.montoPresupuesto}`:""}`],["Urgencia / impacto",`${d.urgencia} · ${d.impacto} · ${d.consecuencia}`],["Sustento ejecutivo",d.solicitudConcreta]];
+  const rows=[["Movimiento",d.movimiento],["Colaborador",`${d.colaborador} (${d.codigo})`],["Puesto",d.puestoActual],["Departamento / Área / Sección",[d.departamento,d.area,d.seccion].filter(Boolean).join(" · ")],["Líder solicitante",`${d.cliente} · ${d.cargoCliente} · ${d.emailCliente}`],["Se envía a","Socio de negocio del departamento indicado (asignación automática)"],["Aprobaciones",d.tieneAprobacion==="Sí"?`${d.approvals.length} registrada(s)`:"Sin aprobación previa"],["Presupuesto",`${d.presupuesto} · ${d.fuentePresupuesto}${d.montoPresupuesto?` · S/ ${d.montoPresupuesto}`:""}`],["Urgencia / impacto",`${d.urgencia} · ${d.impacto} · ${d.consecuencia}`],["Sustento ejecutivo",d.solicitudConcreta]];
   $("reviewBox").innerHTML=`<div class="scorebox"><div class="scorecircle"><strong>${ev.score}</strong><span>de 100</span></div><div><span class="badge ${cls}">${esc(ev.label)}</span><div class="grid2" style="margin-top:12px"><div class="result-block"><h4>Fortalezas</h4><ul class="list">${li(ev.strengths)}</ul></div><div class="result-block"><h4>Alertas</h4><ul class="list">${li(ev.alerts)}</ul></div></div><div class="notice">${esc(ev.recommendation)}</div></div></div><h3>Resumen de la solicitud</h3><dl class="sum">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
 }
 
@@ -1049,8 +1049,8 @@ function showDone(rec,sent,err){
   lastRec=rec;
   ["form","stepper","actionsBar","errSummary"].forEach(id=>$(id).classList.add("hidden"));
   const msg=!sent?`No se pudo enviar al servidor (${esc(err)}). Intenta de nuevo en unos minutos; tu borrador sigue guardado en este equipo.`
-    :CONFIG.endpoint?(!rec.sinBP?"Tu solicitud fue enviada a tu Business Partner.":"Tu solicitud fue registrada; aún no hay un Business Partner configurado para tu departamento y se derivó al coordinador.")
-    :"Tu solicitud quedó guardada en este equipo. Descarga el Excel y envíalo a tu Business Partner.";
+    :CONFIG.endpoint?(!rec.sinBP?"Tu solicitud fue enviada a tu Socio de negocio.":"Tu solicitud fue registrada; aún no hay un Socio de negocio configurado para tu departamento y se derivó al coordinador.")
+    :"Tu solicitud quedó guardada en este equipo. Descarga el Excel y envíalo a tu Socio de negocio.";
   $("done").classList.remove("hidden");
   $("done").innerHTML=`<h2>${sent?"✔ Solicitud registrada":"⚠ Solicitud guardada, falta enviarla"}</h2><p>${msg}</p><dl class="sum"><dt>Código de seguimiento</dt><dd><b>${esc(rec.id)}</b></dd><dt>Movimiento</dt><dd>${esc(rec.data.movimiento)}</dd><dt>Índice de preparación</dt><dd>${rec.evaluation.score}/100 · ${esc(rec.evaluation.label)}</dd></dl><div class="inline" style="margin-top:16px"><button type="button" id="dlXls">Descargar Excel</button><button type="button" class="secondary" id="newReq">Nueva solicitud</button></div>`;
   $("dlXls").onclick=()=>exportCase(rec);
@@ -1140,7 +1140,7 @@ function construirExcelCaso(ExcelJS,rec){
     a.font={bold:true,color:{argb:NAVY}};a.fill=fill(ETQ);a.alignment={vertical:"top",wrapText:true,indent:1};b.alignment={vertical:"top",wrapText:true,indent:1};a.border=borde;b.border=borde;
     ws.getRow(f).height=alto(v,105);f++};
   const sp=()=>{f++};
-  seccion("DATOS DE LA SOLICITUD");fila("Periodo",d.periodoLabel);fila("Fecha de solicitud",d.fechaSolicitud);fila("Tipo de movimiento",d.movimiento);fila("Business Partner asignado",bp||"Pendiente de asignar");sp();
+  seccion("DATOS DE LA SOLICITUD");fila("Periodo",d.periodoLabel);fila("Fecha de solicitud",d.fechaSolicitud);fila("Tipo de movimiento",d.movimiento);fila("Socio de negocio asignado",bp||"Pendiente de asignar");sp();
   seccion("LÍDER SOLICITANTE");fila("Nombre",d.cliente);fila("Cargo",d.cargoCliente);fila("Correo",d.emailCliente);sp();
   seccion("COLABORADOR");fila("Nombre",d.colaborador);fila("Código (matrícula)",d.codigo);fila("Puesto actual",d.puestoActual);fila("Departamento",d.departamento);fila("Área",d.area);fila("Sección",d.seccion);sp();
   seccion("PRESUPUESTO");fila("¿Cuenta con presupuesto?",d.presupuesto);fila("Fuente",d.fuentePresupuesto);fila("Quién valida",d.validaPresupuesto);fila("Monto disponible (S/)",d.montoPresupuesto);sp();
@@ -1264,11 +1264,11 @@ async function demoFill(enviar,dep,mov0){
 }
 // Un registro real por departamento (16): cada BP recibe los de sus departamentos.
 async function demoLote(){
-  if(!confirm("Se enviarán "+DEPARTAMENTOS.length+" solicitudes de ejemplo REALES (una por departamento) a los Business Partner. ¿Continuar?")) return;
+  if(!confirm("Se enviarán "+DEPARTAMENTOS.length+" solicitudes de ejemplo REALES (una por departamento) a los Socio de negocio. ¿Continuar?")) return;
   const por={};let ok=0,fallo=0;
   for(let i=0;i<DEPARTAMENTOS.length;i++){
     $("demoBatch").textContent=`Enviando ${i+1}/${DEPARTAMENTOS.length}…`;
-    try{const rec=await demoFill(true,DEPARTAMENTOS[i],MOVS[i%MOVS.length]);const bp=rec&&rec.id&&!rec.sinBP?"Con Business Partner":"Sin asignar";por[bp]=(por[bp]||0)+1;rec&&rec.id?ok++:fallo++}catch(e){fallo++}
+    try{const rec=await demoFill(true,DEPARTAMENTOS[i],MOVS[i%MOVS.length]);const bp=rec&&rec.id&&!rec.sinBP?"Con Socio de negocio":"Sin asignar";por[bp]=(por[bp]||0)+1;rec&&rec.id?ok++:fallo++}catch(e){fallo++}
   }
   $("demoBatch").textContent=$("demoBatch").dataset.t;
   alert(`Listo: ${ok} enviadas, ${fallo} con problema. Resultado: `+Object.entries(por).map(([k,v])=>`${k}: ${v}`).join(" · "));
@@ -1355,7 +1355,7 @@ function readSession(){
 let lastSave=0;
 function touch(){if(!SESSION) return;SESSION.last=Date.now();if(Date.now()-lastSave>15000){lastSave=Date.now();saveSession()}}
 function setupLogin(){
-  // Jefe de área: nombre y correo @usil.edu.pe (sin verificar). Business Partner y Gerencia entran por su botón, que lleva al panel.
+  // Jefe de área: nombre y correo @usil.edu.pe (sin verificar). Socio de negocio y Gerencia entran por su botón, que lleva al panel.
   $("lgStaff").onclick=async()=>{
     const err=$("lgErr2"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),name=$("lgNombre").value.trim().replace(/\s+/g," ");
     err.textContent="";
