@@ -4,7 +4,7 @@
   "private": true,
   "description": "Portal de solicitudes de movimientos de talento · USIL",
   "scripts": {
-    "test": "node tests/web.test.js && node tests/redactor.test.js && node tests/tablero.test.js",
+    "test": "node tests/web.test.js && node tests/redactor.test.js && node tests/tablero.test.js && node tests/calidad.test.js",
     "test:rules": "firebase emulators:exec --only firestore --project demo-rules \"node tests/rules.test.js\"",
     "emu": "firebase emulators:start --only auth,firestore --project demo-local",
     "seed:local": "node tools/seed-local.js",

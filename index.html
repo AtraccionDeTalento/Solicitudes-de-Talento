@@ -22,14 +22,14 @@ header{background:linear-gradient(100deg,var(--navy),var(--royal));color:#fff;po
 .hwrap{max-width:none;margin:0;padding:14px 28px 10px;position:relative}
 .userchip{position:absolute;right:20px;top:14px;display:flex;gap:10px;align-items:center;font-size:12.5px;color:#C9D6F5}
 .userchip button{padding:6px 11px;font-size:12px;background:#ffffff1f;color:#fff}
-footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 90px}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px}footer:empty{display:none}
 button:hover:not(:disabled){filter:brightness(1.1)}
 header h1{margin:0;font-size:21px}.htop{display:flex;align-items:center;gap:14px}.hlogo{height:38px;width:auto;filter:brightness(0) invert(1);cursor:default;user-select:none;-webkit-user-drag:none}
 header p{margin:2px 0 8px;color:#C9D6F5;font-size:13px}
 .pbar{height:6px;background:#ffffff33;border-radius:9px;overflow:hidden}
 #barfill{height:100%;width:0;background:#F3BE00;transition:width .25s}
 #barTxt{color:#C9D6F5;font-size:12px;margin-top:4px}
-.wrap{max-width:1100px;margin:auto;padding:18px 20px 110px}
+.wrap{max-width:1100px;margin:auto;padding:18px 20px 84px}
 #stepper{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 #stepper button{background:#fff;color:var(--muted);border:1px solid var(--border);padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center}
 #stepper button b{display:inline-flex;width:22px;height:22px;border-radius:50%;background:#E8EDFB;align-items:center;justify-content:center;font-size:12px}
@@ -112,7 +112,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 #login .pitch h2{font-weight:800;font-size:30px;line-height:1.28;max-width:420px;margin:0}
 }
 @media print{header,.actions,#stepper,#login,#toast{display:none!important}.step{display:block!important}}
-@media(max-width:720px){.wrap{padding:12px 12px 110px}.panel{padding:16px}.scorebox{grid-template-columns:1fr}dl.sum{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}#stepper button span{display:none}}
+@media(max-width:720px){.wrap{padding:12px 12px 84px}.panel{padding:16px}.scorebox{grid-template-columns:1fr}dl.sum{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}#stepper button span{display:none}}
 </style>
 </head>
 <body>
@@ -233,6 +233,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 <div id="toast" class="hidden" role="status" aria-live="polite"></div>
 
 <script type="module" src="fb-init.js"></script>
+<script src="calidad.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

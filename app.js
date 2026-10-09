@@ -472,7 +472,8 @@ function buildExecutiveSummary(){
   let paragraphs=[];
 
   const add = txt => { if(cleanSentence(txt)) paragraphs.push(sentence(txt)); };
-  const direct = id => cleanSentence(val(id));
+  const usado=new Map();   // la misma respuesta escrita en dos preguntas distintas se cita una sola vez
+  const direct = id => {const t=cleanSentence(val(id));if(t.length<25) return t;const k=t.toLowerCase();if(usado.has(k)&&usado.get(k)!==id) return "";usado.set(k,id);return t};
   const lowerLead = txt => {
     const s=cleanSentence(txt);
     if(!s) return "";
@@ -870,6 +871,7 @@ function check(el){
     const [min,max]=limits(el.id,el.tagName==="TEXTAREA"?"textarea":"text");
     if(v.length<min) return min>5?`Describe con más detalle (mínimo ${min} caracteres).`:`Mínimo ${min} caracteres.`;
     if(v.length>max) return `Máximo ${max} caracteres.`;
+    if(v.length>=15&&window.Calidad){const q=Calidad.evaluar(v);if(q.nivel==="invalido") return "Escribe una respuesta con sentido: "+(q.motivos[0]||"revisa el texto");}
   }
   if(el.type==="email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return "Correo no válido.";
   if(el.type==="number" && !(Number(v)>0)) return "Ingresa un valor mayor que 0.";
@@ -895,39 +897,64 @@ function showErrors(errs){
 // ---------- Evaluación (misma lógica y pesos que la versión de Amador) ----------
 function evaluateCase(d){
   let score=0,strengths=[],alerts=[];
-  const b={general:0,sustento:0,aprobaciones:0,presupuesto:0,impacto:0};
+  const b={general:0,sustento:0,aprobaciones:0,presupuesto:0,impacto:0,ejecutivo:0};
+  const Q=t=>window.Calidad?Calidad.evaluar(t):{p:1,nivel:"ok",motivos:[]};
+  const etiqueta=id=>{const l=document.getElementById(id)&&document.getElementById(id).closest(".q");const x=l&&l.querySelector("label");return x?x.textContent.replace(/\(opcional\)|\*/g,"").trim():id};
   const general=[d.fechaSolicitud,d.cliente,d.departamento,d.movimiento];   // el BP ya no se digita: se asigna por departamento
   const filled=general.filter(nonempty).length;
-  b.general=Math.round(filled/general.length*20);score+=b.general;
+  b.general=Math.round(filled/general.length*10);score+=b.general;
   if(filled===general.length) strengths.push("Información general completa."); else alerts.push("Faltan datos generales del caso.");
-  const dq=Object.values(d.dynamic||{});
+  const dq=Object.entries(d.dynamic||{});
   if(dq.length){
-    const pct=dq.filter(nonempty).length/dq.length;
-    b.sustento=Math.round(pct*30);score+=b.sustento;
-    if(pct>=0.85) strengths.push("Sustento metodológico bien desarrollado."); else alerts.push("Faltan respuestas en el levantamiento específico del movimiento.");
+    const sinSentido=[],cortas=[];
+    const pts=dq.map(([id,v])=>{
+      if(!nonempty(v)) return 0;
+      const t=String(v).trim(); if(t.length<20) return 1;
+      const q=Q(t); if(q.nivel==="invalido") sinSentido.push(etiqueta(id)); else if(q.nivel==="debil") cortas.push(etiqueta(id));
+      return q.p;
+    });
+    const pct=pts.reduce((a,x)=>a+x,0)/dq.length;
+    b.sustento=Math.round(pct*25);score+=b.sustento;
+    if(pct>=0.85) strengths.push("Sustento metodológico bien desarrollado.");
+    else if(dq.filter(([,v])=>!nonempty(v)).length) alerts.push("Faltan respuestas en el levantamiento específico del movimiento.");
+    if(sinSentido.length) alerts.push(`Respuestas que no parecen texto con sentido: ${sinSentido.slice(0,3).join("; ")}${sinSentido.length>3?` y ${sinSentido.length-3} más`:""}.`);
+    if(cortas.length) alerts.push(`Respuestas poco claras o poco naturales: ${cortas.slice(0,3).join("; ")}${cortas.length>3?` y ${cortas.length-3} más`:""}.`);
+    if(!sinSentido.length&&!cortas.length&&pct<0.85) alerts.push("El levantamiento está incompleto: el puntaje baja con cada respuesta pendiente.");
   }else alerts.push("Selecciona un tipo de movimiento para completar el sustento metodológico.");
   const ap=d.approvals||[];
   if(d.tieneAprobacion==="Sí" && ap.length){
-    const complete=ap.filter(a=>a.level&&a.name).length;
-    b.aprobaciones=Math.min(15,8+complete*3);score+=b.aprobaciones;
+    const complete=ap.filter(a=>a.level&&a.name).length, sinEv=ap.filter(a=>a.evidence==="No").length;
+    b.aprobaciones=Math.max(0,Math.min(15,8+complete*3-sinEv*4));score+=b.aprobaciones;
     strengths.push(`Cuenta con ${ap.length} aprobación(es) previa(s) registrada(s).`);
-    if(ap.some(a=>a.evidence==="No")) alerts.push("Existe aprobación previa sin evidencia documentada.");
+    if(sinEv) alerts.push("Existe aprobación previa sin evidencia documentada.");
+    if(complete<ap.length) alerts.push("Hay aprobaciones sin nivel o nombre del aprobador.");
   }else if(d.tieneAprobacion==="No") alerts.push("El caso no cuenta con aprobación previa.");
   else alerts.push("No se ha definido si el caso cuenta con aprobación previa.");
   if(d.presupuesto==="Sí"){
-    b.presupuesto=15;score+=15;strengths.push("Cuenta con presupuesto.");
+    b.presupuesto=d.fuentePresupuesto?15:11;score+=b.presupuesto;strengths.push("Cuenta con presupuesto.");
     if(!d.fuentePresupuesto) alerts.push("Falta identificar la fuente de presupuesto.");
+    if(!(Number(d.montoPresupuesto)>0)) alerts.push("Falta indicar el monto de presupuesto disponible.");
   }else if(d.presupuesto==="Por confirmar"){b.presupuesto=6;score+=6;alerts.push("El presupuesto está por confirmar.")}
   else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
   else alerts.push("No se ha definido el estado del presupuesto.");
-  if(d.urgencia) b.impacto+=6;
-  if(d.impacto) b.impacto+=6;
-  if(d.consecuencia) b.impacto+=3;
-  if(nonempty(d.impactoDetalle)) b.impacto+=5;
+  b.impacto+={"Inmediato":6,"Dentro de 30 días":5,"Dentro de 60 días":3,"Más adelante":2}[d.urgencia]||0;
+  b.impacto+={"Crítico":6,"Alto":5,"Medio":3,"Bajo":1}[d.impacto]||0;
+  if(d.consecuencia) b.impacto+=d.consecuencia==="Sin impacto relevante"?0:3;
+  if(nonempty(d.impactoDetalle)){const q=Q(String(d.impactoDetalle).trim());b.impacto+=Math.round(5*(String(d.impactoDetalle).trim().length<20?1:q.p));if(q.nivel==="invalido") alerts.push("El detalle del impacto no parece texto con sentido.")}
   score+=b.impacto;
   if(b.impacto>=16) strengths.push("Impacto y urgencia del negocio identificados."); else alerts.push("Falta fortalecer la justificación de impacto o urgencia.");
+  if(d.impacto==="Bajo"&&d.urgencia==="Inmediato") alerts.push("Urgencia inmediata con impacto bajo: revisa que sean coherentes.");
+  if((d.impacto==="Alto"||d.impacto==="Crítico")&&d.consecuencia==="Sin impacto relevante") alerts.push("Indicas impacto alto pero «sin impacto relevante» como consecuencia: revisa que sean coherentes.");
   if(!nonempty(d.solicitudConcreta)) alerts.push("Falta generar o completar el sustento ejecutivo para Comité.");
-  score=Math.min(100,score);
+  else{
+    const t=String(d.solicitudConcreta).trim(),q=Q(t),largo=Math.min(1,t.length/250);
+    b.ejecutivo=Math.round(15*q.p*largo);score+=b.ejecutivo;
+    if(q.nivel==="invalido") alerts.push("El sustento ejecutivo no parece texto con sentido: "+(q.motivos[0]||"reescríbelo")+" ");
+    else if(q.nivel==="debil") alerts.push("El sustento ejecutivo se lee poco natural o repetitivo: "+(q.motivos[0]||"revísalo")+" ");
+    else if(t.length>=250) strengths.push("Sustento ejecutivo claro y suficientemente desarrollado.");
+    if(t.length<150) alerts.push("El sustento ejecutivo es muy breve para un Comité.");
+  }
+  score=Math.min(100,Math.max(0,score));
   let label,recommendation;
   if(score>=85){label="Caso bien preparado";recommendation="El caso presenta un nivel alto de preparación. Puede pasar a revisión de Compensaciones, sujeto a las validaciones técnicas correspondientes."}
   else if(score>=60){label="Caso viable con observaciones";recommendation="El caso puede avanzar, pero conviene resolver las alertas señaladas antes de elevarlo a Compensaciones."}
@@ -1315,7 +1342,7 @@ function init(){
       toast("Caso abierto: al guardar se actualiza el mismo registro.");
     });
   }
-  $("foot").textContent=`USIL · Business Partners · v${APP_VERSION}`+(CONFIG.soporte?` · Soporte: ${CONFIG.soporte}`:"");
+  $("foot").textContent=CONFIG.soporte?`Soporte: ${CONFIG.soporte}`:"";
   setupLogin();
   boot();
 }
