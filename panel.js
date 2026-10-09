@@ -297,7 +297,7 @@ function pintarPresentacion(){
      <div class="px-kpi rojo"><span>Urgentes</span><b>${esc(R.urgentes||0)}</b><em>inmediatos o dentro de 30 días</em></div>
      <div class="px-kpi neutro"><span>Preparación promedio</span><b>${esc(R.preparacion||"—")}</b><em>sobre 100 puntos</em></div>
      <div class="px-kpi verde"><span>Ya decididos</span><b>${esc(resueltos)}</b><em>de ${esc(casos.length)} desde el corte</em></div></div>
-   ${casos.map((k,i)=>`<section class="gx-card pr-caso"><div class="px-row" style="border:0;cursor:default"><i class="px-av g">${esc(i+1)}</i><span class="px-mn"><b style="font-size:19px">${esc(k.colaborador||"—")}</b><em style="font-size:14px">${esc(k.movimiento)} · ${esc(k.departamento)}</em></span><button type="button" class="gx-ver px-noprint" data-ver="${esc(k.id)}">Revisar caso</button></div>
+   ${casos.map((k,i)=>`<section class="gx-card pr-caso"><div class="px-row" style="border:0;cursor:default"><i class="px-av g">${esc(i+1)}</i><span class="px-mn"><b style="font-size:19px">${esc(k.colaborador||"—")}</b><em style="font-size:14px">${esc(k.movimiento)} · ${esc(k.departamento)}</em></span>${k.puntaje?`<span class="pr-pts" title="Preparación del caso (0 a 100)"><span class="px-sc ${nivelP(+k.puntaje)}">${esc(k.puntaje)}</span><em>preparación</em></span>`:""}<button type="button" class="gx-ver px-noprint" data-ver="${esc(k.id)}">Revisar caso</button></div>
        <div class="px-sus"><p class="tx-p ejec">${marcar(k.sustento||k.texto.split("\n").slice(0,2).join(" "))}</p></div><button type="button" class="px-det px-noprint" data-tog="1">Ver detallado ▾</button><div class="pr-full" hidden><div class="px-sus">${resaltar(k.texto)}</div></div></section>`).join("")}`;
 }
 
