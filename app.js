@@ -486,7 +486,7 @@ function buildExecutiveSummary(){
     add(`Se solicita la promoción de ${person}${current?` de ${current}`:""}${proposed?` a ${proposed}`:""}`);
 
     if(direct("queCambioPromo")){
-      add(`La promoción se plantea porque ${lowerLead(stripEnd(direct("queCambioPromo")))}`);
+      add(`La promoción se plantea: ${stripEnd(direct("queCambioPromo"))}`);
     } else {
       add("La promoción se plantea por una evolución relevante del alcance y nivel de responsabilidad del rol");
     }
@@ -498,9 +498,9 @@ function buildExecutiveSummary(){
     if(direct("personasCargo")) drivers.push("responsabilidad sobre equipo");
     if(drivers.length) add(`El cambio se evidencia en ${joinNatural(drivers)}`);
 
-    if(direct("porQuePromocion")) add(`Corresponde una promoción, y no solo un incremento salarial, porque ${lowerLead(stripEnd(direct("porQuePromocion")))}`);
-    if(direct("resultadoEsperadoPromo")) add(`Con la formalización se busca ${lowerLead(stripEnd(direct("resultadoEsperadoPromo")))}`);
-    if(direct("impactoNoPromocion")) add(`Si la promoción no se formaliza, ${lowerLead(stripEnd(direct("impactoNoPromocion")))}`);
+    if(direct("porQuePromocion")) add(`Corresponde una promoción, y no solo un incremento salarial,: ${stripEnd(direct("porQuePromocion"))}`);
+    if(direct("resultadoEsperadoPromo")) add(`Con la formalización se busca: ${stripEnd(direct("resultadoEsperadoPromo"))}`);
+    if(direct("impactoNoPromocion")) add(`Si la promoción no se formaliza: ${stripEnd(direct("impactoNoPromocion"))}`);
 
     add("Se solicita la aprobación de la promoción y la revisión salarial correspondiente");
   }
@@ -512,24 +512,24 @@ function buildExecutiveSummary(){
 
     if(tipo==="Renovación de encargatura"){
       add(`Se solicita renovar la encargatura de ${person}${role?` como ${role}`:""}${direct("periodoRenovacion")?` por ${direct("periodoRenovacion")}`:""}`);
-      if(reason) add(`La renovación se requiere debido a ${reason.toLowerCase()}`);
+      if(reason) add(`Motivo de la renovación: ${stripEnd(reason)}`);
       if(direct("resultadosRen")){
         let result=stripEnd(direct("resultadosRen"))
           .replace(/^Durante el periodo de encargatura\s*/i,"")
           .replace(/^Durante el periodo anterior\s*/i,"");
-        add(`Los resultados del periodo anterior muestran que ${lowerLead(result)}`);
+        add(`Resultados del periodo anterior: ${result}`);
       }
     } else if(tipo==="Cambio de encargatura"){
       add(`Se solicita el cambio de encargatura de ${person}${role?` hacia la posición de ${role}`:""}`);
-      if(direct("motivoCambioEnc")) add(`El cambio se requiere porque ${lowerLead(stripEnd(direct("motivoCambioEnc")))}`);
+      if(direct("motivoCambioEnc")) add(`El cambio se requiere: ${stripEnd(direct("motivoCambioEnc"))}`);
     } else {
       add(`Se solicita una nueva encargatura para ${person}${role?` como ${role}`:""}`);
-      if(reason) add(`La encargatura se requiere debido a ${reason.toLowerCase()}`);
+      if(reason) add(`Motivo de la encargatura: ${stripEnd(reason)}`);
     }
 
-    if(direct("responsabilidadesExtra")) add(`Durante la encargatura, la persona asumirá responsabilidades adicionales asociadas a ${lowerLead(stripEnd(direct("responsabilidadesExtra")))}`);
-    if(direct("resultadoEsperadoEnc")) add(`Con la encargatura se busca ${lowerLead(stripEnd(direct("resultadoEsperadoEnc")))}`);
-    if(direct("riesgoNoFormalizar")) add(`Si la encargatura no se formaliza, ${lowerLead(stripEnd(direct("riesgoNoFormalizar")))}`);
+    if(direct("responsabilidadesExtra")) add(`Durante la encargatura, la persona asumirá responsabilidades adicionales asociadas a: ${stripEnd(direct("responsabilidadesExtra"))}`);
+    if(direct("resultadoEsperadoEnc")) add(`Con la encargatura se busca: ${stripEnd(direct("resultadoEsperadoEnc"))}`);
+    if(direct("riesgoNoFormalizar")) add(`Si la encargatura no se formaliza: ${stripEnd(direct("riesgoNoFormalizar"))}`);
     add("Se solicita aprobar la encargatura en las condiciones indicadas");
   }
 
@@ -540,50 +540,46 @@ function buildExecutiveSummary(){
     const start=direct("fechaInicioReemplazo");
 
     add(`Se solicita el reemplazo ${replaced?`de ${replaced} `:""}en la posición de ${role||"la posición indicada"}`);
-    if(reason) add(`La posición queda vacante debido a ${reason.toLowerCase()}`);
+    if(reason) add(`Motivo de la vacante: ${stripEnd(reason)}`);
     if(start) add(`Se propone que ${person} asuma la posición a partir del ${start}`);
 
-    if(direct("responsabilidadesReemplazo") || direct("cambioAlcanceReemplazo")){
-      const changes=[];
-      if(direct("responsabilidadesReemplazo")) changes.push(`las responsabilidades asociadas a ${lowerLead(stripEnd(direct("responsabilidadesReemplazo")))}`);
-      if(direct("cambioAlcanceReemplazo")) changes.push(`un cambio de alcance y responsabilidad caracterizado por ${lowerLead(stripEnd(direct("cambioAlcanceReemplazo")))}`);
-      add(`El movimiento implica ${joinNatural(changes)}`);
-    }
+    if(direct("responsabilidadesReemplazo")) add(`Responsabilidades asociadas: ${stripEnd(direct("responsabilidadesReemplazo"))}`);
+    if(direct("cambioAlcanceReemplazo")) add(`Cambio de alcance y responsabilidad: ${stripEnd(direct("cambioAlcanceReemplazo"))}`);
 
-    if(direct("porQueColaboradorReemplazo")) add(`Se propone a ${person} porque ${lowerLead(stripEnd(direct("porQueColaboradorReemplazo")))}`);
-    if(direct("resultadoEsperadoReemplazo")) add(`Con el reemplazo se busca ${lowerLead(stripEnd(direct("resultadoEsperadoReemplazo")))}`);
-    if(direct("impactoNoReemplazo")) add(`Si la posición no se cubre o el reemplazo no se formaliza, ${lowerLead(stripEnd(direct("impactoNoReemplazo")))}`);
+    if(direct("porQueColaboradorReemplazo")) add(`Motivo de la propuesta de ${person}: ${stripEnd(direct("porQueColaboradorReemplazo"))}`);
+    if(direct("resultadoEsperadoReemplazo")) add(`Con el reemplazo se busca: ${stripEnd(direct("resultadoEsperadoReemplazo"))}`);
+    if(direct("impactoNoReemplazo")) add(`Si la posición no se cubre o el reemplazo no se formaliza: ${stripEnd(direct("impactoNoReemplazo"))}`);
     add("Se solicita la evaluación del reemplazo y, de corresponder, la revisión de las condiciones asociadas al movimiento");
   }
 
   else if(mov==="Movimiento horizontal"){
     const tipo=direct("tipoHorizontal");
     add(`Se solicita el movimiento horizontal de ${person}${tipo?` (${tipo.toLowerCase()})`:""}${direct("esTemporalHorizontal")==="Temporal"?", de carácter temporal":""}${direct("desdeCuandoHorizontal")?`, a partir del ${direct("desdeCuandoHorizontal")}`:""}`);
-    if(direct("motivoHorizontal")) add(`El movimiento se origina porque ${lowerLead(stripEnd(direct("motivoHorizontal")))}`);
-    if(direct("funcionesNuevasHorizontal")) add(`${person} asumirá ${lowerLead(stripEnd(direct("funcionesNuevasHorizontal")))}${direct("areaApoyoHorizontal")?`, en coordinación con ${direct("areaApoyoHorizontal")}`:""}`);
+    if(direct("motivoHorizontal")) add(`El movimiento se origina: ${stripEnd(direct("motivoHorizontal"))}`);
+    if(direct("funcionesNuevasHorizontal")) add(`Funciones nuevas de ${person}: ${stripEnd(direct("funcionesNuevasHorizontal"))}${direct("areaApoyoHorizontal")?`, en coordinación con ${direct("areaApoyoHorizontal")}`:""}`);
     const ch=[];
     if(direct("cambiaJefeHorizontal")==="Sí") ch.push("un cambio de jefe directo");
     if(direct("cambiaNivelHorizontal")==="Sí") ch.push("un ajuste de nivel o banda");
     if(direct("solicitaIncrementoHorizontal")==="Sí") ch.push("una compensación adicional");
     if(ch.length) add(`La propuesta considera ${joinNatural(ch)}`);
-    if(direct("resultadoEsperadoHorizontal")) add(`Con el movimiento se busca ${lowerLead(stripEnd(direct("resultadoEsperadoHorizontal")))}`);
-    if(direct("impactoNoHorizontal")) add(`Si el movimiento no se realiza, ${lowerLead(stripEnd(direct("impactoNoHorizontal")))}`);
+    if(direct("resultadoEsperadoHorizontal")) add(`Con el movimiento se busca: ${stripEnd(direct("resultadoEsperadoHorizontal"))}`);
+    if(direct("impactoNoHorizontal")) add(`Si el movimiento no se realiza: ${stripEnd(direct("impactoNoHorizontal"))}`);
     add("Se solicita la aprobación del movimiento horizontal en las condiciones indicadas");
   }
 
   else if(mov==="Reestructuración de área"){
     const n=direct("nPersonasAfectadas");
     add(`Se solicita la reestructuración del área ${direct("areaReestructura")||"indicada"}${n?`, que alcanza a ${n} colaborador(es)`:""}${direct("fechaVigenciaReestructura")?`, con vigencia propuesta desde el ${direct("fechaVigenciaReestructura")}`:""}`);
-    if(direct("motivoReestructura")) add(`La reestructuración se origina porque ${lowerLead(stripEnd(direct("motivoReestructura")))}`);
-    if(direct("objetivoReestructura")) add(`Con la nueva estructura se busca ${lowerLead(stripEnd(direct("objetivoReestructura")))}`);
+    if(direct("motivoReestructura")) add(`La reestructuración se origina: ${stripEnd(direct("motivoReestructura"))}`);
+    if(direct("objetivoReestructura")) add(`Con la nueva estructura se busca: ${stripEnd(direct("objetivoReestructura"))}`);
     const sc=[];
     if(direct("tipoCambioReestructura")) sc.push(direct("tipoCambioReestructura").toLowerCase());
     if(direct("posicionesCreadas")&&direct("posicionesCreadas")!=="Ninguna") sc.push(`${direct("posicionesCreadas")} posición(es) nueva(s)`);
     if(direct("posicionesEliminadas")&&direct("posicionesEliminadas")!=="Ninguna") sc.push(`${direct("posicionesEliminadas")} posición(es) eliminada(s)`);
     if(sc.length) add(`El cambio considera ${joinNatural(sc)}`);
-    if(direct("cambiosReporteRest")) add(`En las líneas de reporte: ${lowerLead(stripEnd(direct("cambiosReporteRest")))}`);
+    if(direct("cambiosReporteRest")) add(`En las líneas de reporte:: ${stripEnd(direct("cambiosReporteRest"))}`);
     if(direct("impactoPresupuestalRest")) add(`El impacto presupuestal esperado es ${direct("impactoPresupuestalRest").toLowerCase()}${direct("cambiosSalarialesRest")==="Sí"?", con cambios salariales o de nivel":""}`);
-    if(direct("impactoNoRest")) add(`Si la reestructuración no se ejecuta, ${lowerLead(stripEnd(direct("impactoNoRest")))}`);
+    if(direct("impactoNoRest")) add(`Si la reestructuración no se ejecuta: ${stripEnd(direct("impactoNoRest"))}`);
     add("Se solicita la validación de la nueva estructura y la revisión de sus implicancias salariales y presupuestales");
   }
 
@@ -591,17 +587,17 @@ function buildExecutiveSummary(){
     const role=direct("puestoNuevo");
     add(`Se solicita la creación del puesto ${role||"propuesto"}`);
 
-    if(direct("necesidadPuesto")) add(`La creación del puesto se origina porque ${lowerLead(stripEnd(direct("necesidadPuesto")))}`);
-    if(direct("problemaResuelve")) add(`Actualmente, ${lowerLead(stripEnd(direct("problemaResuelve")))}`);
-    if(direct("porQueNoAbsorbe")) add(`La estructura actual no puede absorber esta necesidad porque ${lowerLead(stripEnd(direct("porQueNoAbsorbe")))}`);
+    if(direct("necesidadPuesto")) add(`La creación del puesto se origina: ${stripEnd(direct("necesidadPuesto"))}`);
+    if(direct("problemaResuelve")) add(`Actualmente: ${stripEnd(direct("problemaResuelve"))}`);
+    if(direct("porQueNoAbsorbe")) add(`La estructura actual no puede absorber esta necesidad: ${stripEnd(direct("porQueNoAbsorbe"))}`);
 
     if(direct("mejoraEsperadaPN")){
-      add(`Con la creación del puesto se busca ${lowerLead(stripEnd(direct("mejoraEsperadaPN")))}`);
+      add(`Con la creación del puesto se busca: ${stripEnd(direct("mejoraEsperadaPN"))}`);
     } else if(direct("entregables") || direct("responsabilidadesPuesto")){
       add("Con la creación del puesto se busca concentrar responsabilidades, ordenar la gestión y asegurar resultados que hoy se encuentran distribuidos en la estructura");
     }
 
-    if(direct("impactoNoCrear")) add(`Si el puesto no se crea, ${lowerLead(stripEnd(direct("impactoNoCrear")))}`);
+    if(direct("impactoNoCrear")) add(`Si el puesto no se crea: ${stripEnd(direct("impactoNoCrear"))}`);
     add("Se solicita la aprobación de la creación de la nueva posición");
   }
 
@@ -610,19 +606,19 @@ function buildExecutiveSummary(){
     const prop=proposalFormatted();
     add(`Se solicita una revisión salarial para ${person}${motivo?` por ${motivo.toLowerCase()}`:""}`);
 
-    if(direct("situacionOrigen")) add(`La solicitud se origina porque ${lowerLead(stripEnd(direct("situacionOrigen")))}`);
-    if(direct("queCambio")) add(`El contexto ha cambiado debido a que ${lowerLead(stripEnd(direct("queCambio")))}`);
-    if(direct("evidenciaRiesgo")) add(`La evidencia disponible indica que ${lowerLead(stripEnd(direct("evidenciaRiesgo")))}`);
+    if(direct("situacionOrigen")) add(`La solicitud se origina: ${stripEnd(direct("situacionOrigen"))}`);
+    if(direct("queCambio")) add(`El contexto ha cambiado: ${stripEnd(direct("queCambio"))}`);
+    if(direct("evidenciaRiesgo")) add(`La evidencia disponible indica: ${stripEnd(direct("evidenciaRiesgo"))}`);
 
     if(direct("resultadoEsperadoInc")){
-      add(`Con la revisión salarial se busca ${lowerLead(stripEnd(direct("resultadoEsperadoInc")))}`);
+      add(`Con la revisión salarial se busca: ${stripEnd(direct("resultadoEsperadoInc"))}`);
     } else if(motivo==="Equidad interna"){
       add("Con la revisión salarial se busca corregir la brecha identificada y preservar consistencia salarial frente a posiciones comparables");
     } else if(motivo==="Retención" || motivo==="Contraoferta"){
       add("Con la revisión salarial se busca mitigar el riesgo de salida y preservar conocimiento relevante para el equipo");
     }
 
-    if(direct("impactoSalida")) add(`Si la situación no se atiende, ${lowerLead(stripEnd(direct("impactoSalida")))}`);
+    if(direct("impactoSalida")) add(`Si la situación no se atiende: ${stripEnd(direct("impactoSalida"))}`);
     if(prop) add(`El cliente plantea como referencia una propuesta de ${prop}, sujeta a la validación técnica de Compensaciones`);
     add("Se solicita a Compensaciones evaluar la consistencia interna y definir la recomendación salarial correspondiente");
   }
@@ -631,8 +627,8 @@ function buildExecutiveSummary(){
     const target=direct("puestoDestino");
     const targetArea=direct("areaDestino");
     add(`Se solicita el movimiento lateral de ${person}${target?` hacia ${target}`:""}${targetArea?` en ${targetArea}`:""}`);
-    if(direct("motivoMovimiento")) add(`El movimiento se origina porque ${lowerLead(stripEnd(direct("motivoMovimiento")))}`);
-    if(direct("problemaResuelveML")) add(`Con este cambio se busca resolver ${lowerLead(stripEnd(direct("problemaResuelveML")))}`);
+    if(direct("motivoMovimiento")) add(`El movimiento se origina: ${stripEnd(direct("motivoMovimiento"))}`);
+    if(direct("problemaResuelveML")) add(`Con este cambio se busca resolver: ${stripEnd(direct("problemaResuelveML"))}`);
 
     const changes=[];
     if(direct("cambiaAlcance")) changes.push("un cambio de alcance");
@@ -640,13 +636,13 @@ function buildExecutiveSummary(){
     if(direct("cambiaResponsabilidad")==="Sí" || direct("cambiaResponsabilidad")==="Parcialmente") changes.push("un ajuste en el nivel de responsabilidad");
     if(changes.length) add(`La propuesta considera ${joinNatural(changes)}`);
 
-    if(direct("resultadoEsperadoML")) add(`Con el movimiento se busca ${lowerLead(stripEnd(direct("resultadoEsperadoML")))}`);
+    if(direct("resultadoEsperadoML")) add(`Con el movimiento se busca: ${stripEnd(direct("resultadoEsperadoML"))}`);
     add("Se solicita la aprobación del movimiento lateral en las condiciones indicadas");
   }
 
   else if(mov==="Revalorización de puesto"){
     add(`Se solicita la revalorización del puesto ${current||"actual"} de ${person}`);
-    if(direct("queCambioRev")) add(`La revisión se origina porque ${lowerLead(stripEnd(direct("queCambioRev")))}`);
+    if(direct("queCambioRev")) add(`La revisión se origina: ${stripEnd(direct("queCambioRev"))}`);
 
     const changes=[];
     if(direct("nuevasRespRev")) changes.push("nuevas responsabilidades");
@@ -656,31 +652,32 @@ function buildExecutiveSummary(){
     if(direct("cambioDecisionRev")) changes.push("mayor nivel de decisión");
     if(changes.length) add(`La evolución del puesto se refleja principalmente en ${joinNatural(changes)}`);
 
-    if(direct("sustentoSubvaloracion")) add(`La valoración actual ya no representa el contenido real del puesto porque ${lowerLead(stripEnd(direct("sustentoSubvaloracion")))}`);
-    if(direct("resultadoEsperadoRev")) add(`Con la revalorización se busca ${lowerLead(stripEnd(direct("resultadoEsperadoRev")))}`);
+    if(direct("sustentoSubvaloracion")) add(`La valoración actual ya no representa el contenido real del puesto: ${stripEnd(direct("sustentoSubvaloracion"))}`);
+    if(direct("resultadoEsperadoRev")) add(`Con la revalorización se busca: ${stripEnd(direct("resultadoEsperadoRev"))}`);
     add("Se solicita evaluar la nueva valorización del puesto y, de corresponder, su impacto salarial");
   }
 
   else if(mov==="Convenio / caso especial"){
     add(`Se solicita evaluar el caso ${direct("tipoCasoEspecial")||"especial"} presentado para ${person}`);
-    if(direct("objetivoCaso")) add(`La solicitud se origina porque ${lowerLead(stripEnd(direct("objetivoCaso")))}`);
-    if(direct("sustentoCaso")) add(`El caso se sustenta en que ${lowerLead(stripEnd(direct("sustentoCaso")))}`);
-    if(direct("resultadoEsperadoCaso")) add(`Con la medida se busca ${lowerLead(stripEnd(direct("resultadoEsperadoCaso")))}`);
-    if(direct("impactoCaso")) add(`Si no se atiende, ${lowerLead(stripEnd(direct("impactoCaso")))}`);
+    if(direct("objetivoCaso")) add(`La solicitud se origina: ${stripEnd(direct("objetivoCaso"))}`);
+    if(direct("sustentoCaso")) add(`El caso se sustenta en: ${stripEnd(direct("sustentoCaso"))}`);
+    if(direct("resultadoEsperadoCaso")) add(`Con la medida se busca: ${stripEnd(direct("resultadoEsperadoCaso"))}`);
+    if(direct("impactoCaso")) add(`Si no se atiende: ${stripEnd(direct("impactoCaso"))}`);
     add("Se solicita la evaluación y decisión correspondiente por parte del Comité");
   }
 
   else {
     add(`Se solicita la revisión del caso presentado para ${person}`);
-    if(direct("descripcionOtro")) add(`La solicitud consiste en ${lowerLead(stripEnd(direct("descripcionOtro")))}`);
-    if(direct("sustentoOtro")) add(`El caso se origina porque ${lowerLead(stripEnd(direct("sustentoOtro")))}`);
-    if(direct("resultadoEsperadoOtro")) add(`Con la medida se busca ${lowerLead(stripEnd(direct("resultadoEsperadoOtro")))}`);
-    if(direct("impactoOtro")) add(`Si no se atiende, ${lowerLead(stripEnd(direct("impactoOtro")))}`);
+    if(direct("descripcionOtro")) add(`La solicitud consiste en: ${stripEnd(direct("descripcionOtro"))}`);
+    if(direct("sustentoOtro")) add(`El caso se origina: ${stripEnd(direct("sustentoOtro"))}`);
+    if(direct("resultadoEsperadoOtro")) add(`Con la medida se busca: ${stripEnd(direct("resultadoEsperadoOtro"))}`);
+    if(direct("impactoOtro")) add(`Si no se atiende: ${stripEnd(direct("impactoOtro"))}`);
     add("Se solicita la evaluación y decisión correspondiente por parte del Comité");
   }
 
   // Mantener el sustento breve: máximo 6 oraciones ejecutivas.
-  return paragraphs.slice(0,8).join(" ");
+  const ps=paragraphs.length>8?paragraphs.slice(0,7).concat(paragraphs[paragraphs.length-1]):paragraphs;
+  return ps.join(" ").replace(/(?<![\p{L}\d])(\p{L}{2,})(\s+\1)+(?![\p{L}\d])/giu,"$1").replace(/\s+([,.;:])/g,"$1").replace(/\.{2,}/g,".");
 }
 
 // ---------- Búsqueda de colaborador ----------
