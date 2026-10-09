@@ -151,7 +151,7 @@ const SETS = {
   ["funcionesNuevasHorizontal","¿Qué funciones nuevas o distintas asumirá?","textarea"],
   ["areaApoyoHorizontal","¿Con qué área o jefatura coordinará o a quién reportará?","text"],
   ["cambiaJefeHorizontal","¿Cambia su jefe directo?","select",SN],
-  ["cambiaNivelHorizontal","¿Cambia su nivel o banda del puesto?","select",SNC]]},
+  ]},
  {t:"Resultado esperado e impacto",q:[
   ["resultadoEsperadoHorizontal","¿Qué se espera lograr con el movimiento?","textarea"],
   ["solicitaIncrementoHorizontal","¿Se solicita compensación adicional (asignación o incremento)?","select",SNC],
@@ -562,7 +562,6 @@ function buildExecutiveSummary(){
     if(direct("funcionesNuevasHorizontal")) add(`Funciones nuevas de ${person}: ${stripEnd(direct("funcionesNuevasHorizontal"))}${direct("areaApoyoHorizontal")?`, en coordinación con ${direct("areaApoyoHorizontal")}`:""}`);
     const ch=[];
     if(direct("cambiaJefeHorizontal")==="Sí") ch.push("un cambio de jefe directo");
-    if(direct("cambiaNivelHorizontal")==="Sí") ch.push("un ajuste de nivel o banda");
     if(direct("solicitaIncrementoHorizontal")==="Sí") ch.push("una compensación adicional");
     if(ch.length) add(`La propuesta considera ${joinNatural(ch)}`);
     if(direct("resultadoEsperadoHorizontal")) add(`Con el movimiento se busca: ${stripEnd(direct("resultadoEsperadoHorizontal"))}`);
@@ -972,7 +971,13 @@ let cur=0,reached=0,editingCaseId=null,prevMov="",sustentoTouched=false,lastRec=
 function renderStepper(){
   $("stepper").innerHTML=STEPS.map((s,i)=>`<button type="button" data-go="${i}" class="${i===cur?"on":(i<reached&&i!==cur&&!validate(i).length?"ok":"")}"${i>reached?" disabled":""}${i===cur?' aria-current="step"':""}><b>${i+1}</b><span>${s}</span></button>`).join("");
 }
-function refresh(){
+// Los datos del presupuesto (fuente, quién valida, monto) solo se piden si hay presupuesto o está por confirmar; con «No» se ocultan y se limpian.
+function presUI(){
+  const p=$("presupuesto");if(!p) return;
+  const v=p.value,ver=v==="Sí"||v==="Por confirmar";
+  ["fuentePresupuesto","validaPresupuesto","montoPresupuesto"].forEach(id=>{const e=$(id);if(!e) return;e.closest(".q").classList.toggle("hidden",!ver);if(v==="No")e.value=""});
+}
+function refresh(){presUI();
   let tot=0,okc=0;
   $("form").querySelectorAll("input,select,textarea").forEach(el=>{
     if(el.id==="confirmo"||el.type==="button") return;
@@ -1316,6 +1321,7 @@ function init(){
   $("g0c").innerHTML=CODE_HTML+G0C.map(qHTML).join("");
   $("g2").innerHTML=qHTML(["tieneAprobacion","¿Cuenta con alguna aprobación previa?","select",SN]);
   $("g3").innerHTML=G3.map(qHTML).join("");
+  $("presupuesto").addEventListener("change",presUI);presUI();
   $("g4").innerHTML=G4.map(qHTML).join("");
   $("g4b").innerHTML=qHTML(["impactoDetalle","Explique brevemente el impacto","textarea","¿Qué pasaría si este movimiento no se ejecuta?"]);
   $("g5").innerHTML=qHTML(["solicitudConcreta","Sustento ejecutivo","textarea","Se genera a partir de tus respuestas; puedes editarlo."]);

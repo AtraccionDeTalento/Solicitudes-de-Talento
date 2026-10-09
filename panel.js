@@ -102,9 +102,9 @@ function mostrarLogin(e,modo){
   $("err").hidden=true;$("tabs").innerHTML="";$("quien").textContent="";$("salir").style.display="none";
   const m=(e&&e.message||"")+"",[titulo,ayuda,boton]=TEXTOS[modo];
   const campo=(id,tipo,ph,ac)=>'<p><input id="'+id+'" type="'+tipo+'" autocomplete="'+ac+'" autocapitalize="none" spellcheck="false" placeholder="'+ph+'" style="width:100%"></p>';
-  $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:400px;margin:30px auto"><h3 style="margin-top:0;color:var(--navy)">'+titulo+'</h3><p class="muted">'+ayuda+'</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p>'+
+  $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:400px;margin:95px auto"><h3 style="margin-top:0;color:var(--navy)">'+titulo+'</h3><p class="muted">'+ayuda+'</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p>'+
     campo("lgc","text","usuario@usil.edu.pe","username")+(modo==="olvide"?"":campo("lgk","password",modo==="crear"?"Elige tu clave (12 o más caracteres)":"Clave",modo==="crear"?"new-password":"current-password"))+(modo==="crear"?campo("lgk2","password","Repite tu clave","new-password"):"")+
-    '<button class="p" style="width:100%">'+boton+'</button><p class="lnks">'+(modo==="entrar"?'<button type="button" class="lnk" data-m="crear">Crear mi cuenta</button><button type="button" class="lnk" data-m="olvide">Olvidé mi clave</button>':'<button type="button" class="lnk" data-m="entrar">← Volver a entrar</button>')+'</p></form>';
+    '<button class="p" style="width:100%">'+boton+'</button><p class="lnks">'+(modo==="entrar"?'<button type="button" class="lnk" data-m="olvide" style="margin-left:auto">Olvidé mi clave</button>':'<button type="button" class="lnk" data-m="entrar">← Volver a entrar</button>')+'</p></form>';
   $("lg").querySelectorAll(".lnk").forEach(x=>x.onclick=()=>mostrarLogin(null,x.dataset.m));
   const dec=(txt,bien)=>{$("lgm").textContent=txt;$("lgm").style.color=bien?"#17844A":"#B00020"};
   $("lg").onsubmit=ev=>{ev.preventDefault();dec("");const b=$("lg").querySelector("button.p");b.disabled=true;const fin=()=>{b.disabled=false};
@@ -285,9 +285,8 @@ function pintarPresentacion(){
      <div class="px-kpi rojo"><span>Urgentes</span><b>${esc(R.urgentes||0)}</b><em>inmediatos o dentro de 30 días</em></div>
      <div class="px-kpi neutro"><span>Preparación promedio</span><b>${esc(R.preparacion||"—")}</b><em>sobre 100 puntos</em></div>
      <div class="px-kpi verde"><span>Ya decididos</span><b>${esc(resueltos)}</b><em>de ${esc(casos.length)} desde el corte</em></div></div>
-   ${casos.map((k,i)=>`<section class="gx-card pr-caso"><div class="px-row" style="border:0;cursor:default"><i class="px-av g">${esc(i+1)}</i><span class="px-mn"><b style="font-size:19px">${esc(k.colaborador||"—")}</b><em style="font-size:14px">${esc(k.movimiento)} · ${esc(k.departamento)} · solicita ${esc(k.cliente||"—")} · ${esc(k.bp||"")}</em></span>
-       <span class="pill ${PILL_U[k.urgencia]||"u4"}">${esc(k.urgencia||"—")}</span>${k.puntaje?`<span class="px-sc ${nivelP(+k.puntaje)}">${esc(k.puntaje)}</span>`:""}<span class="pill ${PILL_E[vivo[k.id]]||"e1"} px-noprint">${esc(eb(vivo[k.id]||k.estado||""))}</span><button type="button" class="gx-ver px-noprint" data-ver="${esc(k.id)}">Abrir caso</button></div>
-       <details class="pr-det" open><summary class="px-noprint">Sustento</summary><div class="px-sus">${resaltar(k.texto)}</div></details></section>`).join("")}`;
+   ${casos.map((k,i)=>`<section class="gx-card pr-caso"><div class="px-row" style="border:0;cursor:default"><i class="px-av g">${esc(i+1)}</i><span class="px-mn"><b style="font-size:19px">${esc(k.colaborador||"—")}</b><em style="font-size:14px">${esc(k.movimiento)} · ${esc(k.departamento)}</em></span><button type="button" class="gx-ver px-noprint" data-ver="${esc(k.id)}">Revisar caso</button></div>
+       <div class="px-sus">${resaltar(k.texto)}</div></section>`).join("")}`;
 }
 
 $("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
