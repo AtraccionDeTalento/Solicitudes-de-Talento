@@ -8,6 +8,7 @@
     "test:rules": "firebase emulators:exec --only firestore --project demo-rules \"node tests/rules.test.js\"",
     "emu": "firebase emulators:start --only auth,firestore --project demo-local",
     "seed:local": "node tools/seed-local.js",
+    "seed:real": "node tools/seed-local.js --real",
     "serve": "node tools/serve.js"
   },
   "devDependencies": {
