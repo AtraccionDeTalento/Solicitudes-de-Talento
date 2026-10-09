@@ -211,6 +211,18 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertFails(updateDoc(sol(jefe, 'J1'), { estado: 'Aprobado' }));
     await prueba(false);
   });
+  await t('cuenta de formulario de un socio de negocio (usuario+jefe): pide como jefe, lee los datos de su correo base y no hereda el rol de socio', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false, accesoAnonimo: false }));
+    const alias = env.authenticatedContext('uid-al', { email: 'bp1+jefe@usil.edu.pe', email_verified: true, firebase: { sign_in_provider: 'password' } }).firestore();
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'lideres', 'bp1@usil.edu.pe'), { nombre: 'Socio Uno', puesto: 'SOCIO' }));
+    await assertSucceeds(setDoc(sol(alias, 'AL1'), nueva('AL1', 'uid-al', { enviadoPor: 'bp1+jefe@usil.edu.pe' })));
+    await assertSucceeds(getDoc(doc(alias, 'lideres', 'bp1@usil.edu.pe')));          // sus datos de líder
+    await assertFails(getDoc(doc(alias, 'lideres', 'otro@usil.edu.pe')));            // no los de otros
+    await assertFails(getDoc(sol(alias, 'S-NUEVA')));                                // no hereda la bandeja del socio
+    await assertFails(getDoc(doc(alias, 'bps', 'bpid-1')));
+    await assertFails(updateDoc(sol(alias, 'AL1'), { estado: 'Aprobado' }));
+    await prueba(false);
+  });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de reglas OK');
 })().catch(e => { console.error(e); process.exit(1); });

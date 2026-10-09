@@ -47,7 +47,8 @@ service cloud.firestore {
         && (!('comentario' in request.resource.data) || request.resource.data.comentario.size() <= 1000);
       allow update, delete: if false;
     }
-    match /lideres/{correo} { allow get: if personal() && correo == yo(); }
+    // Un socio de negocio o Gerencia que también pide como jefe usa una cuenta aparte «usuario+jefe@usil.edu.pe» (clave = su DNI); lee los datos de su correo base.
+    match /lideres/{correo} { allow get: if personal() && (correo == yo() || correo == yo().replace('[+]jefe@', '@')); }
     match /maestro/{mat} {
       // En modo prueba cualquier jefe verificado puede usar el relleno de pruebas (persona al azar); en producción solo el personal con rol.
       allow get: if staff() || ((personal() || anonimoOk()) && prueba());
