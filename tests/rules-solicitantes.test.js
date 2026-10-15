@@ -4,7 +4,7 @@ const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@fir
 const { doc, setDoc, getDoc, updateDoc } = require('firebase/firestore');
 
 const DEP = 'GERENCIA DE TALENTO Y CULTURA';
-const JEFE = 'jefe1@usil.edu.pe', SOCIA = 'socia@usil.edu.pe', SUBGERENTE = 'subgerente@usil.edu.pe', GER = 'ger1@usil.edu.pe';
+const JEFE = 'jefe1@usil.edu.pe', SOCIA = 'hrbp1@usil.edu.pe', SUBGERENTE = 'bp2@usil.edu.pe', GER = 'ger1@usil.edu.pe';
 const nueva = (id, uid, enviadoPor) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-1', comentarioBP: '', comentarioGerencia: '', enviadoPor, movimiento: 'Promoción', departamento: DEP, impactoDetalle: 'x', solicitudConcreta: 'y' });
 
 (async () => {
@@ -26,10 +26,10 @@ const nueva = (id, uid, enviadoPor) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
   await t('un jefe de área (sin rol de panel) crea su solicitud', async () => { await S(crea(ctx(JEFE, 'u1'), 'J1', 'u1', JEFE)); });
   await t('una socia de negocio NO puede pedir con su cuenta del panel', async () => { await F(crea(ctx(SOCIA, 'u2'), 'S1', 'u2', SOCIA)); });
   await t('una socia de negocio NO puede pedir con el alias «usuario+jefe@» (aunque cree la cuenta ella misma)', async () => {
-    await F(crea(ctx('socia+jefe@usil.edu.pe', 'u3'), 'S2', 'u3', 'socia+jefe@usil.edu.pe'));
+    await F(crea(ctx('hrbp1+jefe@usil.edu.pe', 'u3'), 'S2', 'u3', 'hrbp1+jefe@usil.edu.pe'));
   });
   await t('el Subgerente de Talento (rol de socio pero jefatura) sí pide, con su alias de jefe y con su cuenta', async () => {
-    await S(crea(ctx('subgerente+jefe@usil.edu.pe', 'u4'), 'C1', 'u4', 'subgerente+jefe@usil.edu.pe')); await S(crea(ctx(SUBGERENTE, 'u5'), 'C2', 'u5', SUBGERENTE));
+    await S(crea(ctx('bp2+jefe@usil.edu.pe', 'u4'), 'C1', 'u4', 'bp2+jefe@usil.edu.pe')); await S(crea(ctx(SUBGERENTE, 'u5'), 'C2', 'u5', SUBGERENTE));
   });
   await t('Gerencia (sin la marca) sí puede pedir como jefe con su alias', async () => { await S(crea(ctx('ger1+jefe@usil.edu.pe', 'u6'), 'G1', 'u6', 'ger1+jefe@usil.edu.pe')); });
   await t('la marca no impide a la socia lo suyo: sigue leyendo y gestionando las solicitudes que le tocan', async () => {

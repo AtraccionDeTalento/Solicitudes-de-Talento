@@ -6,6 +6,7 @@ const FBp=new Promise(r=>addEventListener("fb",()=>r(window.FB)));   // firebase
 const CONFIG = {
   endpoint:"firebase",                  // «firebase» = las solicitudes se guardan en Firestore (firebase.js). Vacío = solo en este navegador.
   camposObligatorios:true,             // false = ningún campo es obligatorio (solo Tipo de movimiento y Departamento, necesarios para el ruteo). true = exige todos como antes.
+  demoClics:true,                      // true = 7 clics seguidos en el logo de USIL rellenan TODO el formulario con datos al azar (solo pruebas). PONER false antes de abrirlo a los jefes.
   modoPrueba:false,                    // true = mínimos de caracteres reducidos (3) para probar. PONER EN false antes de abrirlo a los jefes.
   panelUrl:"panel.html",                // Panel de revisión de HRBP y Gerencia (misma carpeta del sitio).
   soporte:"",                          // Correo de soporte que se muestra al pie.
@@ -21,7 +22,7 @@ const MOVS=["Promoción","Encargatura","Reemplazo","Puesto nuevo","Incremento sa
 const DEPARTAMENTOS=["DIRECCION GENERAL DE SEDES DESCENTRALIZADAS", "DIRECCION GENERAL DEL CSIR", "ESCUELA DE POSGRADO", "GERENCIA DE ADMINISTRACION Y SEGURIDAD", "GERENCIA DE PROYECTOS - SEDE PERU", "GERENCIA DE TALENTO Y CULTURA", "GERENCIA GENERAL", "GERENCIA LEGAL", "GERENCIA SENIOR DE FINANZAS", "PRESIDENCIA EJECUTIVA", "RECTORADO", "VICEPRESIDENCIA DE ASUNTOS CORPORATIVOS", "VICEPRESIDENCIA DE COMUNICACIONES E INNOVACION DIG", "VICEPRESIDENCIA SENIOR", "VICERRECTORADO ACADEMICO", "VICERRECTORADO DE INVESTIGACION"];   // Maestro 05-10-2026; define el BP que recibe la solicitud
 const NOCODE=["Puesto nuevo"];   // sin matrícula individual
 const PERSONAS=["Ninguna","1","2","3","4","5","6 a 10","11 a 20","Más de 20"];   // personas a cargo: se elige, no se escribe
-const SN=["Sí","No"], SNP=["Sí","No","Parcialmente"], SNC=["Sí","No","Por confirmar"], SNS=["Sí","No","No se sabe"];
+const SN=["Sí","No"];   // las preguntas de opción se responden Sí o No: no hay «Parcialmente», «Por confirmar», «No se sabe» ni «Por definir»
 
 // Preguntas agrupadas por bloque (situación → cambio → sustento → resultado → impacto).
 // Tupla: [id, etiqueta, tipo, opciones|ayuda, ayuda]. Un bloque con when:[id,valor] solo aparece si ese campo tiene ese valor.
@@ -30,8 +31,8 @@ const SETS = {
  {t:"Cambio propuesto",q:[
   ["puestoPropuesto","¿A qué puesto se propone promover?","text"],
   ["desdeCuando","¿Desde cuándo realiza o realizará estas funciones?","date"],
-  ["posicionExiste","¿Existe la posición en la estructura?","select",SNC],
-  ["mayorDecision","¿Tendrá mayor nivel de decisión?","select",SNP],
+  ["posicionExiste","¿Existe la posición en la estructura?","select",SN],
+  ["mayorDecision","¿Tendrá mayor nivel de decisión?","select",SN],
   ["personasCargo","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS]]},
  {t:"Qué cambió en el rol",q:[
   ["queCambioPromo","¿Qué cambió en el rol para que hoy se plantee una promoción?","textarea","Describe el cambio principal en alcance, responsabilidad o complejidad."],
@@ -57,15 +58,15 @@ const SETS = {
   ["fechaPrimerConvenio","Fecha del primer convenio","date"],
   ["fechaTerminoActual","Fecha de término actual","date"],
   ["periodoRenovacion","¿Por cuánto tiempo se desea renovar?","text","Ej.: 3 meses"],
-  ["mismasFuncionesRen","¿Se mantienen las mismas funciones?","select",SNP],
-  ["cambiaMontoRen","¿Cambió el monto de la asignación?","select",SNC],
+  ["mismasFuncionesRen","¿Se mantienen las mismas funciones?","select",SN],
+  ["cambiaMontoRen","¿Cambió el monto de la asignación?","select",SN],
   ["resultadosRen","¿Qué resultados o evidencias muestran que la encargatura ha funcionado durante el periodo anterior?","textarea","Ej.: se mantuvo el cumplimiento de metas, no hubo interrupciones operativas y el equipo tuvo continuidad de liderazgo."]]},
  {t:"Condiciones del cambio",when:["tipoEncargatura","Cambio de encargatura"],q:[
   ["puestoEncargaturaAnterior","Posición encargada anterior","text"],
-  ["cambiaAsignacionEnc","¿Cambia la asignación económica?","select",SNC],
+  ["cambiaAsignacionEnc","¿Cambia la asignación económica?","select",SN],
   ["motivoCambioEnc","¿Por qué cambia la encargatura a una nueva posición?","textarea"]]},
  {t:"Funciones durante la encargatura",q:[
-  ["mantieneFunciones","¿Mantendrá sus funciones actuales?","select",SNP],
+  ["mantieneFunciones","¿Mantendrá sus funciones actuales?","select",SN],
   ["equipoAdicional","¿Tendrá equipo adicional a cargo? ¿Cuántas personas?","select",PERSONAS],
   ["responsabilidadesExtra","¿Qué responsabilidades adicionales asumirá?","textarea"]]},
  {t:"Resultado esperado e impacto",q:[
@@ -79,9 +80,9 @@ const SETS = {
   ["fechaVacanteReemplazo","¿Desde qué fecha se encuentra vacante la posición?","date"],
   ["fechaInicioReemplazo","¿Desde qué fecha se requiere que se incorpore? (fecha de ingreso)","date"],
   ["personasCargoReemplazo","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS]]},
- {t:"Cambios en el rol",q:[
-  ["responsabilidadesReemplazo","¿Qué responsabilidades asumirá en la nueva posición?","textarea","Describe las principales responsabilidades que asumirá en la posición de destino."],
-  ["cambioAlcanceReemplazo","¿Cómo cambia su alcance, nivel de responsabilidad o toma de decisiones?","textarea","Describe los cambios relevantes frente a su posición actual."]]},
+ {t:"Alcance del puesto",q:[
+  ["responsabilidadesReemplazo","¿Qué responsabilidades tendrá la persona que ocupe el puesto?","textarea","Describe las principales responsabilidades del puesto que se va a cubrir."],
+  ["cambioAlcanceReemplazo","¿Cambia algo del puesto respecto a quien lo dejó (alcance, nivel de responsabilidad o toma de decisiones)?","textarea","Si todo sigue igual, indícalo y explica brevemente."]]},
  {t:"Resultado esperado e impacto",q:[
   ["resultadoEsperadoReemplazo","¿Qué se busca asegurar o mejorar con este reemplazo?","textarea","Describe el resultado esperado para el área, equipo u operación."],
   ["impactoNoReemplazo","¿Qué ocurriría si la posición no se cubre o el reemplazo no se formaliza?","textarea"]]}],
@@ -90,15 +91,15 @@ const SETS = {
   ["puestoNuevo","Nombre del puesto solicitado","text"],
   ["motivoPuestoNuevo","Motivo de la creación del puesto","select",["Crecimiento del negocio","Reestructuración de área","Proyecto nuevo","Reemplazo de una función","Otro"],"Si el puesto nace de una reestructuración del área, elige «Reestructuración de área» y explícalo abajo."],
   ["cantidadPosiciones","¿Cuántas posiciones de este puesto necesitas?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si necesitas varias posiciones iguales (por ejemplo 2 asistentes comerciales), envíalas juntas en esta misma solicitud."],
-  ["temporalPermanente","¿Es permanente o temporal?","select",["Permanente","Temporal","Por definir"]],
+  ["temporalPermanente","¿Es permanente o temporal?","select",["Permanente","Temporal"]],
   ["reportaA","¿A quién reportará?","text"],
-  ["personasCargoPN","¿Tendrá personal a cargo? ¿Cuántas personas?","select",PERSONAS],
+  ["personasCargoPN","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS],
   ["fechaRequerida","Fecha de ingreso requerida","date"]]},
  {t:"Necesidad del negocio",q:[
   ["necesidadPuesto","¿Qué necesidad del negocio origina la creación del puesto?","textarea","Explica brevemente qué está pasando en el área o negocio."],
   ["problemaResuelve","¿Qué problema existe actualmente por no contar con esta posición?","textarea"],
   ["porQueNoAbsorbe","¿Por qué la estructura actual no puede absorber esta necesidad?","textarea"],
-  ["similarOtraUnidad","¿Existe una posición similar en otra unidad?","select",SNC]]},
+  ["similarOtraUnidad","¿Existe una posición similar en otra unidad?","select",SN]]},
  {t:"Alcance del puesto",q:[
   ["responsabilidadesPuesto","¿Qué responsabilidades tendrá el puesto?","textarea","Ej.: coordinar al equipo, supervisar la operación, tomar decisiones, controlar indicadores."],
   ["entregables","¿Qué resultados concretos deberá entregar?","textarea","Ej.: cumplimiento de SLA, reducción de incidencias, cierre mensual, mejora de indicadores."]]},
@@ -112,9 +113,9 @@ const SETS = {
   ["situacionOrigen","¿Qué situación origina la solicitud?","textarea"],
   ["queCambio","¿Qué cambió en el puesto, desempeño o contexto que sustenta la revisión?","textarea"]]},
  {t:"Evidencia y riesgo de salida",q:[
-  ["riesgoSalida","¿Existe riesgo de salida?","select",SNS],
-  ["ofertaExterna","¿Existe oferta externa?","select",SNS],
-  ["intencionRenuncia","¿Comunicó intención de renuncia?","select",SNS],
+  ["riesgoSalida","¿Existe riesgo de salida?","select",SN],
+  ["ofertaExterna","¿Existe oferta externa?","select",SN],
+  ["intencionRenuncia","¿Comunicó intención de renuncia?","select",SN],
   ["evidenciaRiesgo","¿Qué evidencia concreta respalda la solicitud?","textarea"],
   ["impactoSalida","¿Qué impacto tendría una eventual salida o no atender la revisión?","textarea"]]},
  {t:"Resultado esperado",q:[
@@ -132,12 +133,12 @@ const SETS = {
   ["cambioUbicacion","¿Existe cambio de ubicación?","select",SN],
   ["cambioJornada","¿Existe cambio de jornada?","select",SN]]},
  {t:"Cambios en el rol",q:[
-  ["cambiaResponsabilidad","¿Cambia el nivel de responsabilidad?","select",SNP],
+  ["cambiaResponsabilidad","¿Cambia el nivel de responsabilidad?","select",SN],
   ["cambiaAlcance","¿Cómo cambia el alcance?","textarea"],
   ["nuevasFuncionesML","¿Qué funciones nuevas asumirá?","textarea"]]},
  {t:"Resultado esperado e impacto",q:[
   ["resultadoEsperadoML","¿Qué se espera lograr con el movimiento?","textarea"],
-  ["solicitaIncrementoML","¿El cliente solicita incremento salarial?","select",SNC]]}],
+  ["solicitaIncrementoML","¿Se solicita un incremento salarial con este movimiento?","select",SN]]}],
 "Otro":[
  {t:"La solicitud",q:[
   ["especificarOtro","Especifica qué tipo de movimiento es","text"],
@@ -540,7 +541,7 @@ function buildExecutiveSummary(){
     const changes=[];
     if(direct("cambiaAlcance")) changes.push("un cambio de alcance");
     if(direct("nuevasFuncionesML")) changes.push("la incorporación de nuevas funciones");
-    if(direct("cambiaResponsabilidad")==="Sí" || direct("cambiaResponsabilidad")==="Parcialmente") changes.push("un ajuste en el nivel de responsabilidad");
+    if(direct("cambiaResponsabilidad")==="Sí") changes.push("un ajuste en el nivel de responsabilidad");
     if(changes.length) add(`La propuesta considera ${joinNatural(changes)}`);
 
     if(direct("resultadoEsperadoML")) add(`Con el movimiento se busca: ${stripEnd(direct("resultadoEsperadoML"))}`);
@@ -669,8 +670,8 @@ const fechaLarga=iso=>{const [y,m,d]=iso.split("-");return `lunes ${d}/${m}/${y}
 const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
 const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS],["area","Área","text"],["seccion","Sección","text"]];
 const CODE_HTML=`<div class="q"><label for="correoColab">Correo del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
-const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SNC,"Solo indica si hay o no. Si no lo sabes, elige «Por confirmar»: tu Socio de negocio lo valida."],["validaPresupuesto","¿Quién te confirmó que hay presupuesto?","select",["Mi Socio de negocio (HRBP)","Alguien de Talento (Compensaciones, Selección…)","Mi gerencia o dirección"],"No necesitas conocer fuente ni monto: solo quién te dijo que hay presupuesto."]];   // fuente y monto ya no se piden al jefe (siguen como campos vacíos en el registro)
-const G4=[["urgencia","¿Cuándo se necesita incorporar?","select",["Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
+const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SN,"Solo indica si hay o no: tu Socio de negocio lo confirma."],["validaPresupuesto","¿Quién te confirmó que hay presupuesto?","select",["Mi Socio de negocio (HRBP)","Alguien de Talento (Compensaciones, Selección…)","Mi gerencia o dirección"],"No necesitas conocer fuente ni monto: solo quién te dijo que hay presupuesto."]];   // fuente y monto ya no se piden al jefe (siguen como campos vacíos en el registro)
+const G4=[["urgencia","¿Para cuándo se necesita implementar este movimiento?","select",["Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
 const LEVELS=["Presidencia","Gerencia General","Líder de Unidad","Líder de Área","Líder inmediato","Otro"], EVID=["Correo","Acta","Reunión","Documento","Otro"];
 
 function renderSpecific(){
@@ -864,8 +865,7 @@ function evaluateCase(d){
     const conf=d.validaPresupuesto&&!/^Nadie/.test(d.validaPresupuesto);
     b.presupuesto=conf?15:11;score+=b.presupuesto;strengths.push("Cuenta con presupuesto.");
     if(!conf) alerts.push(d.validaPresupuesto?"Indica presupuesto, pero nadie lo ha confirmado aún.":"Falta indicar quién confirmó el presupuesto.");
-  }else if(d.presupuesto==="Por confirmar"){b.presupuesto=6;score+=6;alerts.push("El presupuesto está por confirmar.")}
-  else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
+  }else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
   else alerts.push("No se ha definido el estado del presupuesto.");
   b.impacto+={"Inmediato":6,"Dentro de 30 días":5,"Dentro de 60 días":3,"Más adelante":2}[d.urgencia]||0;
   b.impacto+={"Crítico":6,"Alto":5,"Medio":3,"Bajo":1}[d.impacto]||0;
@@ -902,7 +902,7 @@ let cur=0,reached=0,editingCaseId=null,prevMov="",sustentoTouched=false,lastRec=
 function renderStepper(){
   $("stepper").innerHTML=STEPS.map((s,i)=>`<button type="button" data-go="${i}" class="${i===cur?"on":(i<reached&&i!==cur&&!validate(i).length?"ok":"")}"${i>reached?" disabled":""}${i===cur?' aria-current="step"':""}><b>${i+1}</b><span>${s}</span></button>`).join("");
 }
-// Los datos del presupuesto (fuente, quién valida, monto) solo se piden si hay presupuesto o está por confirmar; con «No» se ocultan y se limpian.
+// Los datos del presupuesto (fuente, quién valida, monto) solo se piden si hay presupuesto; con «No» se ocultan y se limpian.
 function presUI(){
   const p=$("presupuesto");if(!p) return;
   const v=p.value,e=$("validaPresupuesto");   // «¿quién lo confirmó?» solo si dice que hay presupuesto
@@ -1181,7 +1181,7 @@ function resetWholeSystem(){
   resetForm();renderHistory();
 }
 
-// ---------- Modo demo (solo con CONFIG.modoPrueba) ----------
+// ---------- Modo demo (7 clics en el logo, solo con CONFIG.demoClics) ----------
 // Rellena los 7 pasos con una persona al azar de la base (solo si Firestore config/app.modoPrueba es true); solo falta pulsar «Enviar solicitud».
 const DEMO_PICK={tieneAprobacion:"Sí",presupuesto:"Sí",validaPresupuesto:"Mi Socio de negocio (HRBP)",personasCargo:"3",personasCargoPN:"2",personasCargoReemplazo:"2",equipoAdicional:"2",fuentePresupuesto:"Presupuesto aprobado",urgencia:"Dentro de 30 días",impacto:"Alto",consecuencia:"Retraso operativo",tipoPropuestaNegocio:"Porcentaje %"};
 const DEMO_TEXT={validaPresupuesto:"Mi Socio de negocio (HRBP)",montoPresupuesto:"4500",propuestaNegocio:"8",personasCargo:"3 personas",personasCargoPN:"2 personas",personasCargoReemplazo:"2 personas",equipoAdicional:"2 personas",cambioPersonasRev:"Sí, de 2 a 4 personas",periodoRenovacion:"3 meses",reportaA:"Subgerente de Talento y Cultura",puestoPropuesto:"Analista Senior",puestoEncargado:"Jefe de Área",aQuienReemplaza:"Jefe saliente (vacancia)",puestoReemplazo:"Analista Senior",personaOVacanteReemplazo:"Vacante por renuncia",puestoNuevo:"Analista de Datos de Talento",puestoDestino:"Analista Senior",areaDestino:"Selección y Desarrollo",tipoCasoEspecial:"Convenio de colaboración",vigenciaCaso:"6 meses",areaReestructura:"Área de Talento",areaApoyoHorizontal:"Gerencia de Talento y Cultura",puestoEncargaturaAnterior:"Coordinador de Área","ap-name":"Aprobador de ejemplo","ap-role":"Gerente General"};
@@ -1381,8 +1381,8 @@ function enter(){
   $("login").classList.add("hidden");$("userChip").classList.remove("hidden");
   $("userName").textContent=`${SESSION.name} · ${{bp:"BP",gerencia:"Gerencia"}[SESSION.role]||"Líder"}`;
   $("bpPanel").classList.toggle("hidden",!BP_MODE||!!CONFIG.panelUrl);$("modeTag").textContent=(BP_MODE?"· Modo BP":"")+(CONFIG.modoPrueba?" · Modo prueba":"");
-  // Relleno de pruebas oculto: 5 clics seguidos en el logo (solo con modoPrueba). Quitar este bloque y #demoBar al pasar a producción.
-  {let n=0,t=0;$("logoUsil").onclick=()=>{if(!CONFIG.modoPrueba)return;const ahora=Date.now();n=ahora-t<1500?n+1:1;t=ahora;if(n>=5){n=0;demoFill()}}}
+  // Relleno de pruebas oculto: 7 clics seguidos en el logo (solo con CONFIG.demoClics). Poner demoClics en false (o quitar este bloque y #demoBar) al pasar a producción.
+  {let n=0,t=0;$("logoUsil").onclick=()=>{if(!CONFIG.demoClics)return;const ahora=Date.now();n=ahora-t<1500?n+1:1;t=ahora;if(n>=7){n=0;demoFill()}}}
   if(CONFIG.panelUrl){$("panelLink").href=CONFIG.panelUrl;$("panelLink").classList.remove("hidden")}
   if(BP_MODE) renderHistory();
   const dr=load(draftKey(),null);

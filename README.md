@@ -36,3 +36,8 @@ Quien es socio de negocio o Gerencia **y también pide como jefe de área** (por
 
 ## Quién puede pedir
 Piden los **jefes de área** (y jefaturas). Las **socias de negocio no crean solicitudes**: en `tools/usuarios.json` su entrada lleva `"pideComoJefe": false`, que `cargar-datos.js` copia a su rol y las **reglas** hacen cumplir en el servidor (ni con la cuenta del panel ni con el alias `usuario+jefe@`). Además no se les crea cuenta de formulario. Quien no tenga la marca (por ejemplo el Subgerente de Talento, que es jefatura) pide con su acceso `+jefe`.
+
+## Cuestionario y relleno de pruebas
+- Las preguntas de opción se responden **Sí / No**: ya no existen «Parcialmente», «Por confirmar», «No se sabe» ni «Por definir». Las preguntas se redactaron para que cuadren con cada movimiento (por ejemplo, el plazo ya no habla de «incorporar» en una promoción, y el reemplazo pregunta por el puesto a cubrir, no por «su nueva posición»).
+- **Relleno de pruebas:** 7 clics seguidos en el logo de USIL rellenan todo el formulario con una persona y un movimiento al azar (deja el paso de revisión listo para enviar). Se controla con `CONFIG.demoClics` en `app.js`: **ponerlo en `false` antes de abrirlo a los jefes**. `CONFIG.modoPrueba` (mínimos de caracteres reducidos) sigue apagado.
+
