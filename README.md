@@ -20,3 +20,10 @@ Sigue `docs/DESPLIEGUE.md`. Pruebas: `npm test` y `npm run test:rules`.
 ## Datos
 Este repositorio **no debe contener** el Maestro de personal ni claves (DNI, direcciones, datos de salud, claves de servicio).
 `.gitignore` ya los excluye. Solo se usan 16 nombres de departamento y los correos institucionales de los BP.
+
+## Seguimiento y presupuesto (reunión con los socios de negocio)
+- **Trazabilidad visible para todos:** el HRBP y Gerencia ven la línea de tiempo en el detalle del caso (con quién actuó); el jefe la ve en «Mis solicitudes → Ver seguimiento» **solo con el rol** (nunca el nombre ni el correo del socio). El comentario llega al jefe únicamente cuando es para él (devolución del socio, decisión de Gerencia).
+- **Presupuesto confirmado por el HRBP:** el socio de negocio marca **Sí/No** y, opcionalmente, el **monto** y una nota. El jefe solo ve el Sí/No; el monto vive en `solicitudes/{id}/interno/presupuesto`, que leen el HRBP de la solicitud y Gerencia (cuando ya se la pasaron). Sin Sí/No no se puede escalar a Gerencia.
+- **Atómico:** cada gestión (cambio de estado, evento, traza del jefe y presupuesto) se escribe en un solo lote: o queda todo o no queda nada.
+- «¿Quién te confirmó el presupuesto?» ya no ofrece **Finanzas**.
+- Reglas nuevas en `firestore.rules` (`trazas`, `interno`, `presupuestoConfirmado`): hay que **desplegarlas junto con el código** (`firebase deploy --only firestore:rules,hosting`). Pruebas: `npm run test:rules` (26 + 10).

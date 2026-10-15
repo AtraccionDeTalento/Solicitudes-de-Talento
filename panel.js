@@ -55,7 +55,11 @@ const API={
   async panelExportar(vista){return (await filas(vista,await sesion())).map(d=>({...plano(d),levantamiento:pares(d),aprobaciones:d.aprobaciones||[]}))},
   async panelDetalle(id,vista){
     await sesion();const s=await FB.getDoc(FB.doc(FB.db,"solicitudes",id));if(!s.exists())throw new Error("Solicitud no disponible");const d=s.data();
-    return {puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
+    // El monto del presupuesto vive aparte (el jefe no lo puede leer) y la trazabilidad se consulta por solicitud: si alguna lectura no se permite, el detalle sale igual.
+    const [presupuestoInterno,traza]=await Promise.all([
+      FB.getDoc(FB.doc(FB.db,"solicitudes",id,"interno","presupuesto")).then(x=>x.exists()?x.data():null).catch(()=>null),
+      FB.getDocs(FB.query(FB.collection(FB.db,"eventos"),FB.where("solicitudId","==",id))).then(r=>r.docs.map(x=>x.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)))).catch(()=>[])]);
+    return {presupuestoInterno,traza,puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
   },
   async panelEventos(vista){
     const q=await sesion();if(!CFG[vista]||!q.vistas.includes(vista))throw new Error("Sin acceso");
@@ -81,20 +85,31 @@ const API={
   },
   async panelActualizar(id,vista,estado,comentario,extra){
     const q=await sesion();if(!CFG[vista]||!CFG[vista].estados.includes(estado))throw new Error("Estado no permitido");
-    const cambios={estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString()};
+    const cambios={estado,[CFG[vista].campo]:String(comentario||"").slice(0,1000),gestionadoPor:q.email,gestionadoEl:new Date().toISOString()};let pres=null;
     if(vista==="bp"&&extra&&typeof extra==="object"){
       if(extra.textoGerencia!=null){cambios.textoGerencia=String(extra.textoGerencia).slice(0,20000);cambios.textoOrigen=String(extra.textoOrigen||"").slice(0,30)}
       if(extra.derivarA){if(extra.derivarA===q.bpId)throw new Error("Elige a otro Socio de negocio.");cambios.bpId=String(extra.derivarA);cambios.derivadoDe=q.bpId;cambios.estado="En revisión BP"}   // pasa a la bandeja de otro BP
+      // Presupuesto: «¿hay?» (Sí/No) es lo único que ve el jefe; el monto y la nota quedan en un documento aparte que solo leen el HRBP y Gerencia.
+      if(extra.presupuestoConfirmado!=null&&extra.presupuestoConfirmado!==""){if(!["Sí","No"].includes(extra.presupuestoConfirmado))throw new Error("El presupuesto se confirma con Sí o No.");cambios.presupuestoConfirmado=extra.presupuestoConfirmado}
+      if(extra.presupuestoMonto!=null)pres={monto:String(extra.presupuestoMonto).trim().slice(0,60),nota:String(extra.presupuestoNota||"").trim().slice(0,300),por:q.email,fecha:cambios.gestionadoEl};
     }
-    let previo=null;try{previo=(await FB.getDoc(FB.doc(FB.db,"solicitudes",id))).data()}catch(e){/* sin lectura previa: el evento sale sin «de» */}
-    try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),cambios)}
+    // Todo en UN lote: el cambio, el evento (con correos, para HRBP y Gerencia), la traza que ve el jefe (solo el rol) y, si el HRBP lo llenó, el monto del presupuesto.
+    // O pasa todo o no pasa nada: la trazabilidad no puede quedar a medias.
+    const ref=FB.doc(FB.db,"solicitudes",id);let previo;
+    try{previo=(await FB.getDoc(ref)).data()}catch(e){throw new Error(e.code==="permission-denied"?"Esta solicitud ya no está en tu etapa.":e.message)}
+    const de=String(previo.estado||"Nuevo"),bpAhora=cambios.bpId||previo.bpId||"",nota=String(cambios[CFG[vista].campo]||"").slice(0,1000);
+    const tipo=cambios.derivadoDe?"Derivación":cambios.textoGerencia!=null?"Escalada a Gerencia":de!==cambios.estado?"Cambio de estado":"Comentario";
+    let notaEvento=nota;if(cambios.derivadoDe){const n=await nombres();notaEvento=`Derivada de ${n[cambios.derivadoDe]||"—"} a ${n[cambios.bpId]||"—"}: ${nota}`.slice(0,1000)}   // los nombres de los socios solo van en el evento interno, nunca en lo que ve el jefe
+    const lote=FB.writeBatch(FB.db);
+    lote.update(ref,cambios);
+    lote.set(FB.doc(FB.collection(FB.db,"eventos")),{solicitudId:id,bpId:bpAhora,tipo,de,a:cambios.estado,por:q.email,rol:vista,fecha:cambios.gestionadoEl,comentario:notaEvento});
+    if(tipo!=="Comentario"){   // al jefe le llegan los cambios de etapa, no las notas internas; el comentario solo cuando es para él (devolución del socio o decisión de Gerencia)
+      const paraJefe=(vista==="bp"&&cambios.estado==="Devuelto al jefe")||(vista==="gerencia"&&["Aprobado","Rechazado"].includes(cambios.estado));
+      lote.set(FB.doc(FB.collection(FB.db,"trazas")),{solicitudId:id,uid:previo.uid,tipo,de,a:cambios.estado,rol:vista,fecha:cambios.gestionadoEl,comentario:paraJefe?nota:""});
+    }
+    if(pres)lote.set(FB.doc(ref,"interno","presupuesto"),pres);
+    try{await lote.commit()}
     catch(e){throw new Error(e.code==="permission-denied"?"Esta solicitud ya no está en tu etapa.":e.message)}
-    // Trazabilidad: queda escrito quién hizo qué y cuándo (las reglas solo aceptan el evento si coincide con lo que acaba de pasar en la solicitud).
-    if(cambios.derivadoDe){const n=await nombres();cambios.comentario_traza=`Derivada de ${n[cambios.derivadoDe]||"—"} a ${n[cambios.bpId]||"—"}: ${cambios[CFG[vista].campo]}`}
-    const de=previo?String(previo.estado||"Nuevo"):"",bpAhora=cambios.bpId||(previo&&previo.bpId)||"";
-    const tipo=cambios.derivadoDe?"Derivación":cambios.textoGerencia!=null?"Escalada a Gerencia":de&&de!==cambios.estado?"Cambio de estado":"Comentario";
-    try{await FB.setDoc(FB.doc(FB.collection(FB.db,"eventos")),{solicitudId:id,bpId:bpAhora,tipo,de,a:cambios.estado,por:q.email,rol:vista,fecha:cambios.gestionadoEl,comentario:String(cambios.comentario_traza||cambios[CFG[vista].campo]||"").slice(0,1000)})}
-    catch(e){console.warn("No se pudo registrar el evento de trazabilidad",e.code)}
     return {ok:true};
   }
 };
@@ -518,6 +533,7 @@ function aviso(t){let e=$("toast");if(!e){e=document.createElement("div");e.id="
 const lis=s=>String(s||"").split(" | ").filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join("");
 const fila=(k,v)=>v==null||String(v).trim()===""?"":`<div class="kv"><span>${esc(k)}</span><b>${esc(v)}</b></div>`;
 // Acciones por rol: [texto, estado nuevo (null = conservar el actual), estilo, exige comentario, aviso de éxito, pide confirmación]
+let PB={id:""};   // lo que el HRBP va escribiendo del presupuesto: sobrevive a cambiar entre el detalle, el texto para Gerencia y la derivación
 const ACCIONES={
   bp:[["Guardar observación",null,"sec",false,"Observación guardada",false],["Devolver al jefe","Devuelto al jefe","warn",true,"Solicitud devuelta al jefe",false],["Pausar","En pausa","sec",false,"Solicitud en pausa",false],["Derivar a otro socio",null,"sec",false,"",false],["Escalar a Gerencia ➜","Enviado a Gerencia","ok",false,"Solicitud escalada: ya está en la bandeja de Gerencia",true]],
   gerencia:[["Guardar comentario",null,"sec",false,"Comentario guardado",false],["Devolver al socio","En revisión BP","warn",true,"Solicitud devuelta al Socio de negocio",false],["Rechazar","Rechazado","bad",true,"Solicitud rechazada",true],["Aprobar ✓","Aprobado","ok",false,"Solicitud aprobada",true]]
@@ -561,23 +577,38 @@ function detalle(id){
       <div class="px-v"><span>Impacto si no se ejecuta</span><b>${esc(f.impacto||"—")}</b><em>${esc(f.consecuencia||"")}</em></div>
       <div class="px-v"><span>Presupuesto</span><b>${esc(f.presupuesto||"—")}</b><em>${f.montoPresupuesto!==""&&f.montoPresupuesto!=null?"S/ "+esc(f.montoPresupuesto):esc(f.fuentePresupuesto||"")}</em></div>
       ${(d.registro&&d.registro.levantamiento||[]).filter(x=>x.i==="cantidadPosiciones")[0]?`<div class="px-v"><span>Posiciones</span><b>${esc(d.registro.levantamiento.filter(x=>x.i==="cantidadPosiciones")[0].r)}</b></div>`:""}<div class="px-v"><span>Aprobación previa</span><b>${d.aprobaciones.length?d.aprobaciones.length+" registrada"+(d.aprobaciones.length===1?"":"s"):"Sin aprobación"}</b></div></div></section>`;
+    // ----- Presupuesto confirmado por el HRBP (el jefe solo ve Sí/No; el monto lo ven el HRBP y Gerencia) y trazabilidad -----
+    const pi=d.presupuestoInterno;if(PB.id!==id)PB={id,pc:f.presupuestoConfirmado||"",pm:pi?pi.monto:"",pn:pi&&pi.nota?pi.nota:"",sucio:false};
+    const secPres=vista==="bp"&&ed?`<section class="sec" id="presHRBP"><h4>Presupuesto · lo confirmas tú</h4>
+        <p class="muted" style="margin:0 0 8px">El jefe solo verá «Sí» o «No». El monto y la nota los ven únicamente tú y Gerencia. Debes elegir Sí o No para poder escalar a Gerencia.</p>
+        <div class="grid"><div><label class="lbl" for="pc">¿Hay presupuesto?</label><select id="pc"><option value="">— elige —</option><option${PB.pc==="Sí"?" selected":""}>Sí</option><option${PB.pc==="No"?" selected":""}>No</option></select></div>
+        <div><label class="lbl" for="pm">Monto disponible (solo HRBP y Gerencia)</label><input id="pm" maxlength="60" value="${esc(PB.pm)}" placeholder="Ej.: S/ 45,000"></div>
+        <div style="grid-column:1/-1"><label class="lbl" for="pn">Nota (opcional)</label><input id="pn" maxlength="300" value="${esc(PB.pn)}" style="width:100%"></div></div>
+        <div class="acts"><span class="muted">Se guarda con cualquier acción de abajo, o ahora mismo:</span><button type="button" class="btn sec" id="gpres">Guardar presupuesto</button></div></section>`
+      :`<section class="sec"><h4>Presupuesto confirmado por el Socio de negocio</h4><div class="grid">${fila("¿Hay presupuesto?",f.presupuestoConfirmado||"Sin confirmar")}${fila("Monto",pi&&pi.monto)}${fila("Nota",pi&&pi.nota)}${pi?fila("Registrado por",pi.por+" · "+fechaHora(pi.fecha)):""}</div></section>`;
+    const ROLES={bp:"Socio de negocio",gerencia:"Gerencia"};
+    const secTraza=`<section class="sec"><h4>Trazabilidad</h4><div class="tlin"><div><b>Solicitud enviada</b> · ${esc(f.fechaSolicitud)}<br><small>${esc(f.cliente||"—")}${mailto(f.enviadoPor)?" · "+mailto(f.enviadoPor):""}</small></div>${(d.traza||[]).map(e=>`<div><b>${esc(e.tipo)}</b> · ${esc(eb(e.de||"—"))} → ${esc(eb(e.a))}<br><small>${esc(e.por)} (${esc(ROLES[e.rol]||e.rol)}) · ${esc(fechaHora(e.fecha))}</small>${e.comentario?`<br>${esc(e.comentario)}`:""}</div>`).join("")}</div></section>`;
     const susten=(d.sustento||base)?`<section class="sec px-sus"><h4>Sustento ejecutivo</h4><p class="tx-p ejec">${marcar(d.sustento||base.split("\n").slice(0,2).join(" "))}</p></section>`:"";
     $("dlg").innerHTML=`
      <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
        <div class="meta"><span class="tag ${esc(f.estado)}">${esc(eb(f.estado||"Nuevo"))}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
        <button type="button" class="x" id="cerrarX" aria-label="Cerrar">✕</button></div>
-     <div class="db">${vista==="gerencia"?`${solic}${visib}${susten}<button type="button" class="px-det" id="verDet" aria-expanded="false">Ver detallado ▾</button><div id="det" hidden>${secTexto}${secResumen}${secResto}</div>`:`${secTexto}${secResumen}${secResto}`}
+     <div class="db">${vista==="gerencia"?`${solic}${visib}${secPres}${susten}<button type="button" class="px-det" id="verDet" aria-expanded="false">Ver detallado ▾</button><div id="det" hidden>${secTexto}${secResumen}${secResto}</div>${secTraza}`:`${secTexto}${secResumen}${secPres}${secResto}${secTraza}`}
      </div>
      <div class="df">${ed?`<label for="nc">Observación o comentario${vista==="bp"?" (lo ve Gerencia y, si la devuelves, el jefe)":""}</label>
        <textarea id="nc" rows="2" placeholder="Escribe aquí tu observación…">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>
        <div class="acts"><button type="button" class="btn sec" id="cerrar">Cerrar</button><span class="sp"></span>${ACCIONES[vista].map((a,i)=>`<button type="button" class="btn ${a[2]}" data-i="${i}">${esc(a[0])}</button>`).join("")}</div>`
        :`<div class="acts"><span class="muted">Esta solicitud ya no está en tu etapa: solo lectura.</span><span class="sp"></span><button type="button" class="btn sec" id="cerrar">Cerrar</button></div>`}</div>`;
     const dlg=$("dlg");dlg.showModal();dlg.scrollTop=0;evidencias(id);
+    ["pc","pm","pn"].forEach(k=>{const e=$(k);if(e)e.oninput=e.onchange=()=>{PB[k]=e.value;PB.sucio=true}});
     const vd=$("verDet");if(vd)vd.onclick=()=>{const h=$("det").hidden;$("det").hidden=!h;vd.textContent=h?"Ocultar detallado ▴":"Ver detallado ▾";vd.setAttribute("aria-expanded",String(h))};
     const cerrar=()=>dlg.close();$("cerrarX").onclick=cerrar;$("cerrar").onclick=cerrar;
     dlg.onclick=e=>{if(e.target===dlg)cerrar()};   // clic fuera de la ventana
+    // Si el HRBP tocó el presupuesto, viaja con cualquier acción (guardar, devolver, pausar, derivar, escalar): un solo lote con la gestión.
+    const conPres=extra=>vista==="bp"&&PB.id===id&&PB.sucio?{...(extra||{}),presupuestoConfirmado:PB.pc,presupuestoMonto:PB.pm,presupuestoNota:PB.pn}:extra;
     const aplicar=(estado,coment,extra,ok)=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=true);
-      google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=false);aviso(e.message||e)}).withSuccessHandler(()=>{dlg.close();cargar(vista);aviso("✓ "+ok)}).panelActualizar(id,vista,estado,coment,extra)};
+      google.script.run.withFailureHandler(e=>{dlg.querySelectorAll("button").forEach(x=>x.disabled=false);aviso(e.message||e)}).withSuccessHandler(()=>{dlg.close();PB={id:""};cargar(vista);aviso("✓ "+ok)}).panelActualizar(id,vista,estado,coment,conPres(extra))};
+    const gp=$("gpres");if(gp)gp.onclick=()=>{if(!PB.pc)return aviso("Elige primero Sí o No");PB.sucio=true;aplicar(D.estados.includes(f.estado)?f.estado:D.estados[0],($("nc")?$("nc").value.trim():f.comentarioBP)||"",null,"Presupuesto guardado")};
     // Escalar: el socio de negocio revisa (y puede editar) el texto que recibirá Gerencia; el motor señala lo que falta o no cuadra.
     const componer=coment=>{
       const base=redactar(d.registro,{comentarioBP:coment});
@@ -611,7 +642,7 @@ function detalle(id){
       const estado=nuevo||(D.estados.includes(f.estado)?f.estado:D.estados[0]);
       if(exige&&!coment){$("nc").focus();$("nc").classList.add("falta");return aviso("Escribe una observación para continuar")}
       if(vista==="bp"&&txt==="Derivar a otro socio")return derivar(coment);
-      if(vista==="bp"&&nuevo==="Enviado a Gerencia")return componer(coment);
+      if(vista==="bp"&&nuevo==="Enviado a Gerencia"){if(!(PB.pc||f.presupuestoConfirmado)){const e=$("pc");if(e){e.focus();e.scrollIntoView({block:"center"})}return aviso("Antes de escalar, indica si hay presupuesto (Sí o No)")}return componer(coment)}
       if(confirma&&!await confirmar(txt.replace(/[➜✓]/g,"").trim(),"Esta acción queda registrada a tu nombre.",{ok:txt.replace(/[➜✓]/g,"").trim(),tipo:ACCIONES[vista][b.dataset.i][2]==="bad"?"bad":ACCIONES[vista][b.dataset.i][2]==="warn"?"warn":"ok"}))return;
       aplicar(estado,coment,null,ok)});
   }).panelDetalle(id,vista,TOKEN);

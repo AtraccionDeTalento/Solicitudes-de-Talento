@@ -15,7 +15,7 @@ const emu = ["localhost", "127.0.0.1"].includes(location.hostname) && !new URLSe
 const app = initializeApp(emu ? { apiKey: "emulador", authDomain: "localhost", projectId: "demo-local", appId: "emulador" } : firebaseConfig);
 export const auth = getAuth(app), db = getFirestore(app);
 if (emu) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
-export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, setPersistence, browserSessionPersistence, signOut };
+export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, writeBatch, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, setPersistence, browserSessionPersistence, signOut };
 
 /** Correo sin tildes ni ñ y en minúsculas (una «ñ» se escribe «n»), como se guarda en Auth y en las reglas. */
 export const normalizar = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
@@ -105,6 +105,13 @@ export async function misSolicitudes() {
   const u = await conSesion();
   const r = await getDocs(query(collection(db, "solicitudes"), where("uid", "==", u.uid)));
   return r.docs.map(d => d.data()).sort((a, b) => String(b.enviadoEl).localeCompare(String(a.enviadoEl)));
+}
+
+/** Seguimiento de UNA solicitud para su dueño: la historia (devoluciones, derivaciones, escalada, decisión) sin correos ni nombres de los socios de negocio, solo su rol. Más antigua primero. */
+export async function seguimiento(id) {
+  const u = await conSesion();
+  const r = await getDocs(query(collection(db, "trazas"), where("solicitudId", "==", id), where("uid", "==", u.uid)));
+  return r.docs.map(d => d.data()).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
 }
 
 /** Guarda la solicitud y, en el MISMO lote, la captura (JPEG ya comprimido) de la confirmación de cada aprobación: o se guarda todo o nada.
