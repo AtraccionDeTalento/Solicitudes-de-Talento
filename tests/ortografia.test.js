@@ -47,4 +47,12 @@ ok('aplicar una sugerencia concreta cambia todas las veces que aparece la palabr
 ok('vacío, solo espacios o símbolos no rompen el revisor', () => {
   ['', '   ', '1234 ... ???', 'ñ', '¡¿!?'].forEach(t => assert.deepStrictEqual(R.revisar(t), []));
 });
+ok('el vocabulario de Talento, Compensaciones, tecnología y universidad no se marca como error', () => {
+  const t = 'La encargatura cubre la subgerencia y la vicepresidencia, con el vicerrectorado y la decanatura. El analista de ciberseguridad y empleabilidad ajusta el workflow, los dashboards, el forecast y el budget; presenta entregables por cuartil, con coaching, mentoring, offboarding y networking con los alumni. Hay escalabilidad, interoperabilidad y proactividad, con ingresantes, sílabos y presencialidad, y ejecución presupuestal revisada por el headcount.';
+  assert.deepStrictEqual(malas(t), []);
+});
+ok('con esas palabras añadidas, los errores de escritura siguen marcándose', () => {
+  assert.deepStrictEqual(malas('El analista de ciberseguridd revisa los dashbords y el wokflow.').sort(), ['ciberseguridd', 'dashbords', 'wokflow']);
+  assert.deepStrictEqual(malas('La empleabilidd y el vicerrectorao.').sort(), ['empleabilidd', 'vicerrectorao']);
+});
 console.log('\n' + n + ' pruebas de ortografía OK');
