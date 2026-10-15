@@ -14,6 +14,10 @@ const sesion=async()=>{
   return {token:"fb",email:u.email,vistas,bpId:s.data().bpId};
 };
 const SIN=new Set(["levantamiento","aprobaciones","uid","gestionadoPor","gestionadoEl"]);
+// Contacto del jefe solicitante (para el corte y el detalle): correo institucional verificado de quien envió la solicitud.
+const correoJefe=v=>String(v||"").replace(/\+jefe(?=@)/,"").toLowerCase().trim();   // «usuario+jefe@» es la cuenta de formulario de un socio de negocio: su buzón es «usuario@»
+const mailto=c=>{c=correoJefe(c);return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c)?`<a class="mt" href="mailto:${esc(c)}">${esc(c)}</a>`:""};
+const lineaJefe=(n,cargo,c)=>`<div class="pr-jefe"><span class="pr-jefe-t">Jefe solicitante</span><b>${esc(n||"—")}</b>${cargo?` · ${esc(cargo)}`:""}${mailto(c)?` · ${mailto(c)}`:""}</div>`;
 const plano=(d,extra)=>{const o={};Object.entries(d).forEach(([k,v])=>{if(extra||!SIN.has(k))o[k]=v});return o};
 const pares=d=>(d.levantamiento||[]).map(x=>[x.p,x.r]);
 const nombres=async()=>{if(!nombres.c){nombres.c={};(await FB.getDocs(FB.collection(FB.db,"bps"))).forEach(d=>{nombres.c[d.id]=d.data().nombre})}return nombres.c};
@@ -29,12 +33,12 @@ const API={
   // Solo entran los correos que el administrador autorizó (documento roles/{correo}); una cuenta sin autorización no ve nada.
   async panelCrear(email,clave,clave2){
     email=FB.normalizar(email);
-    if(!/^[^@\s]+@usil\.edu\.pe$/.test(email))throw new Error("Usa tu correo institucional (@usil.edu.pe).");
+    if(!/^[^@\s]+@(usil\.edu\.pe|usil\.pe|epg\.usil\.pe|sir\.pe|sir\.edu\.pe|institutoemprendedores\.pe|institutoemprendedores\.edu\.pe)$/i.test(email))throw new Error("Usa tu correo institucional de USIL.");
     if(String(clave).length<12)throw new Error("Tu clave debe tener 12 o más caracteres.");
     if(clave!==clave2)throw new Error("Las dos claves no coinciden.");
     let u;
     try{await FB.setPersistence(FB.auth,FB.browserSessionPersistence);u=(await FB.createUserWithEmailAndPassword(FB.auth,email,clave)).user}
-    catch(e){throw new Error(e.code==="auth/email-already-in-use"?"Ese correo ya tiene cuenta: entra con tu clave o usa «Olvidé mi clave».":e.code==="auth/weak-password"?"Esa clave es demasiado débil.":"No se pudo crear la cuenta. Intenta de nuevo.")}
+    catch(e){throw new Error(e.code==="auth/email-already-in-use"?"Ese correo ya tiene cuenta: entra con tu clave o usa «Recuperar clave».":e.code==="auth/weak-password"?"Esa clave es demasiado débil.":"No se pudo crear la cuenta. Intenta de nuevo.")}
     try{await FB.sendEmailVerification(u)}finally{await FB.signOut(FB.auth)}
     return {mensaje:"Cuenta creada. Te enviamos un enlace a "+email+": ábrelo para confirmar tu correo y luego entra con tu clave."};
   },
@@ -43,7 +47,7 @@ const API={
     return {mensaje:"Si tu correo tiene cuenta, te llegará un enlace para elegir una clave nueva."};   // misma respuesta exista o no: no revela quién tiene cuenta
   },
   async panelEntrar(email,clave){
-    try{await FB.setPersistence(FB.auth,FB.browserSessionPersistence);await FB.signInWithEmailAndPassword(FB.auth,FB.normalizar(email),String(clave))}catch(e){throw new Error("Correo o clave incorrectos.")}
+    try{await FB.setPersistence(FB.auth,FB.browserSessionPersistence);await FB.signInWithEmailAndPassword(FB.auth,FB.normalizar(email),String(clave))}catch(e){throw new Error(FB.mensajeAcceso(e.code))}
     return sesion();
   },
   panelQuien:sesion,
@@ -68,7 +72,7 @@ const API={
     ids=[...new Set(ids)].slice(0,100);if(!ids.length)throw new Error("No hay casos para el corte.");
     const [docs,n]=await Promise.all([Promise.all(ids.map(id=>FB.getDoc(FB.doc(FB.db,"solicitudes",id)))),nombres()]);
     const t=v=>String(v==null?"":v);
-    const casos=docs.filter(s=>s.exists()).map(s=>{const d=s.data();return {id:s.id,colaborador:t(d.colaborador),movimiento:t(d.movimiento),departamento:t(d.departamento),area:t(d.area),cliente:t(d.cliente),cargoCliente:t(d.cargoCliente),
+    const casos=docs.filter(s=>s.exists()).map(s=>{const d=s.data();return {id:s.id,colaborador:t(d.colaborador),movimiento:t(d.movimiento),departamento:t(d.departamento),area:t(d.area),cliente:t(d.cliente),cargoCliente:t(d.cargoCliente),correoCliente:correoJefe(d.enviadoPor),
       bp:t(n[d.bpId]),urgencia:t(d.urgencia),impacto:t(d.impacto),puntaje:t(d.puntaje),estado:t(d.estado),fechaSolicitud:t(d.fechaSolicitud),sustento:t(d.solicitudConcreta).slice(0,1500),texto:t(d.textoGerencia||redactar(d,{comentarioBP:d.comentarioBP}).texto).slice(0,3500)}});
     const pts=casos.map(c=>Number(c.puntaje)).filter(x=>x>0),pm={};casos.forEach(c=>{pm[c.movimiento]=(pm[c.movimiento]||0)+1});
     const corte={titulo:t(titulo).slice(0,120),nota:t(nota).slice(0,1000),fechaCorte:t(fechaCorte),creadoPor:q.email,creadoEl:new Date().toISOString(),casos,
@@ -86,9 +90,10 @@ const API={
     try{await FB.updateDoc(FB.doc(FB.db,"solicitudes",id),cambios)}
     catch(e){throw new Error(e.code==="permission-denied"?"Esta solicitud ya no está en tu etapa.":e.message)}
     // Trazabilidad: queda escrito quién hizo qué y cuándo (las reglas solo aceptan el evento si coincide con lo que acaba de pasar en la solicitud).
+    if(cambios.derivadoDe){const n=await nombres();cambios.comentario_traza=`Derivada de ${n[cambios.derivadoDe]||"—"} a ${n[cambios.bpId]||"—"}: ${cambios[CFG[vista].campo]}`}
     const de=previo?String(previo.estado||"Nuevo"):"",bpAhora=cambios.bpId||(previo&&previo.bpId)||"";
     const tipo=cambios.derivadoDe?"Derivación":cambios.textoGerencia!=null?"Escalada a Gerencia":de&&de!==cambios.estado?"Cambio de estado":"Comentario";
-    try{await FB.setDoc(FB.doc(FB.collection(FB.db,"eventos")),{solicitudId:id,bpId:bpAhora,tipo,de,a:cambios.estado,por:q.email,rol:vista,fecha:cambios.gestionadoEl,comentario:String(cambios[CFG[vista].campo]||"").slice(0,1000)})}
+    try{await FB.setDoc(FB.doc(FB.collection(FB.db,"eventos")),{solicitudId:id,bpId:bpAhora,tipo,de,a:cambios.estado,por:q.email,rol:vista,fecha:cambios.gestionadoEl,comentario:String(cambios.comentario_traza||cambios[CFG[vista].campo]||"").slice(0,1000)})}
     catch(e){console.warn("No se pudo registrar el evento de trazabilidad",e.code)}
     return {ok:true};
   }
@@ -96,6 +101,16 @@ const API={
 // Misma interfaz que google.script.run de Apps Script, para no tocar el resto del panel.
 const mk=(ok,ko)=>new Proxy({},{get:(_,k)=>k==="withSuccessHandler"?f=>mk(f,ko):k==="withFailureHandler"?f=>mk(ok,f):(...a)=>API[k](...a).then(d=>ok&&ok(d),e=>ko&&ko(e))});
 const google={script:{run:mk()}};
+// Capturas de la confirmación del jefe aprobador (subcolección «evidencias»): se pintan con DOM, nunca con innerHTML, y solo si son un JPEG en base64.
+const evidencias=async id=>{
+  const c=$("evid");if(!c)return;
+  try{
+    const r=await FB.getDocs(FB.collection(FB.db,"solicitudes",id,"evidencias"));
+    const imgs=r.docs.sort((a,b)=>a.id.localeCompare(b.id)).map(x=>x.data().img).filter(u=>/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(u||""));
+    c.textContent=imgs.length?"":"Sin captura adjunta.";
+    imgs.forEach((u,i)=>{const im=document.createElement("img");im.src=u;im.alt="Captura de la confirmación "+(i+1);im.title="Clic para ampliar";im.className="evid-img";im.onclick=()=>im.classList.toggle("grande");c.append(im)});
+  }catch(e){c.textContent="No se pudo cargar la captura."}
+};
 const TITULOS={jefe:"Mis solicitudes",bp:"Bandeja del Socio de negocio",gerencia:"Gerencia · vista final"};
 const ALL=["Nuevo","En revisión BP","Devuelto al jefe","Enviado a Gerencia","Aprobado","Rechazado","En pausa"];
 let D=null,vista=null,filtro={q:"",estado:"",periodo:"",movimiento:"",departamento:"",bp:"",atencion:""};
@@ -105,8 +120,8 @@ let TOKEN=null;
 const fail=e=>{const m=(e&&e.message||e)+"";if(/venci/.test(m)){TOKEN=null;return mostrarLogin(e)}$("err").hidden=false;$("err").textContent=m;$("app").innerHTML=""};
 $("salir").onclick=async()=>{await FB.signOut(FB.auth);TOKEN=null;PRES=null;SEL.clear();mostrarLogin()};
 const TEXTOS={
-  entrar:["Panel de revisión","Ingresa con tu correo institucional y tu clave (Socio de negocio o Gerencia).","Entrar"],
-  crear:["Crear mi cuenta","Primera vez: usa tu correo institucional autorizado y elige tu clave (12 o más caracteres). Te enviaremos un enlace para confirmar tu correo.","Crear cuenta"],
+  entrar:["Panel de revisión","Entra con tu correo de USIL y tu clave (Socio de negocio o Gerencia).","Entrar"],
+  crear:["Crear cuenta","Primera vez: usa tu correo institucional autorizado y elige tu clave (12 o más caracteres). Te enviaremos un enlace para confirmar tu correo.","Crear cuenta"],
   olvide:["Recuperar mi clave","Te enviaremos un enlace al correo para elegir una clave nueva.","Enviar enlace"]};
 function mostrarLogin(e,modo){
   document.body.classList.add("entrar");   // fondo de la pantalla de ingreso
@@ -116,7 +131,7 @@ function mostrarLogin(e,modo){
   const campo=(id,tipo,ph,ac)=>'<p><input id="'+id+'" type="'+tipo+'" autocomplete="'+ac+'" autocapitalize="none" spellcheck="false" placeholder="'+ph+'" style="width:100%"></p>';
   $("app").innerHTML='<form id="lg" novalidate class="card" style="max-width:400px;margin:95px auto"><h3 style="margin-top:0;color:var(--navy)">'+titulo+'</h3><p class="muted">'+ayuda+'</p><p id="lgm" style="color:#B00020">'+(/Inicia sesi|venci|Estás con/.test(m)?"":esc(m))+'</p>'+
     campo("lgc","text","usuario@usil.edu.pe","username")+(modo==="olvide"?"":campo("lgk","password",modo==="crear"?"Elige tu clave (12 o más caracteres)":"Clave",modo==="crear"?"new-password":"current-password"))+(modo==="crear"?campo("lgk2","password","Repite tu clave","new-password"):"")+
-    '<button class="p" style="width:100%">'+boton+'</button><p class="lnks">'+(modo==="entrar"?'<button type="button" class="lnk" data-m="olvide" style="margin-left:auto">Olvidé mi clave</button>':'<button type="button" class="lnk" data-m="entrar">← Volver a entrar</button>')+'</p></form>';
+    '<button class="p" style="width:100%">'+boton+'</button><p class="lnks">'+(modo==="entrar"?'<button type="button" class="lnk" data-m="olvide" style="margin-left:auto">Recuperar clave</button>':'<button type="button" class="lnk" data-m="entrar">← Volver a entrar</button>')+'</p></form>';
   $("lg").querySelectorAll(".lnk").forEach(x=>x.onclick=()=>mostrarLogin(null,x.dataset.m));
   const dec=(txt,bien)=>{$("lgm").textContent=txt;$("lgm").style.color=bien?"#17844A":"#B00020"};
   $("lg").onsubmit=ev=>{ev.preventDefault();dec("");const b=$("lg").querySelector("button.p");b.disabled=true;const fin=()=>{b.disabled=false};
@@ -145,7 +160,7 @@ function pintar(){
    <div class="card kpi"><b>${F.filter(f=>f.estado==="Aprobado").length}</b><span>Aprobadas</span></div><div class="card kpi"><b>${F.filter(f=>f.estado==="Rechazado").length}</b><span>Rechazadas</span></div></div>`;
   if(vista==="gerencia")h+=`<div class="row">${barras("Por estado",contar(F,"estado"))}${barras("Por Socio de negocio",contar(F,"bp"))}${barras("Por movimiento",contar(F,"movimiento"))}${barras("Por departamento",contar(F,"departamento"))}${barras("Por urgencia",contar(F,"urgencia"))}</div>`;
   if(vista==="bp"){$("app").innerHTML=h+tablaBandeja(F,visibles(),"bp");return}
-  const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
+  const per=[...new Set(F.map(f=>f.periodo).filter(Boolean))].sort().reverse();
   h+=`<div class="tools"><input id="fq" placeholder="Buscar…" value="${esc(filtro.q)}"><select id="fe"><option value="">Todos los estados</option>${ALL.map(e=>`<option ${e===filtro.estado?"selected":""}>${esc(e)}</option>`).join("")}</select>
    ${vista!=="jefe"?'<button class="p" id="xls" style="margin-left:auto">⬇ Descargar Excel</button>':""}<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select></div>`;
   const V=visibles();
@@ -155,7 +170,7 @@ function pintar(){
 }
 // ---------- Tablero gerencial (vista de Gerencia): indicadores, flujo, casos que requieren atención, gráficos y bandeja ----------
 const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-const periodoTxt=p=>p?MESES[+p.slice(5)-1].replace(/^./,c=>c.toUpperCase())+" "+p.slice(0,4):"Todos los periodos";
+const periodoTxt=p=>p?(MESES[+String(p).slice(5)-1]||"?").replace(/^./,c=>c.toUpperCase())+" "+String(p).slice(0,4):"Todos los periodos";
 const IC={
   doc:'<svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>',
   reloj:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
@@ -173,7 +188,7 @@ const eb=s=>String(s==null?"":s).replace("En revisión BP","En revisión");
 const iniciales=n=>String(n||"?").trim().split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase();
 const nivelP=p=>p>=85?"alto":p>=60?"medio":"bajo";
 const edad=d=>d==null?"":d===0?"hoy":d===1?"hace 1 día":`hace ${d} días`;
-const mesCorto=p=>MESES[+p.slice(5)-1].slice(0,3).replace(/^./,c=>c.toUpperCase())+" "+p.slice(2,4);
+const mesCorto=p=>{p=String(p);return (MESES[+p.slice(5)-1]||"?").slice(0,3).replace(/^./,c=>c.toUpperCase())+" "+p.slice(2,4)};
 /** Fila de un caso que pide acción: abre el detalle. */
 const filaCaso=f=>`<button type="button" class="px-row" data-ver="${esc(f.id)}"><i class="px-av">${esc(iniciales(f.colaborador))}</i>
   <span class="px-mn"><b>${esc(f.colaborador||"—")}</b><em>${esc(f.movimiento)} · ${esc(f.departamento)}</em></span>
@@ -185,14 +200,14 @@ const onF=f=>{if(!f)return"";const i=f.indexOf(":");return filtro[f.slice(0,i)]=
 const kpiPx=(cl,n,t,s,f)=>`<button type="button" class="px-kpi ${cl}${onF(f)}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em></button>`;
 const barraPx=(clave,pares)=>{const max=Math.max(1,...pares.map(x=>x[1]));return pares.length?pares.map(([k,n])=>`<button type="button" class="px-bar${clave&&filtro[clave]===k?" on":""}" ${clave?`data-f="${clave}:${esc(k)}"`:""}><span class="n" title="${esc(k)}">${esc(k)}</span><span class="t"><i style="width:${Math.round(n/max*100)}%"></i></span><b>${n}</b></button>`).join(""):'<p class="muted">Sin datos.</p>'};
 function tablaBandeja(F,V,rol){
-  const per=[...new Set(F.map(f=>f.periodo))].sort().reverse();
+  const per=[...new Set(F.map(f=>f.periodo).filter(Boolean))].sort().reverse();
   return `<section class="gx-card" id="bandeja"><h3>${rol==="gerencia"?"Todas las solicitudes":"Bandeja completa"}</h3>
    <div class="tools"><input id="fq" placeholder="Buscar por colaborador, área o movimiento…" value="${esc(filtro.q)}" style="min-width:240px;flex:1"><select id="fe"><option value="">Todos los estados</option>${(rol==="gerencia"?["Enviado a Gerencia","Aprobado","Rechazado"]:["Por revisar",...ALL]).map(x=>`<option value="${esc(x)}"${x===filtro.estado?" selected":""}>${esc(eb(x))}</option>`).join("")}</select>
-   ${rol==="gerencia"?"":`<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select>`}<button class="p" id="xls">⬇ Descargar Excel</button></div>
+   ${rol==="gerencia"?"":`<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select>`}<button class="p" id="xls">⬇ Descargar Excel</button><button class="p" id="trz">⬇ Trazabilidad</button></div>
    ${["periodo","movimiento","departamento","estado","atencion"].some(k=>filtro[k])?`<div class="tools">${["periodo","movimiento","departamento","estado","atencion"].filter(k=>filtro[k]).map(k=>`<button type="button" class="gx-chip" data-f="${k}:${esc(filtro[k])}">${esc(k==="periodo"?periodoTxt(filtro[k]):k==="atencion"?ETIQ[filtro[k]]:eb(filtro[k]))} ✕</button>`).join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
    ${rol==="gerencia"&&SEL.size?`<div class="px-selbar"><b>${SEL.size}</b> caso${SEL.size===1?"":"s"} seleccionado${SEL.size===1?"":"s"}<button type="button" class="px-tog corte" id="btnCorte">✂ Hacer corte con la selección</button><button type="button" class="gx-chip" id="limpiarSel">Quitar selección</button></div>`:""}
    <div class="wrap"><table><tr>${rol==="gerencia"?`<th class="csel"><input type="checkbox" class="sel" id="selTodo" title="Seleccionar lo visible"${V.length&&V.slice(0,100).every(f=>SEL.has(f.id))?" checked":""}></th>`:""}<th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>Socio de negocio</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th></th></tr>
-   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}">${rol==="gerencia"?`<td class="csel"><input type="checkbox" class="sel" data-sel="${esc(f.id)}"${SEL.has(f.id)?" checked":""}></td>`:""}<td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
+   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}">${rol==="gerencia"?`<td class="csel"><input type="checkbox" class="sel" data-sel="${esc(f.id)}"${SEL.has(f.id)?" checked":""}></td>`:""}<td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button> <button type="button" class="gx-ver" data-trz="${esc(f.id)}" title="Descargar la trazabilidad de este caso">⬇ Trazabilidad</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
 }
 function pintarGerencia(){
   const hoy=new Date(),todos=metricas(D.filas,"",hoy);
@@ -298,12 +313,14 @@ function pintarPresentacion(){
      <div class="px-kpi neutro"><span>Preparación promedio</span><b>${esc(R.preparacion||"—")}</b><em>sobre 100 puntos</em></div>
      <div class="px-kpi verde"><span>Ya decididos</span><b>${esc(resueltos)}</b><em>de ${esc(casos.length)} desde el corte</em></div></div>
    ${casos.map((k,i)=>`<section class="gx-card pr-caso"><div class="px-row" style="border:0;cursor:default"><i class="px-av g">${esc(i+1)}</i><span class="px-mn"><b style="font-size:19px">${esc(k.colaborador||"—")}</b><em style="font-size:14px">${esc(k.movimiento)} · ${esc(k.departamento)}</em></span>${k.puntaje?`<span class="pr-pts" title="Preparación del caso (0 a 100)"><span class="px-sc ${nivelP(+k.puntaje)}">${esc(k.puntaje)}</span><em>preparación</em></span>`:""}<button type="button" class="gx-ver px-noprint" data-ver="${esc(k.id)}">Revisar caso</button></div>
-       <div class="px-sus"><p class="tx-p ejec">${marcar(k.sustento||k.texto.split("\n").slice(0,2).join(" "))}</p></div><button type="button" class="px-det px-noprint" data-tog="1">Ver detallado ▾</button><div class="pr-full" hidden><div class="px-sus">${resaltar(k.texto)}</div></div></section>`).join("")}`;
+       ${lineaJefe(k.cliente,k.cargoCliente,k.correoCliente||(D.filas.find(f=>f.id===k.id)||{}).enviadoPor)}<div class="px-sus"><p class="tx-p ejec">${marcar(k.sustento||k.texto.split("\n").slice(0,2).join(" "))}</p></div><button type="button" class="px-det px-noprint" data-tog="1">Ver detallado ▾</button><div class="pr-full" hidden><div class="px-sus">${resaltar(k.texto)}</div></div></section>`).join("")}`;
 }
 
 $("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
 $("app").onclick=e=>{const t=e.target;
   if(t.id==="xls")return descargar();
+  if(t.id==="trz")return descargar(true);
+  if(t.dataset.trz)return descargarCaso(t.dataset.trz);
   const repintar=()=>{const y=scrollY;pintar();scrollTo(0,y)};
   if(t.dataset&&t.dataset.tog){const b=t.nextElementSibling;b.hidden=!b.hidden;t.textContent=b.hidden?"Ver detallado ▾":"Ocultar detallado ▴";return}
   if(t.id==="btnCorte")return dialogoCorte();
@@ -441,30 +458,45 @@ function construirExcel(ExcelJS, rows, meta) {
   // ---- Cortes (solo Gerencia): qué casos se llevaron a cada comité
   if ((meta.cortes || []).length) {
     const wc = wb.addWorksheet("Cortes", { views: [{ state: "frozen", ySplit: 1 }], properties: { tabColor: { argb: "FFB87400" } } });
-    wc.columns = [{ header: "Corte", key: "t", width: 30 }, { header: "Hasta la fecha", key: "h", width: 16 }, { header: "Guardado el", key: "g", width: 20 }, { header: "Por", key: "p", width: 28 }, { header: "ID caso", key: "id", width: 24 }, { header: "Colaborador", key: "c", width: 28 }, { header: "Movimiento", key: "m", width: 22 }, { header: "Urgencia", key: "u", width: 18 }, { header: "Puntaje", key: "s", width: 10 }];
+    wc.columns = [{ header: "Corte", key: "t", width: 30 }, { header: "Hasta la fecha", key: "h", width: 16 }, { header: "Guardado el", key: "g", width: 20 }, { header: "Por", key: "p", width: 28 }, { header: "ID caso", key: "id", width: 24 }, { header: "Colaborador", key: "c", width: 28 }, { header: "Líder solicitante", key: "l", width: 28 }, { header: "Cargo del líder", key: "lc", width: 28 }, { header: "Correo del líder", key: "lm", width: 32 }, { header: "Movimiento", key: "m", width: 22 }, { header: "Urgencia", key: "u", width: 18 }, { header: "Puntaje", key: "s", width: 10 }];
     cabecera(wc.getRow(1));
-    meta.cortes.forEach(k => (k.casos || []).forEach(c => { const f = wc.addRow({ t: txt(k.titulo), h: txt(k.fechaCorte), g: hora(k.creadoEl), p: txt(k.creadoPor), id: txt(c.id), c: txt(c.colaborador), m: txt(c.movimiento), u: txt(c.urgencia), s: txt(c.puntaje) }); f.eachCell(x => { x.border = borde; }); }));
-    wc.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 9 } };
+    meta.cortes.forEach(k => (k.casos || []).forEach(c => { const f = wc.addRow({ t: txt(k.titulo), h: txt(k.fechaCorte), g: hora(k.creadoEl), p: txt(k.creadoPor), id: txt(c.id), c: txt(c.colaborador), l: txt(c.cliente), lc: txt(c.cargoCliente), lm: txt(c.correoCliente), m: txt(c.movimiento), u: txt(c.urgencia), s: txt(c.puntaje) }); f.eachCell(x => { x.border = borde; }); }));
+    wc.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 12 } };
   }
   return wb;
 }
 // </excel>
 
-function descargar(){
-  const btn=(t,off)=>{const b=$("xls");if(b){b.textContent=t;b.disabled=off}};
+/** Trazabilidad de UN caso (envío del jefe y cada paso: derivaciones entre socios de negocio, devoluciones, escalada, decisión). */
+async function descargarCaso(id){
+  const f=D.filas.find(x=>x.id===id);if(!f)return;
+  try{
+    if(typeof ExcelJS==="undefined")throw new Error("No se pudo cargar la librería de Excel. Revisa tu conexión y recarga.");
+    const eventos=(await API.panelEventos(vista)).filter(e=>e.solicitudId===id);
+    const wb=construirExcel(ExcelJS,[f],{eventos,cortes:[],titulo:"Trazabilidad del caso "+id,usuario:D.email,fecha:new Date().toLocaleString("es-PE")});
+    wb.worksheets.filter(w=>w.name!=="Trazabilidad").forEach(w=>wb.removeWorksheet(w.id));
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+    a.download="Trazabilidad_"+id+".xlsx";document.body.appendChild(a);a.click();a.remove();
+  }catch(x){alert("No se pudo generar la trazabilidad: "+(x.message||x))}
+}
+function descargar(soloTraz){
+  const id=soloTraz?"trz":"xls",txt=soloTraz?"⬇ Trazabilidad":"⬇ Descargar Excel";
+  const btn=(t,off)=>{const b=$(id);if(b){b.textContent=t;b.disabled=off}};
   btn("Preparando…",true);
-  google.script.run.withFailureHandler(e=>{btn("⬇ Descargar Excel",false);alert(e.message||e)}).withSuccessHandler(async rows=>{
+  google.script.run.withFailureHandler(e=>{btn(txt,false);alert(e.message||e)}).withSuccessHandler(async rows=>{
     try{
       const eventos=await API.panelEventos(vista).catch(()=>[]),cortes=vista==="gerencia"?await API.panelCortes().catch(()=>[]):[];
       if(typeof ExcelJS==="undefined") throw new Error("No se pudo cargar la librería de Excel. Revisa tu conexión y recarga.");
       const wb=construirExcel(ExcelJS,rows,{eventos,cortes,titulo:"Solicitudes de Talento · "+TITULOS[vista],usuario:D.email,fecha:new Date().toLocaleString("es-PE")});
+      if(soloTraz)wb.worksheets.filter(w=>w.name!=="Trazabilidad").forEach(w=>wb.removeWorksheet(w.id));   // solo la hoja de trazabilidad
       const buf=await wb.xlsx.writeBuffer();
       const a=document.createElement("a");
       a.href=URL.createObjectURL(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
-      a.download="Solicitudes_Talento_"+vista+"_"+new Date().toISOString().slice(0,10)+".xlsx";
+      a.download=(soloTraz?"Trazabilidad_":"Solicitudes_Talento_")+vista+"_"+new Date().toISOString().slice(0,10)+".xlsx";
       document.body.appendChild(a);a.click();a.remove();
     }catch(x){alert("No se pudo generar el Excel: "+(x.message||x))}
-    btn("⬇ Descargar Excel",false);
+    btn(txt,false);
   }).panelExportar(vista,TOKEN);
 }
 
@@ -518,11 +550,11 @@ function detalle(id){
       <section class="sec"><h4>Detalle del impacto</h4><p class="txt">${esc(d.impacto)}</p></section>
       ${d.sustento?`<section class="sec"><h4>Sustento ejecutivo</h4><p class="txt">${esc(d.sustento)}</p></section>`:""}
       ${d.levantamiento.length?`<section class="sec"><h4>Levantamiento</h4>${d.levantamiento.map(([k,v])=>`<div class="qa"><span>${esc(k)}</span><p>${esc(v)}</p></div>`).join("")}</section>`:""}
-      ${d.aprobaciones.length?`<section class="sec"><h4>Aprobaciones previas</h4><div class="two">${d.aprobaciones.map(a=>`<div class="ap"><b>${esc(a.name)}</b><span>${esc(a.role)} · ${esc(a.level)}</span><span>${esc(a.date)} · Evidencia: ${esc(a.evidence)}${a.type?" ("+esc(a.type)+")":""}</span></div>`).join("")}</div></section>`:""}
+      ${d.aprobaciones.length?`<section class="sec"><h4>Aprobaciones previas</h4><div class="two">${d.aprobaciones.map(a=>`<div class="ap"><b>${esc(a.name)}</b><span>${esc(a.role)} · ${esc(a.level)}</span><span>${esc(a.date)} · Evidencia: ${esc(a.evidence)}${a.type?" ("+esc(a.type)+")":""}</span></div>`).join("")}</div><div id="evid" class="evid">Cargando captura…</div></section>`:""}
       ${previos.length?`<section class="sec"><h4>Comentarios anteriores</h4>${previos.map(([q,t])=>`<div class="qa"><span>${esc(q)}</span><p>${esc(t)}</p></div>`).join("")}</section>`:""}`;
     const base=tg||(auto&&auto.texto)||"";
     const resumenG=auto?auto.resumen:"";
-    const solic=`<section class="sec px-sol"><h4>Quién lo solicita</h4><div class="px-quien"><i class="px-av g">${esc(iniciales(f.cliente))}</i><div><b>${esc(f.cliente||"—")}</b><span>${esc(f.cargoCliente||"Líder de área")}</span></div><div class="px-area"><span>Área solicitante</span><b>${esc(f.area||f.departamento||"—")}</b><em>${esc(f.departamento||"")}</em></div><div class="px-area"><span>Socio de negocio</span><b>${esc(f.bp||"—")}</b></div></div></section>`;
+    const solic=`<section class="sec px-sol"><h4>Quién lo solicita</h4><div class="px-quien"><i class="px-av g">${esc(iniciales(f.cliente))}</i><div><b>${esc(f.cliente||"—")}</b><span>${esc(f.cargoCliente||"Líder de área")}</span>${mailto(f.enviadoPor)?`<span>${mailto(f.enviadoPor)}</span>`:""}</div><div class="px-area"><span>Área solicitante</span><b>${esc(f.area||f.departamento||"—")}</b><em>${esc(f.departamento||"")}</em></div><div class="px-area"><span>Socio de negocio</span><b>${esc(f.bp||"—")}</b></div></div></section>`;
     const visib=`<section class="sec"><h4>Visibilidad del caso</h4><div class="px-vis">
       <div class="px-v"><span>Preparación</span><div class="px-sc ${nivel} g">${esc(d.puntaje||"—")}</div><em>${esc(d.clasificacion||"")}</em></div>
       <div class="px-v"><span>Urgencia</span><b class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</b></div>
@@ -540,7 +572,7 @@ function detalle(id){
        <textarea id="nc" rows="2" placeholder="Escribe aquí tu observación…">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>
        <div class="acts"><button type="button" class="btn sec" id="cerrar">Cerrar</button><span class="sp"></span>${ACCIONES[vista].map((a,i)=>`<button type="button" class="btn ${a[2]}" data-i="${i}">${esc(a[0])}</button>`).join("")}</div>`
        :`<div class="acts"><span class="muted">Esta solicitud ya no está en tu etapa: solo lectura.</span><span class="sp"></span><button type="button" class="btn sec" id="cerrar">Cerrar</button></div>`}</div>`;
-    const dlg=$("dlg");dlg.showModal();dlg.scrollTop=0;
+    const dlg=$("dlg");dlg.showModal();dlg.scrollTop=0;evidencias(id);
     const vd=$("verDet");if(vd)vd.onclick=()=>{const h=$("det").hidden;$("det").hidden=!h;vd.textContent=h?"Ocultar detallado ▴":"Ver detallado ▾";vd.setAttribute("aria-expanded",String(h))};
     const cerrar=()=>dlg.close();$("cerrarX").onclick=cerrar;$("cerrar").onclick=cerrar;
     dlg.onclick=e=>{if(e.target===dlg)cerrar()};   // clic fuera de la ventana
@@ -561,7 +593,7 @@ function detalle(id){
     };
     // Derivar: pasa la solicitud a otro Socio de negocio (el actual deja de verla; el otro la recibe marcada como derivada).
     const derivar=async coment=>{
-      const n=await nombres(),otros=Object.entries(n).filter(([k])=>k!==D.bpId).sort((a,b)=>a[1].localeCompare(b[1]));
+      const n=await nombres(),otros=Object.entries(n).filter(([k,v])=>k!==D.bpId&&!/de prueba$/i.test(v)).sort((a,b)=>a[1].localeCompare(b[1]));
       if(!otros.length)return aviso("No hay otros Socio de negocio disponibles");
       dlg.innerHTML=`<div class="dh"><div><span class="mov">Derivar</span><h2>¿A qué Socio de negocio la derivas?</h2><div class="meta"><span>Dejarás de verla; el otro Socio de negocio la recibe en su bandeja</span></div></div><button type="button" class="x" id="cerrarX3" aria-label="Cerrar">✕</button></div>
        <div class="db"><section class="sec"><h4>Socio de negocio destino</h4><div class="ops">${otros.map(([k,nom])=>`<label class="op"><input type="radio" name="dest" value="${esc(k)}"><span>${esc(nom)}</span></label>`).join("")}</div></section>

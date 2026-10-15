@@ -16,10 +16,18 @@ ok('la CSP de ambas páginas no permite scripts inline ni orígenes ajenos', () 
   [html, panelHtml].forEach(h => {
     const c = csp(h), script = /script-src ([^;]+)/.exec(c)[1];
     assert.ok(!/unsafe-inline|unsafe-eval|\*\s|http:/.test(script), script);
+    script.split(' ').filter(x => /^https:/.test(x)).forEach(x => assert.ok(/^https:\/\/[^/]+\/.+/.test(x), 'script-src sin ruta exacta (permitiría cualquier paquete del CDN): ' + x));
     assert.ok(/object-src 'none'/.test(c) && /base-uri 'none'/.test(c) && !/connect-src[^;]*http:/.test(c));
     assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/.test(h), 'hay un <script> inline');
     assert.ok(!/\son(click|error|submit|load|change|input)\s*=/i.test(h), 'hay un manejador inline');
   });
+});
+ok('cada aprobación exige su captura: se comprime en el navegador, no se guarda en el borrador y se envía en un lote con la solicitud', () => {
+  assert.ok(/async function comprimirImagen/.test(js) && /createImageBitmap/.test(js) && /image\/jpeg/.test(js) && /MAX_CAPTURA=400000/.test(js));
+  assert.ok(/classList\.contains\("ap-file"\)\) return true/.test(js) && /el\.type==="file"\)/.test(js), 'la captura debe ser obligatoria');
+  assert.ok(!/ap-file[^\n]*(store|localStorage|sessionStorage)/.test(js), 'la captura no va al borrador');
+  assert.ok(/writeBatch/.test(fbjs) && /evidencias/.test(fbjs) && /evidencias/.test(panel) && /evidencias/.test(rules));
+  assert.ok(!/innerHTML[^\n]*evid-img|evid-img[^\n]*innerHTML/.test(panel), 'las capturas se pintan con DOM, no con innerHTML');
 });
 ok('las librerías de Excel se cargan con verificación de integridad (SRI)', () => assert.ok(/sri:"sha384-/.test(js) && /\.integrity=/.test(js) && /integrity="sha384-/.test(panelHtml)));
 ok('index.html y panel.html cargan el mismo firebase.js', () => assert.ok(/from "\.\/firebase\.js"/.test(leer('fb-init.js')) && /from "\.\/firebase\.js"/.test(panel)));
@@ -65,7 +73,7 @@ ok('las reglas: el jefe (sesión anónima) solo crea y lee lo suyo; el Maestro s
 });
 ok('la pantalla de entrada: correo institucional y clave (sin Google); Socio de negocio y Gerencia por un botón aparte', () => {
   const login = /<div id="login"[\s\S]*?<\/form>/.exec(html)[0];
-  assert.deepStrictEqual([...login.matchAll(/<input id="(\w+)"/g)].map(m => m[1]), ['lgMail', 'lgPass', 'lgPass2']);
+  assert.deepStrictEqual([...login.matchAll(/<input id="(\w+)"/g)].map(m => m[1]), ['lgMail', 'lgPass']);
   assert.ok(!/google/i.test(login) && !/GoogleAuthProvider|signInWithPopup|entrarGoogle/.test(js + panel + fbjs));
   assert.ok(/id="lgPanel"/.test(login) && /lgPanel"\)\.onclick=\(\)=>\{location\.href=CONFIG\.panelUrl\}/.test(js));
 });
@@ -80,13 +88,14 @@ ok('la validación de correo usa expresiones correctas (acepta correos con «s»
   const m = /const esUsil = email => (\/[^\n]+?\/i)\.test\(email\);/.exec(fbjs);
   assert.ok(m, 'no se encontró la validación'); const re = vm.runInNewContext(m[1]);
   assert.ok(re.test('susana.sosa@usil.edu.pe') && !re.test('x@gmail.com') && !re.test('a b@usil.edu.pe') && !re.test('x@usilXeduYpe'));
+  assert.ok(['x@usil.pe','x@epg.usil.pe','x@sir.pe','x@sir.edu.pe','x@institutoemprendedores.pe'].every(x => re.test(x)) && !['x@usil.pe.evil.com','x@evilusil.pe','x@hotmail.com'].some(x => re.test(x)), 'dominios de las unidades');
   assert.ok(!/replace\(\/s\+\//.test(js + fbjs), 'falta la barra en /\\s+/');
 });
 ok('la base acepta solo los campos de la app, con tope en los textos libres y en las listas', () => {
   assert.ok(/d\.keys\(\)\.hasOnly\(\[/.test(rules) && /d\.keys\(\)\.hasAll\(\[/.test(rules));
   ['impactoDetalle', 'solicitudConcreta', 'fortalezas', 'alertas', 'cliente'].forEach(k => assert.ok(new RegExp("s\\(d, '" + k + "', \\d+\\)").test(rules), 'sin tope: ' + k));
   assert.ok(/levantamiento[^\n]*size\(\) <= \d+/.test(rules) && /aprobaciones[^\n]*size\(\) <= 3/.test(rules));
-  assert.ok((rules.match(/s\(d, '/g) || []).length <= 16, 'demasiadas comprobaciones: Firestore corta las reglas a 1000 expresiones (la prueba de la solicitud completa lo vigila)');
+  assert.ok((rules.match(/s\(d, '/g) || []).length <= 30, 'demasiadas comprobaciones: Firestore corta las reglas a 1000 expresiones (la prueba de la solicitud completa lo vigila)');
 });
 ok('nada de datos personales queda en el navegador tras cerrar la pestaña, y el panel cierra la sesión por inactividad', () => {
   assert.ok(!/localStorage/.test(js + panel + fbjs), 'localStorage deja datos de colaboradores en equipos compartidos');

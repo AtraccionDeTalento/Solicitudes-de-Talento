@@ -6,14 +6,18 @@ No hay servidor propio: la seguridad la dan `firestore.rules` y el inicio de ses
 ## Cómo se entra
 | Quién | Cómo | Qué puede |
 |---|---|---|
-| Jefe de área | Pantalla de inicio: **nombre y correo `@usil.edu.pe`** (el correo no se verifica) | Crear solicitudes y leer solo las suyas |
+| Jefe de área (o cualquier persona de USIL) | Pantalla de inicio: **correo institucional y clave**. Si su correo está en `tools/jefes-dni.csv` ya tiene cuenta (clave inicial = su DNI); si no, **«Crear mi cuenta»**: clave de 12+ caracteres y enlace de confirmación | Crear solicitudes y leer solo las suyas |
 | Business Partner | Botón **«Acceso Business Partner y Gerencia»** → panel → **su correo y la clave que ellos mismos eligen** | Ver y gestionar solo lo que llega a él |
 | Gerencia (Karla) | El mismo botón → su correo y su clave | Ver lo que los BP le pasan y decidir |
 
 **Cuentas propias (sin que el administrador conozca ninguna clave):** el administrador solo *autoriza correos* (`usuarios.json` sin `clave`). Cada persona entra al panel → **«Crear mi cuenta»**, escribe su correo y elige una clave de 12+ caracteres, abre el enlace que le llega para confirmar el correo y ya puede entrar. **«Olvidé mi clave»** le envía un enlace para elegir otra. Un correo no autorizado puede registrarse pero no ve nada («Tu cuenta no tiene un rol asignado»).
 
-> **Riesgo asumido:** el correo del jefe no se verifica. Quien escriba el de otro jefe puede enviar solicitudes a su nombre (el Business Partner las revisa antes de que lleguen a Gerencia). Por eso, **en producción los jefes no pueden consultar el Maestro** (no hay autocompletado de colaboradores: lo escriben a mano) y solo pueden crear y leer sus propias solicitudes. Sin límite de envíos por persona: si hay abuso, activar App Check.
-> Si TI exige identidad verificada, la alternativa gratuita es «Entrar con Google» (cuenta `@usil.edu.pe`); está en el historial de Git (commit `95ddfa8`).
+> **Quién puede entrar:** correos verificados de `usil.edu.pe`, `usil.pe`, `epg.usil.pe`, `sir.pe`, `sir.edu.pe`, `institutoemprendedores.pe` e `institutoemprendedores.edu.pe` (cliente, `firestore.rules` y seed usan la misma lista). Las personas del Maestro sin correo no pueden entrar ni encontrarse hasta que RR.HH. lo complete.
+> **Riesgos que quedan (decisión de negocio):** (1) con el DNI como clave inicial, quien conozca el DNI de un colega puede entrar como él mientras no la cambie; la salida es forzar el cambio de clave en el primer ingreso. (2) Sin App Check no hay tope de envíos por persona: se activa en la consola de Firebase con una clave reCAPTCHA y el modo «Enforce». (3) Cualquier persona con sesión puede consultar nombre y puesto de un colaborador si conoce su correo.
+> **Capturas de aprobación:** cada aprobación previa exige una captura de la confirmación del jefe aprobador (PNG, JPG o WebP). La app la comprime en el navegador a JPEG (≤ 400 KB) y la guarda en `solicitudes/{id}/evidencias/{0,1,2}` en el mismo lote que la solicitud; las reglas la exigen y solo la leen el dueño, su Business Partner y Gerencia (cuando se la pasan). Ocupa Firestore, no Cloud Storage (que pide plan de pago): con el límite gratuito de 1 GiB caben del orden de mil solicitudes con tres capturas cada una. No va en el borrador del navegador ni en el Excel. No acepta PDF (no se puede comprimir en el navegador).
+> **Revisor de ortografía:** `ortografia.js` revisa los textos largos del formulario con Hunspell (nspell + diccionario español, en `assets/`): avisa palabras mal escritas con su sugerencia, palabras repetidas y mayúsculas al iniciar oración, y corrige con un clic. Corre 100 % en el navegador (el texto no sale de él) y no bloquea el envío. Las palabras propias del negocio se agregan en `PROPIAS`. Licencias: `assets/LICENCIA-diccionario-es` (GPL/LGPL/MPL) y `assets/LICENCIA-nspell` (MIT).
+> **Corte de Gerencia:** cada caso congelado guarda el nombre, cargo y correo institucional del jefe solicitante; se ven en la presentación (con enlace de correo) y en la hoja «Cortes» del Excel.
+> **Seguridad ya aplicada:** CSP con `script-src` limitado a rutas exactas (Firebase 12.0.0, exceljs 4.4.0, xlsx 0.18.5; el CDN completo ya no está permitido), librerías con SRI, cabeceras anti-iframe/HSTS/nosniff, todo texto del usuario se escapa al pintarse, y las reglas fijan el tipo y el tope de cada campo (un documento escrito a mano con HTML o con un `periodo` raro no puede romper ni infectar el panel del BP). Nada del navegador es secreto: la protección real vive en `firestore.rules`, no en ocultar el código.
 
 ## A. Probar en tu computador (sin nube, sin datos reales)
 Necesitas Node 22+ y Java. Una vez: `npm install`. Luego, en **tres terminales** dentro de la carpeta del proyecto:
@@ -22,7 +26,7 @@ npm run emu          # 1) emuladores de Firebase (Auth y Firestore)
 npm run seed:local   # 2) datos inventados; imprime las claves de hrbp1@usil.edu.pe y ger1@usil.edu.pe
 npm run serve        # 3) la app en http://localhost:5000/
 ```
-- Entra con cualquier nombre y un correo `@usil.edu.pe` inventado; rellena y envía una solicitud (en modo prueba hay botones para rellenarla). Todas llegan a `hrbp1@usil.edu.pe`.
+- Entra con `jefe1@usil.edu.pe` … `jefe4@epg.usil.pe` (cuatro jefes de prueba, cada uno ve solo lo suyo; clave compartida de `usuarios.json`). Para probar con el Maestro real y los jefes reales: `node tools/seed-local.js --real --jefes=tools/jefes-dni.csv`. En modo prueba, 5 clics seguidos en el logo rellenan la solicitud.
 - Pulsa «Acceso Business Partner y Gerencia», entra con `hrbp1` y la clave que imprimió el paso 2, pásala a Gerencia; entra como `ger1@usil.edu.pe` y apruébala.
 - Al cerrar los emuladores todo se borra. En `localhost` la app usa siempre los emuladores y no toca la nube (con `?nube` usaría la nube).
 - `npm test` (estáticas) y `npm run test:rules` (reglas de seguridad) corren con los emuladores.

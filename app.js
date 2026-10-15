@@ -6,7 +6,7 @@ const FBp=new Promise(r=>addEventListener("fb",()=>r(window.FB)));   // firebase
 const CONFIG = {
   endpoint:"firebase",                  // «firebase» = las solicitudes se guardan en Firestore (firebase.js). Vacío = solo en este navegador.
   camposObligatorios:true,             // false = ningún campo es obligatorio (solo Tipo de movimiento y Departamento, necesarios para el ruteo). true = exige todos como antes.
-  modoPrueba:true,                     // true = mínimos de caracteres reducidos (3) para probar. PONER EN false antes de abrirlo a los jefes.
+  modoPrueba:false,                    // true = mínimos de caracteres reducidos (3) para probar. PONER EN false antes de abrirlo a los jefes.
   panelUrl:"panel.html",                // Panel de revisión de HRBP y Gerencia (misma carpeta del sitio).
   soporte:"",                          // Correo de soporte que se muestra al pie.
     sessionMinutes:60                    // Cierre de sesión por inactividad.
@@ -20,6 +20,7 @@ const MASTER_KEY="bp_master_subset_v1", MASTER_META_KEY="bp_master_meta_v1", HIS
 const MOVS=["Promoción","Encargatura","Reemplazo","Puesto nuevo","Incremento salarial","Movimiento interno","Otro"];
 const DEPARTAMENTOS=["DIRECCION GENERAL DE SEDES DESCENTRALIZADAS", "DIRECCION GENERAL DEL CSIR", "ESCUELA DE POSGRADO", "GERENCIA DE ADMINISTRACION Y SEGURIDAD", "GERENCIA DE PROYECTOS - SEDE PERU", "GERENCIA DE TALENTO Y CULTURA", "GERENCIA GENERAL", "GERENCIA LEGAL", "GERENCIA SENIOR DE FINANZAS", "PRESIDENCIA EJECUTIVA", "RECTORADO", "VICEPRESIDENCIA DE ASUNTOS CORPORATIVOS", "VICEPRESIDENCIA DE COMUNICACIONES E INNOVACION DIG", "VICEPRESIDENCIA SENIOR", "VICERRECTORADO ACADEMICO", "VICERRECTORADO DE INVESTIGACION"];   // Maestro 05-10-2026; define el BP que recibe la solicitud
 const NOCODE=["Puesto nuevo"];   // sin matrícula individual
+const PERSONAS=["Ninguna","1","2","3","4","5","6 a 10","11 a 20","Más de 20"];   // personas a cargo: se elige, no se escribe
 const SN=["Sí","No"], SNP=["Sí","No","Parcialmente"], SNC=["Sí","No","Por confirmar"], SNS=["Sí","No","No se sabe"];
 
 // Preguntas agrupadas por bloque (situación → cambio → sustento → resultado → impacto).
@@ -31,7 +32,7 @@ const SETS = {
   ["desdeCuando","¿Desde cuándo realiza o realizará estas funciones?","date"],
   ["posicionExiste","¿Existe la posición en la estructura?","select",SNC],
   ["mayorDecision","¿Tendrá mayor nivel de decisión?","select",SNP],
-  ["personasCargo","¿Tendrá personas a cargo? ¿Cuántas?","text"]]},
+  ["personasCargo","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS]]},
  {t:"Qué cambió en el rol",q:[
   ["queCambioPromo","¿Qué cambió en el rol para que hoy se plantee una promoción?","textarea","Describe el cambio principal en alcance, responsabilidad o complejidad."],
   ["nuevasResponsabilidades","¿Qué mayor responsabilidad asumirá o ya viene asumiendo?","textarea","Ej.: liderar equipo, manejar presupuesto, tomar decisiones, responder por resultados."],
@@ -65,21 +66,19 @@ const SETS = {
   ["motivoCambioEnc","¿Por qué cambia la encargatura a una nueva posición?","textarea"]]},
  {t:"Funciones durante la encargatura",q:[
   ["mantieneFunciones","¿Mantendrá sus funciones actuales?","select",SNP],
-  ["equipoAdicional","¿Tendrá equipo adicional a cargo?","text"],
+  ["equipoAdicional","¿Tendrá equipo adicional a cargo? ¿Cuántas personas?","select",PERSONAS],
   ["responsabilidadesExtra","¿Qué responsabilidades adicionales asumirá?","textarea"]]},
  {t:"Resultado esperado e impacto",q:[
   ["resultadoEsperadoEnc","¿Qué se busca asegurar con esta encargatura?","textarea","Ej.: continuidad de liderazgo, cobertura de una vacancia, cumplimiento de metas o continuidad operativa."],
   ["riesgoNoFormalizar","¿Qué ocurriría si no se formaliza?","textarea"]]}],
 "Reemplazo":[
  {t:"Posición a reemplazar",q:[
-  ["puestoReemplazo","¿Qué posición requiere ser reemplazada?","text"],
-  ["personaOVacanteReemplazo","¿A quién reemplaza o qué vacante ocupa?","text"],
+  ["puestoReemplazo","¿Qué puesto queda vacante y requiere ser cubierto?","text","El cargo que se necesita cubrir (el puesto, no la persona)."],
+  ["personaOVacanteReemplazo","¿Qué colaborador se reemplaza?","text","La persona que salió o saldrá. Si el puesto no tuvo titular, escribe «Sin titular»."],
   ["motivoVacanteReemplazo","¿Cuál es el motivo por el que la posición queda vacante?","select",["Renuncia","Cese","Promoción","Traslado","Cambio interno","Otro"]],
-  ["fechaVacanteReemplazo","¿Desde qué fecha se encuentra vacante la posición?","date"]]},
- {t:"Colaborador propuesto",q:[
-  ["fechaInicioReemplazo","¿Desde qué fecha se propone que el colaborador asuma la posición? (fecha de ingreso)","date"],
-  ["personasCargoReemplazo","¿Tendrá personas a cargo? ¿Cuántas?","text"],
-  ["porQueColaboradorReemplazo","¿Por qué se propone a este colaborador para ocupar la posición?","textarea","Ej.: experiencia previa, conocimiento del proceso, resultados, continuidad operativa o preparación para asumir el rol."]]},
+  ["fechaVacanteReemplazo","¿Desde qué fecha se encuentra vacante la posición?","date"],
+  ["fechaInicioReemplazo","¿Desde qué fecha se requiere que se incorpore? (fecha de ingreso)","date"],
+  ["personasCargoReemplazo","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS]]},
  {t:"Cambios en el rol",q:[
   ["responsabilidadesReemplazo","¿Qué responsabilidades asumirá en la nueva posición?","textarea","Describe las principales responsabilidades que asumirá en la posición de destino."],
   ["cambioAlcanceReemplazo","¿Cómo cambia su alcance, nivel de responsabilidad o toma de decisiones?","textarea","Describe los cambios relevantes frente a su posición actual."]]},
@@ -93,7 +92,7 @@ const SETS = {
   ["cantidadPosiciones","¿Cuántas posiciones de este puesto necesitas?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si necesitas varias posiciones iguales (por ejemplo 2 asistentes comerciales), envíalas juntas en esta misma solicitud."],
   ["temporalPermanente","¿Es permanente o temporal?","select",["Permanente","Temporal","Por definir"]],
   ["reportaA","¿A quién reportará?","text"],
-  ["personasCargoPN","¿Tendrá personal a cargo? ¿Cuánto?","text"],
+  ["personasCargoPN","¿Tendrá personal a cargo? ¿Cuántas personas?","select",PERSONAS],
   ["fechaRequerida","Fecha de ingreso requerida","date"]]},
  {t:"Necesidad del negocio",q:[
   ["necesidadPuesto","¿Qué necesidad del negocio origina la creación del puesto?","textarea","Explica brevemente qué está pasando en el área o negocio."],
@@ -151,7 +150,7 @@ const SETS = {
 
 // Límites [mínimo, máximo] de caracteres por pregunta. Texto corto: 2-100. Párrafos por nivel: L 60-600, M 40-500, S 30-300.
 const TA_TIER={L:[60,600],M:[40,500],S:[30,300]};
-const TIER_L=["queCambioPromo","porQuePromocion","motivoMovimiento","necesidadPuesto","problemaResuelve","porQueNoAbsorbe","situacionOrigen","queCambio","evidenciaRiesgo","queCambioRev","sustentoSubvaloracion","objetivoCaso","sustentoCaso","descripcionOtro","sustentoOtro","porQueColaboradorReemplazo","motivoHorizontal","motivoReestructura","objetivoReestructura","responsabilidadesPuesto"];
+const TIER_L=["queCambioPromo","porQuePromocion","motivoMovimiento","necesidadPuesto","problemaResuelve","porQueNoAbsorbe","situacionOrigen","queCambio","evidenciaRiesgo","queCambioRev","sustentoSubvaloracion","objetivoCaso","sustentoCaso","descripcionOtro","sustentoOtro","motivoHorizontal","motivoReestructura","objetivoReestructura","responsabilidadesPuesto"];
 const TIER_S=["cambioPresupuestoRev","cambioDecisionRev","funcionesOtroPuesto","funcionesActualesHorizontal","cambiosReporteRest","resultadosRen","motivoCambioEnc"];
 const LIM_OV={personasCargo:[1,60],personasCargoPN:[1,60],personasCargoReemplazo:[1,60],equipoAdicional:[1,60],cambioPersonasRev:[1,60],periodoRenovacion:[2,40],vigenciaCaso:[2,60],
   aQuienReemplaza:[3,120],personaOVacanteReemplazo:[3,120],validaPresupuesto:[3,120],areaApoyoHorizontal:[3,120],tipoCasoEspecial:[3,100],
@@ -434,10 +433,10 @@ function buildExecutiveSummary(){
     if(direct("nuevasResponsabilidades")) drivers.push("mayores responsabilidades");
     if(direct("mayorAlcance")) drivers.push("un alcance más amplio");
     if(direct("mayorDecision")==="Sí") drivers.push("mayor autonomía de decisión");
-    if(direct("personasCargo")) drivers.push("responsabilidad sobre equipo");
+    if(direct("personasCargo")&&direct("personasCargo")!=="Ninguna") drivers.push("responsabilidad sobre equipo");
     if(drivers.length) add(`El cambio se evidencia en ${joinNatural(drivers)}`);
 
-    if(direct("porQuePromocion")) add(`Corresponde una promoción, y no solo un incremento salarial,: ${stripEnd(direct("porQuePromocion"))}`);
+    if(direct("porQuePromocion")) add(`Corresponde una promoción, y no solo un incremento salarial: ${stripEnd(direct("porQuePromocion"))}`);
     if(direct("resultadoEsperadoPromo")) add(`Con la formalización se busca: ${stripEnd(direct("resultadoEsperadoPromo"))}`);
     if(direct("impactoNoPromocion")) add(`Si la promoción no se formaliza: ${stripEnd(direct("impactoNoPromocion"))}`);
 
@@ -480,12 +479,11 @@ function buildExecutiveSummary(){
 
     add(`Se solicita el reemplazo ${replaced?`de ${replaced} `:""}en la posición de ${role||"la posición indicada"}${cantPos()}`);
     if(reason) add(`Motivo de la vacante: ${stripEnd(reason)}`);
-    if(start) add(`Se propone que ${person} asuma la posición a partir del ${start}`);
+    if(start) add(`Se requiere la incorporación a partir del ${start}`);
 
     if(direct("responsabilidadesReemplazo")) add(`Responsabilidades asociadas: ${stripEnd(direct("responsabilidadesReemplazo"))}`);
     if(direct("cambioAlcanceReemplazo")) add(`Cambio de alcance y responsabilidad: ${stripEnd(direct("cambioAlcanceReemplazo"))}`);
 
-    if(direct("porQueColaboradorReemplazo")) add(`Motivo de la propuesta de ${person}: ${stripEnd(direct("porQueColaboradorReemplazo"))}`);
     if(direct("resultadoEsperadoReemplazo")) add(`Con el reemplazo se busca: ${stripEnd(direct("resultadoEsperadoReemplazo"))}`);
     if(direct("impactoNoReemplazo")) add(`Si la posición no se cubre o el reemplazo no se formaliza: ${stripEnd(direct("impactoNoReemplazo"))}`);
     add("Se solicita la evaluación del reemplazo y, de corresponder, la revisión de las condiciones asociadas al movimiento");
@@ -607,7 +605,7 @@ async function lookupEmployeeByEmail(){
   if(NOCODE.includes($("movimiento").value)) return;
   const help=$("codigoHelp"),mail=$("correoColab").value.trim().toLowerCase();
   if(!mail){help.textContent="Escribe el correo institucional del colaborador.";return}
-  if(!/^[^@\s]+@usil\.edu\.pe$/.test(mail)){help.textContent="Usa el correo institucional del colaborador (@usil.edu.pe).";return}
+  if(!/^[^@\s]+@(usil\.edu\.pe|usil\.pe|epg\.usil\.pe|sir\.pe|sir\.edu\.pe|institutoemprendedores\.pe|institutoemprendedores\.edu\.pe)$/.test(mail)){help.textContent="Usa el correo institucional del colaborador (el que usa en USIL).";return}
   help.textContent="Buscando en la base…";
   const r=await postMaestro({correo:mail});
   if($("correoColab").value.trim().toLowerCase()!==mail) return;   // el usuario cambió el correo mientras tanto
@@ -658,19 +656,21 @@ function qHTML([id,label,type,opts,help]){
   else if(type==="select") c=`<select id="${id}"><option value="">Seleccionar</option>${opts.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`;
   else c=`<input id="${id}" type="${type}"${type==="number"?' min="0" step="0.01"':' maxlength="'+max+'"'} placeholder="${ph}">`;
   if(id==="propuestaNegocio") help="Selecciona primero si la propuesta está en soles o porcentaje.";
-  if(INGRESO_IDS.includes(id)){help=AVISO_INGRESO;if(FECHAS_INGRESO.length) c=`<select id="${id}"><option value="">Seleccionar</option>${FECHAS_INGRESO.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`}
+  if(INGRESO_IDS.includes(id)){help=AVISO_INGRESO;if(FECHAS_INGRESO.length) c=`<select id="${id}"><option value="">Seleccionar</option>${FECHAS_INGRESO.map(o=>`<option value="${esc(o)}">${esc(fechaLarga(o))}</option>`).join("")}</select>`}
   return `<div class="q"><label for="${id}">${esc(label)}</label>${c}${help?`<div class="help"${id==="propuestaNegocio"?' id="propuestaNegocioHelp"':""}>${esc(help)}</div>`:""}<div class="err"></div></div>`;
 }
 const G0A=[["fechaSolicitud","Fecha de solicitud","date"],["movimiento","Tipo de movimiento","select",MOVS]];
 // Fechas de ingreso: la empresa tiene dos al mes. Cuando RR.HH. confirme el calendario, se escriben aquí («AAAA-MM-DD») y el campo pasa a ser una lista; vacío = fecha libre con aviso.
-const FECHAS_INGRESO=[];
+// Ingresan los lunes: el primero a partir del día 1 y el primero a partir del 15 de cada mes, desde el mes siguiente (la selección no se resuelve en una semana).
+const FECHAS_INGRESO=(()=>{const h=new Date(),o=[];for(let m=1;m<=6;m++)for(const dia of [1,15]){const d=new Date(h.getFullYear(),h.getMonth()+m,dia);d.setDate(d.getDate()+(8-d.getDay())%7);o.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`)}return o})();
 const INGRESO_IDS=["fechaInicioReemplazo","fechaRequerida"];
-const AVISO_INGRESO="Contamos con dos fechas de ingreso al mes. Si solicitas en octubre, la fecha disponible será el mes siguiente. Las posiciones gerenciales pueden tomar un mes como mínimo. En casos excepcionales, contacta al área.";
+const AVISO_INGRESO="Los ingresos son los lunes de inicio de mes y de quincena (dos fechas al mes). La selección toma tiempo: la primera fecha disponible es del mes siguiente. Las posiciones gerenciales pueden tomar un mes como mínimo. En casos excepcionales, contacta al área.";
+const fechaLarga=iso=>{const [y,m,d]=iso.split("-");return `lunes ${d}/${m}/${y}`};
 const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
-const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS,"Define a qué Socio de negocio llega tu solicitud (asignación automática)."],["area","Área","text"],["seccion","Sección","text"]];
+const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS],["area","Área","text"],["seccion","Sección","text"]];
 const CODE_HTML=`<div class="q"><label for="correoColab">Correo del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
-const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SNC],["fuentePresupuesto","Fuente de presupuesto","select",["Presupuesto aprobado","Vacante disponible","Ahorro interno","Reasignación","Presupuesto adicional","No identificada","Otro"]],["validaPresupuesto","Quién confirma / valida el presupuesto","text","Nombre, cargo o estado de validación"],["montoPresupuesto","Monto disponible (S/)","number","0.00","Obligatorio si cuenta con presupuesto."]];
-const G4=[["urgencia","¿Cuándo se necesita implementar?","select",["Inmediato","Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
+const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SNC,"Solo indica si hay o no. Si no lo sabes, elige «Por confirmar»: tu Socio de negocio lo valida."],["validaPresupuesto","¿Quién te confirmó que hay presupuesto?","select",["Mi Socio de negocio (HRBP)","Alguien de Talento (Compensaciones, Selección…)","Finanzas","Mi gerencia o dirección"],"No necesitas conocer fuente ni monto: solo quién te dijo que hay presupuesto."]];   // fuente y monto ya no se piden al jefe (siguen como campos vacíos en el registro)
+const G4=[["urgencia","¿Cuándo se necesita incorporar?","select",["Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
 const LEVELS=["Presidencia","Gerencia General","Líder de Unidad","Líder de Área","Líder inmediato","Otro"], EVID=["Correo","Acta","Reunión","Documento","Otro"];
 
 function renderSpecific(){
@@ -705,13 +705,49 @@ function apF(cls,label,type,opts){
   return `<div class="q"><label>${label}</label>${c}<div class="err"></div></div>`;
 }
 function renumberApprovals(){document.querySelectorAll(".approval-card .n").forEach((s,i)=>s.textContent=i+1)}
+// Captura de la confirmación: se comprime en el navegador (JPEG, lado mayor 1600 px) hasta caber en MAX_CAPTURA, el mismo tope que firestore.rules.
+// Se guarda solo en memoria (card._img): nunca en el borrador del navegador.
+const MAX_CAPTURA=400000;
+async function comprimirImagen(file){
+  if(!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error("Adjunta una imagen (captura en PNG, JPG o WebP).");
+  if(file.size>25*1048576) throw new Error("La imagen pesa más de 25 MB: recórtala e inténtalo de nuevo.");
+  const bmp=await createImageBitmap(file).catch(()=>{throw new Error("No se pudo leer la imagen.")});
+  try{
+    let lado=1600;
+    for(let t=0;t<6;t++,lado=Math.round(lado*.75)){
+      const k=Math.min(1,lado/Math.max(bmp.width,bmp.height)),c=document.createElement("canvas");
+      c.width=Math.max(1,Math.round(bmp.width*k));c.height=Math.max(1,Math.round(bmp.height*k));
+      const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(bmp,0,0,c.width,c.height);   // fondo blanco: el PNG transparente no queda negro
+      for(const q of [.8,.65,.5,.38]){const u=c.toDataURL("image/jpeg",q);if(u.length<=MAX_CAPTURA) return u}
+    }
+  }finally{bmp.close&&bmp.close()}
+  throw new Error("No se pudo comprimir lo suficiente: recorta la captura e inténtalo de nuevo.");
+}
+function ponerCaptura(card,url,nombre){
+  card._img=url;card.dataset.ok="1";
+  const info=card.querySelector(".ap-info");info.textContent="";
+  const im=document.createElement("img");im.src=url;im.alt="Vista previa de la captura";im.style.cssText="display:block;max-height:90px;max-width:100%;margin-top:6px;border:1px solid #cfd6e6;border-radius:6px";
+  info.append(`✔ ${nombre} · comprimida a ${Math.round(url.length*.75/1024)} KB`,im);
+  const q=card.querySelector(".ap-file").closest(".q");q.classList.remove("invalid");q.querySelector(".err").textContent="";
+}
 function addApproval(p={}){
   const card=document.createElement("div");
   card.className="approval-card";
-  card.innerHTML=`<div class="inline" style="justify-content:space-between;margin-bottom:10px"><b>Aprobación <span class="n"></span></b><button type="button" class="secondary rm">Eliminar aprobación</button></div><div class="grid">${apF("ap-name","Nombre de quien aprobó","text")}${apF("ap-role","Cargo","text")}${apF("ap-date","Fecha de aprobación","date")}${apF("ap-type","Evidencia de la aprobación (obligatoria)","text")}<input type="hidden" class="ap-level" value="Gerencia"><input type="hidden" class="ap-evidence" value="Sí"></div><div class="help" style="margin-top:6px">Indica dónde está la evidencia: correo (asunto y fecha), captura o documento. Tu Socio de negocio podrá pedírtela.</div>`;
+  card.innerHTML=`<div class="inline" style="justify-content:space-between;margin-bottom:10px"><b>Aprobación <span class="n"></span></b><button type="button" class="secondary rm">Eliminar aprobación</button></div><div class="grid">${apF("ap-name","Nombre de quien aprobó","text")}${apF("ap-role","Cargo","text")}${apF("ap-date","Fecha de aprobación","date")}${apF("ap-type","Detalle de la evidencia (opcional): dónde y cuándo, ej. «Teams, 10/10, 4 pm»","text")}<div class="q"><label>Captura de la confirmación del jefe aprobador de esta posición (obligatoria)</label><input class="ap-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Captura de la confirmación del jefe aprobador"><div class="help ap-info"></div><div class="err"></div></div><input type="hidden" class="ap-level" value="Gerencia"><input type="hidden" class="ap-evidence" value="Sí"></div><div class="help" style="margin-top:6px">Adjunta una captura (Teams, WhatsApp corporativo, correo…) donde se vea que el jefe aprobador confirma, con su nombre y la fecha. Se comprime en tu equipo antes de enviarse; solo la verán tu Socio de negocio y Gerencia.</div>`;
   $("approvals").appendChild(card);
   [["level","ap-level"],["name","ap-name"],["role","ap-role"],["date","ap-date"],["evidence","ap-evidence"],["type","ap-type"]].forEach(([k,c])=>card.querySelector("."+c).value=p[k]||(k==="level"?"Gerencia":k==="evidence"?"Sí":""));
   card.querySelector(".rm").addEventListener("click",()=>{card.remove();renumberApprovals();refresh()});
+  const fi=card.querySelector(".ap-file"),info=card.querySelector(".ap-info");
+  if(p.name) info.textContent="Vuelve a adjuntar la captura: por seguridad no se guarda en el borrador.";
+  fi.addEventListener("change",async()=>{
+    const f=fi.files[0];delete card._img;card.dataset.ok="";info.textContent="";
+    if(f){
+      info.textContent="Comprimiendo…";
+      try{ponerCaptura(card,await comprimirImagen(f),f.name)}
+      catch(er){fi.value="";info.textContent="";const q=fi.closest(".q");q.classList.add("invalid");q.querySelector(".err").textContent=er.message}
+    }
+    refresh();
+  });
   renumberApprovals();refresh();
 }
 
@@ -749,13 +785,15 @@ function counters(){document.querySelectorAll("textarea").forEach(t=>{t.style.he
 function required(el){
   if(el.id==="area"||el.id==="seccion") return false;   // practicantes, aprendices y otros puestos sin área o sección en la base
   if(el.closest(".hidden")||el.type==="button"||el.disabled) return false;
+  if(el.classList.contains("ap-file")) return true;   // la captura siempre: las reglas del servidor también la exigen
   if(!CONFIG.camposObligatorios) return el.id==="movimiento"||el.id==="departamento";
-  if(el.id==="montoPresupuesto") return $("presupuesto").value==="Sí";
-  if(el.classList.contains("ap-type")) return el.closest(".approval-card").querySelector(".ap-evidence").value==="Sí";
+  if(el.id==="montoPresupuesto"||el.id==="fuentePresupuesto") return false;   // el jefe no conoce fuente ni monto
+  if(el.classList.contains("ap-type")) return false;   // el detalle es opcional: lo obligatorio es la captura
   return true;
 }
 function check(el){
   if(!required(el)) return "";
+  if(el.type==="file") return el.closest(".approval-card").dataset.ok==="1"?"":"Adjunta la captura de la confirmación del jefe aprobador.";
   if(el.type==="checkbox") return el.checked?"":"Debes confirmar para continuar.";
   const v=el.value.trim();
   if(!v) return "Esta pregunta es obligatoria.";
@@ -823,9 +861,9 @@ function evaluateCase(d){
   }else if(d.tieneAprobacion==="No") alerts.push("El caso no cuenta con aprobación previa.");
   else alerts.push("No se ha definido si el caso cuenta con aprobación previa.");
   if(d.presupuesto==="Sí"){
-    b.presupuesto=d.fuentePresupuesto?15:11;score+=b.presupuesto;strengths.push("Cuenta con presupuesto.");
-    if(!d.fuentePresupuesto) alerts.push("Falta identificar la fuente de presupuesto.");
-    if(!(Number(d.montoPresupuesto)>0)) alerts.push("Falta indicar el monto de presupuesto disponible.");
+    const conf=d.validaPresupuesto&&!/^Nadie/.test(d.validaPresupuesto);
+    b.presupuesto=conf?15:11;score+=b.presupuesto;strengths.push("Cuenta con presupuesto.");
+    if(!conf) alerts.push(d.validaPresupuesto?"Indica presupuesto, pero nadie lo ha confirmado aún.":"Falta indicar quién confirmó el presupuesto.");
   }else if(d.presupuesto==="Por confirmar"){b.presupuesto=6;score+=6;alerts.push("El presupuesto está por confirmar.")}
   else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
   else alerts.push("No se ha definido el estado del presupuesto.");
@@ -867,8 +905,8 @@ function renderStepper(){
 // Los datos del presupuesto (fuente, quién valida, monto) solo se piden si hay presupuesto o está por confirmar; con «No» se ocultan y se limpian.
 function presUI(){
   const p=$("presupuesto");if(!p) return;
-  const v=p.value,ver=v==="Sí"||v==="Por confirmar";
-  ["fuentePresupuesto","validaPresupuesto","montoPresupuesto"].forEach(id=>{const e=$(id);if(!e) return;e.closest(".q").classList.toggle("hidden",!ver);if(v==="No")e.value=""});
+  const v=p.value,e=$("validaPresupuesto");   // «¿quién lo confirmó?» solo si dice que hay presupuesto
+  if(e){e.closest(".q").classList.toggle("hidden",v!=="Sí");if(v!=="Sí")e.value=""}
 }
 function refresh(){presUI();
   let tot=0,okc=0;
@@ -891,6 +929,7 @@ function go(n){
   if(n===5&&!sustentoTouched){$("solicitudConcreta").value=buildExecutiveSummary();counters()}
   if(n===6) renderReview();
   counters();
+  window.Ortografia&&Ortografia.revisarVisibles();   // revisa la ortografía de los textos largos del paso
   $("prevBtn").disabled=n===0;
   $("nextBtn").textContent=n===6?(editingCaseId?"Guardar cambios":"Enviar solicitud"):"Siguiente →";
   refresh();window.scrollTo({top:0});
@@ -939,6 +978,7 @@ async function submit(){
 }
 async function doSubmit(){
   const d=gather(),ev=evaluateCase(d),now=new Date().toISOString();
+  const capturas=d.tieneAprobacion==="Sí"?[...document.querySelectorAll(".approval-card")].map(c=>c._img):[];
   const hist=load(HISTORY_KEY,[]),idx=editingCaseId?hist.findIndex(r=>r.id===editingCaseId):-1;
   let rec;
   if(idx>=0){rec={...hist[idx],periodo:d.periodo,periodoLabel:d.periodoLabel,updatedAt:now,data:d,evaluation:ev};hist[idx]=rec}
@@ -947,7 +987,7 @@ async function doSubmit(){
   let sent=!CONFIG.endpoint&&saved,err=saved?"":"Este navegador bloquea el almacenamiento local.";
   if(CONFIG.endpoint){
     try{
-      const r=await Promise.race([(await FBp).enviar(aPlano(rec)),new Promise((_,no)=>setTimeout(()=>no(new Error("El servidor tardó demasiado en responder.")),20000))]);
+      const r=await Promise.race([(await FBp).enviar(aPlano(rec),capturas),new Promise((_,no)=>setTimeout(()=>no(new Error("El servidor tardó demasiado en responder.")),20000))]);
       sent=true;err="";rec.sinBP=!r.bp;
       const hh=load(HISTORY_KEY,[]),k=hh.findIndex(x=>x.id===rec.id);if(k>=0){hh[k]=rec;store(HISTORY_KEY,JSON.stringify(hh))}
     }catch(e){sent=false;err=e.code==="permission-denied"?"Sin permiso: revisa que el correo sea @usil.edu.pe y el departamento tenga BP.":(e.message||"No hubo conexión con el servidor.")}
@@ -961,10 +1001,23 @@ function showDone(rec,sent,err){
     :CONFIG.endpoint?(!rec.sinBP?`Tu solicitud fue enviada a ${SOCIOS[rec.data.departamento]?"tu Socio de negocio, "+SOCIOS[rec.data.departamento]:"tu Socio de negocio"}.`:"Tu solicitud fue registrada; aún no hay un Socio de negocio configurado para tu departamento y se derivó al coordinador.")
     :"Tu solicitud quedó guardada en este equipo. Descarga el Excel y envíalo a tu Socio de negocio.";
   $("done").classList.remove("hidden");
-  $("done").innerHTML=`<h2>${sent?"✔ Solicitud registrada":"⚠ Solicitud guardada, falta enviarla"}</h2><p>${msg}</p><dl class="sum"><dt>Código de seguimiento</dt><dd><b>${esc(rec.id)}</b></dd><dt>Movimiento</dt><dd>${esc(rec.data.movimiento)}</dd><dt>Índice de preparación</dt><dd>${rec.evaluation.score}/100 · ${esc(rec.evaluation.label)}</dd></dl><div class="inline" style="margin-top:16px"><button type="button" id="dlXls">Descargar Excel</button><button type="button" class="secondary" id="newReq">Nueva solicitud</button></div>`;
+  $("done").innerHTML=`<h2>${sent?"✔ Solicitud registrada":"⚠ Solicitud guardada, falta enviarla"}</h2><p>${msg}</p><dl class="sum"><dt>Código de seguimiento</dt><dd><b>${esc(rec.id)}</b></dd><dt>Movimiento</dt><dd>${esc(rec.data.movimiento)}</dd><dt>Índice de preparación</dt><dd>${rec.evaluation.score}/100 · ${esc(rec.evaluation.label)}</dd></dl><div class="inline" style="margin-top:16px"><button type="button" id="dlXls">Descargar Excel</button><button type="button" class="secondary" id="newReq">Nueva solicitud</button><button type="button" class="secondary" id="mineDone">Mis solicitudes</button></div>`;
   $("dlXls").onclick=()=>exportCase(rec);
-  $("newReq").onclick=resetForm;
+  $("newReq").onclick=resetForm;$("mineDone").onclick=showMine;
   if(BP_MODE) renderHistory();
+  window.scrollTo({top:0});
+}
+// ---------- Mis solicitudes (todas las que envió esta persona, también de días anteriores) ----------
+async function showMine(){
+  const m=$("mine"),wasDone=!$("done").classList.contains("hidden");
+  ["form","stepper","actionsBar","errSummary","done"].forEach(id=>$(id).classList.add("hidden"));
+  m.classList.remove("hidden");m.innerHTML='<h2>Mis solicitudes</h2><p class="muted">Cargando…</p>';
+  const volver='<div class="inline" style="margin-top:14px"><button type="button" class="secondary" id="mineBack">← Volver</button></div>';
+  try{
+    const l=await (await FBp).misSolicitudes();
+    m.innerHTML=`<h2>Mis solicitudes</h2><p class="muted">${l.length} enviada(s). Si tu Socio de negocio devuelve una, verás aquí su observación.</p>`+(l.length?`<div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Código</th><th>Colaborador</th><th>Movimiento</th><th>Estado</th><th>Observación</th></tr></thead><tbody>${l.map(r=>`<tr><td>${esc(r.fechaSolicitud)}</td><td>${esc(r.id)}</td><td>${esc(r.colaborador)}</td><td>${esc(r.movimiento)}</td><td>${esc(String(r.estado||"Nuevo").replace("En revisión BP","En revisión"))}</td><td>${esc(r.comentarioBP||r.comentarioGerencia)}</td></tr>`).join("")}</tbody></table></div>`:"")+volver;
+  }catch(e){m.innerHTML=`<h2>Mis solicitudes</h2><p class="muted">No se pudieron cargar: ${esc(e.message||e)}</p>`+volver}
+  $("mineBack").onclick=()=>{m.classList.add("hidden");if(wasDone)$("done").classList.remove("hidden");else{showShell();go(cur)}};
   window.scrollTo({top:0});
 }
 function baseData(){return {fechaSolicitud:today(),cliente:SESSION?SESSION.name:"",emailCliente:SESSION?SESSION.email:""}}
@@ -1115,7 +1168,7 @@ function resetWholeSystem(){
 
 // ---------- Modo demo (solo con CONFIG.modoPrueba) ----------
 // Rellena los 7 pasos con una persona al azar de la base (solo si Firestore config/app.modoPrueba es true); solo falta pulsar «Enviar solicitud».
-const DEMO_PICK={tieneAprobacion:"Sí",presupuesto:"Sí",fuentePresupuesto:"Presupuesto aprobado",urgencia:"Dentro de 30 días",impacto:"Alto",consecuencia:"Retraso operativo",tipoPropuestaNegocio:"Porcentaje %"};
+const DEMO_PICK={tieneAprobacion:"Sí",presupuesto:"Sí",validaPresupuesto:"Mi Socio de negocio (HRBP)",personasCargo:"3",personasCargoPN:"2",personasCargoReemplazo:"2",equipoAdicional:"2",fuentePresupuesto:"Presupuesto aprobado",urgencia:"Dentro de 30 días",impacto:"Alto",consecuencia:"Retraso operativo",tipoPropuestaNegocio:"Porcentaje %"};
 const DEMO_TEXT={validaPresupuesto:"Gerencia de Finanzas",montoPresupuesto:"4500",propuestaNegocio:"8",personasCargo:"3 personas",personasCargoPN:"2 personas",personasCargoReemplazo:"2 personas",equipoAdicional:"2 personas",cambioPersonasRev:"Sí, de 2 a 4 personas",periodoRenovacion:"3 meses",reportaA:"Subgerente de Talento y Cultura",puestoPropuesto:"Analista Senior",puestoEncargado:"Jefe de Área",aQuienReemplaza:"Jefe saliente (vacancia)",puestoReemplazo:"Analista Senior",personaOVacanteReemplazo:"Vacante por renuncia",puestoNuevo:"Analista de Datos de Talento",puestoDestino:"Analista Senior",areaDestino:"Selección y Desarrollo",tipoCasoEspecial:"Convenio de colaboración",vigenciaCaso:"6 meses",areaReestructura:"Área de Talento",areaApoyoHorizontal:"Gerencia de Talento y Cultura",puestoEncargaturaAnterior:"Coordinador de Área","ap-name":"Aprobador de ejemplo","ap-role":"Gerente General"};
 const DEMO_FRASES=["El colaborador asumió funciones de mayor alcance y responsabilidad en los últimos meses, con resultados verificables y reconocimiento del equipo.","La necesidad surge por el crecimiento de la operación, que hoy supera la capacidad de la estructura actual y afecta los plazos comprometidos.","Con esta decisión se asegura la continuidad del servicio, se reduce el riesgo de perder talento clave y se ordena la carga de trabajo del área."];
 function demoTexto(min,max){let t="",i=0;while(t.length<Math.max(min,60)+10&&i<12) t+=(t?" ":"")+DEMO_FRASES[i++%3];return t.slice(0,Math.max(1,max-1))}
@@ -1125,7 +1178,7 @@ function demoAuto(step){
   const root=document.querySelector(`.step[data-step="${step}"]`);
   const dias=n=>new Date(Date.now()+n*864e5).toISOString().slice(0,10);
   for(let pass=0;pass<4;pass++) root.querySelectorAll("input,select,textarea").forEach(el=>{
-    if(el.closest(".hidden")||el.disabled||el.readOnly||el.type==="button"||el.type==="file"||el.value) return;
+    if(el.closest(".hidden")||el.disabled||el.readOnly||el.type==="button"||el.type==="file"||el.type==="hidden"||el.value) return;
     if(el.type==="checkbox"){el.checked=true;el.dispatchEvent(new Event("change",{bubbles:true}));return}
     const id=el.id||[...el.classList].find(c=>c.startsWith("ap-"))||"";
     if(id==="area"||id==="seccion") return;   // opcionales: si la base no los trae, se dejan vacíos
@@ -1137,6 +1190,12 @@ function demoAuto(step){
     else{v=DEMO_TEXT[id];if(v===undefined){const [mn]=limits(el.id,"text");v="Ejemplo demostrativo".padEnd(mn,"x")}}
     if(v!==undefined){el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}))}
   });
+  root.querySelectorAll(".approval-card").forEach(c=>{if(!c._img) ponerCaptura(c,demoCaptura(),"captura-de-prueba.jpg")});
+}
+function demoCaptura(){
+  const c=document.createElement("canvas");c.width=640;c.height=240;const g=c.getContext("2d");
+  g.fillStyle="#eef3ff";g.fillRect(0,0,640,240);g.fillStyle="#14213D";g.font="bold 26px Arial";g.fillText("CAPTURA DE PRUEBA",30,90);
+  g.font="18px Arial";g.fillText("Jefe aprobador: confirmo la solicitud · "+today(),30,140);return c.toDataURL("image/jpeg",.8);
 }
 async function demoFill(enviar,dep,mov0){
   dep=dep||DEPARTAMENTOS[Math.floor(Math.random()*DEPARTAMENTOS.length)];
@@ -1213,7 +1272,7 @@ function init(){
   $("g0b").innerHTML=G0B.map(qHTML).join("");
   $("g0c").innerHTML=CODE_HTML+G0C.map(qHTML).join("");
   $("g2").innerHTML=qHTML(["tieneAprobacion","¿Cuenta con la aprobación de la gerencia?","select",SN,"La gerencia es el primer filtro. Una conversación en reunión no cuenta como aprobación: debe haber evidencia."]);
-  $("g3").innerHTML=G3.map(qHTML).join("");
+  $("g3").innerHTML=G3.map(qHTML).join("")+'<input type="hidden" id="fuentePresupuesto"><input type="hidden" id="montoPresupuesto">';
   $("presupuesto").addEventListener("change",presUI);presUI();
   $("g4").innerHTML=G4.map(qHTML).join("");
   $("g4b").innerHTML=qHTML(["impactoDetalle","Explique brevemente el impacto","textarea","¿Qué pasaría si este movimiento no se ejecuta?"]);
@@ -1225,11 +1284,6 @@ function init(){
   $("correoColab").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupEmployeeByEmail()}});
   $("codigo").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupEmployeeByCode()}});
   $("addApproval").onclick=()=>addApproval();
-  $("generateExecutive").onclick=()=>{
-    if(sustentoTouched&&!confirm("Se reemplazará el texto editado por uno nuevo generado desde tus respuestas. ¿Continuar?")) return;
-    if(!$("movimiento").value) return alert("Selecciona primero el tipo de movimiento.");
-    $("solicitudConcreta").value=buildExecutiveSummary();sustentoTouched=false;counters();refresh();
-  };
   restorePersistedMaster();
   {
     $("histPeriod").value=today().slice(0,7);
@@ -1264,34 +1318,22 @@ function readSession(){
 }
 let lastSave=0;
 function touch(){if(!SESSION) return;SESSION.last=Date.now();if(Date.now()-lastSave>15000){lastSave=Date.now();saveSession()}}
-const TXT_LG={entrar:["Ingresa con tu correo institucional. Tu clave inicial es tu DNI.","Ingresar"],crear:["Crea tu cuenta con tu correo institucional. Te enviaremos un enlace para confirmarlo.","Crear mi cuenta"],olvide:["Escribe tu correo y te enviaremos un enlace para elegir una clave nueva.","Enviar enlace"]};
-let MODO_LG="entrar";
-function modoLogin(m){
-  MODO_LG=m;$("lgAyuda").textContent=TXT_LG[m][0];$("lgStaff").textContent=TXT_LG[m][1];
-  $("lgPassWrap").classList.toggle("hidden",m==="olvide");$("lgPass2Wrap").classList.toggle("hidden",m!=="crear");
-  $("lgCrear").classList.toggle("hidden",m!=="entrar");$("lgOlvide").classList.toggle("hidden",m!=="entrar");$("lgVolver").classList.toggle("hidden",m==="entrar");
-  $("lgErr2").textContent="";$("lgOk").textContent="";
-}
+const TXT_LG="Entra con tu correo de USIL. Primera vez: tu clave es tu DNI.";
 const nombreDeCorreo=m=>String(m).split("@")[0].replace(/[._-]+/g," ").replace(/(^|\s)\S/g,c=>c.toUpperCase());
 const titulo=n=>String(n||"").toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
 function setupLogin(){
-  // Jefe de área: correo institucional verificado y clave. Si no tiene cuenta, la crea y confirma su correo con un enlace. Socio de negocio y Gerencia entran por su botón, que lleva al panel.
-  $("lgCrear").onclick=()=>modoLogin("crear");$("lgOlvide").onclick=()=>modoLogin("olvide");$("lgVolver").onclick=()=>modoLogin("entrar");
+  // Jefe de área: correo institucional verificado y clave (su DNI la primera vez). Socio de negocio y Gerencia entran por su botón, que lleva al panel.
   $("lgStaff").onclick=async()=>{
     const err=$("lgErr2"),ok=$("lgOk"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),clave=$("lgPass").value;
     err.textContent="";ok.textContent="";
     if(!mail) return void(err.textContent="Ingresa tu correo institucional.");
-    if(MODO_LG!=="olvide"&&!clave) return void(err.textContent="Ingresa tu clave.");
+    if(!clave) return void(err.textContent="Ingresa tu clave.");
     b.disabled=true;
     try{
       const F=await FBp;
-      if(MODO_LG==="crear"){ok.textContent=await F.crearCuenta(mail,clave,$("lgPass2").value);$("lgPass").value=$("lgPass2").value="";modoLogin("entrar");ok.textContent="Cuenta creada. Te enviamos un enlace a "+mail+": ábrelo para confirmar tu correo y luego entra con tu clave."}
-      else if(MODO_LG==="olvide"){ok.textContent=await F.olvideClave(mail)}
-      else{
-        await F.entrarJefe(mail,clave);$("lgPass").value="";
-        if(await F.personal()) return void location.replace(CONFIG.panelUrl);   // Socio de negocio o Gerencia: a su panel
-        SESSION={name:nombreDeCorreo(mail),email:mail,role:"jefe",last:Date.now()};saveSession();enter();
-      }
+      await F.entrarJefe(mail,clave);$("lgPass").value="";
+      if(await F.personal()) return void location.replace(CONFIG.panelUrl);   // Socio de negocio o Gerencia: a su panel
+      SESSION={name:nombreDeCorreo(mail),email:mail,role:"jefe",last:Date.now()};saveSession();enter();
     }catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
     b.disabled=false;
   };
@@ -1299,7 +1341,7 @@ function setupLogin(){
   $("loginForm").addEventListener("submit",e=>{e.preventDefault();$("lgStaff").click()});
   $("form").addEventListener("submit",e=>e.preventDefault());
   document.querySelector("#login video").addEventListener("error",e=>{e.target.style.display="none"});
-  $("logoutBtn").onclick=()=>logout(true);
+  $("logoutBtn").onclick=()=>logout(true);$("mineBtn").onclick=showMine;
   $("demoFill").onclick=()=>demoFill();
   $("demoSend").onclick=()=>demoFill(true);
   $("demoBatch").onclick=demoLote;
@@ -1316,8 +1358,8 @@ async function boot(){
   showLogin();
 }
 function showLogin(){
-  $("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
-  modoLogin("entrar");
+  $("mine").classList.add("hidden");$("login").classList.remove("hidden");$("userChip").classList.add("hidden");$("bpPanel").classList.add("hidden");$("modeTag").textContent="";
+  $("lgAyuda").textContent=TXT_LG;
 }
 function enter(){
   BP_MODE=SESSION.role==="bp";

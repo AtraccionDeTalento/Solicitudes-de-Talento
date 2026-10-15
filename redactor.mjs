@@ -23,7 +23,7 @@ const SECCIONES = [['situacion', 'Situación y necesidad'], ['propuesta', 'Propu
 export const REQUERIDOS = {
   'Promoción': { puestoPropuesto: 'puesto propuesto', desdeCuando: 'fecha desde la que ejerce las funciones', queCambioPromo: 'qué cambió en el rol' },
   'Encargatura': { puestoEncargado: 'posición que requiere cobertura', fechaInicioEnc: 'fecha de inicio', fechaFinEnc: 'fecha de fin' },
-  'Reemplazo': { puestoReemplazo: 'posición a reemplazar', fechaInicioReemplazo: 'fecha de inicio', porQueColaboradorReemplazo: 'por qué se propone al colaborador' },
+  'Reemplazo': { puestoReemplazo: 'posición a reemplazar', fechaInicioReemplazo: 'fecha de inicio' },
   'Puesto nuevo': { puestoNuevo: 'nombre del puesto', necesidadPuesto: 'necesidad del negocio', fechaRequerida: 'fecha requerida' },
   'Incremento salarial': { motivoIncremento: 'motivo del incremento', propuestaNegocio: 'valor de la propuesta', evidenciaRiesgo: 'evidencia de respaldo' },
   'Movimiento lateral': { puestoDestino: 'puesto destino', motivoMovimiento: 'necesidad que origina el movimiento' },   // tipo anterior: se conserva para leer casos viejos
@@ -63,7 +63,7 @@ export function redactar(r, opciones = {}) {
   const clausula = {
     'Promoción': () => `la promoción de ${persona}${T('puestoPropuesto') ? ` al puesto de ${v('puestoPropuesto')}` : ''}${F('desdeCuando') ? `, con funciones desde ${fecha(v('desdeCuando'))}` : ''}`,
     'Encargatura': () => `${T('tipoEncargatura') ? 'la ' + minus(v('tipoEncargatura')) : 'la encargatura'} de ${persona}${T('puestoEncargado') ? ` en la posición de ${v('puestoEncargado')}` : ''}${T('aQuienReemplaza') ? `, en reemplazo de ${v('aQuienReemplaza')}` : ''}${F('fechaInicioEnc') && F('fechaFinEnc') ? `, del ${fecha(v('fechaInicioEnc'))} al ${fecha(v('fechaFinEnc'))}` : F('fechaInicioEnc') ? `, desde ${fecha(v('fechaInicioEnc'))}` : ''}`,
-    'Reemplazo': () => `que ${persona} asuma la posición de ${T('puestoReemplazo') || 'la posición indicada'}${cantidad()}${T('personaOVacanteReemplazo') ? `, en reemplazo de ${v('personaOVacanteReemplazo')}` : ''}${F('fechaInicioReemplazo') ? `, desde ${fecha(v('fechaInicioReemplazo'))}` : ''}`,
+    'Reemplazo': () => `el reemplazo en la posición de ${T('puestoReemplazo') || 'la posición indicada'}${cantidad()}${T('personaOVacanteReemplazo') ? `, de ${v('personaOVacanteReemplazo')}` : ''}${F('fechaInicioReemplazo') ? `, con ingreso desde ${fecha(v('fechaInicioReemplazo'))}` : ''}`,
     'Puesto nuevo': () => `la creación del puesto ${T('puestoNuevo') || 'indicado'}${cantidad()}${T('temporalPermanente') ? ` (${minus(v('temporalPermanente'))})` : ''}${T('reportaA') ? `, con reporte a ${v('reportaA')}` : ''}${F('fechaRequerida') ? `, requerido para ${fecha(v('fechaRequerida'))}` : ''}`,
     'Incremento salarial': () => `un incremento salarial para ${persona}${T('motivoIncremento') ? `, por ${minus(v('motivoIncremento'))}` : ''}${v('propuestaNegocio') ? `, con una propuesta de ${usa('propuestaNegocio', importe(v('tipoPropuestaNegocio'), v('propuestaNegocio')))}` : ''}`,
     'Movimiento lateral': () => `el movimiento lateral de ${persona}${T('puestoDestino') ? ` al puesto de ${v('puestoDestino')}` : ''}${T('areaDestino') ? `, en ${v('areaDestino')}` : ''}`,
@@ -111,7 +111,7 @@ export function redactar(r, opciones = {}) {
   for (const [id, nombreCampo] of Object.entries(REQUERIDOS[mov] || {})) if (!v(id)) alertas.push(`Falta ${nombreCampo}.`);
   if (CON_COSTO.includes(mov)) {
     if (pres && pres !== 'Sí') alertas.push(`El presupuesto no está confirmado (${pres}).`);
-    if (pres === 'Sí' && (!limpio(r.montoPresupuesto) || Number(limpio(r.montoPresupuesto)) === 0)) alertas.push('Indica que cuenta con presupuesto pero no registra el monto.');
+    if (pres === 'Sí' && /^nadie/i.test(limpio(r.validaPresupuesto))) alertas.push('Indica que cuenta con presupuesto, pero nadie lo ha confirmado.');
     if (pres === 'Sí' && !limpio(r.validaPresupuesto)) alertas.push('No indica quién valida el presupuesto.');
   }
   if (limpio(r.tieneAprobacion) === 'Sí' && !aprob.length) alertas.push('Declara aprobaciones previas pero no registra ninguna.');

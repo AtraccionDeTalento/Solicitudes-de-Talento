@@ -20,3 +20,6 @@ tools/ruteo.local.json
 tools/usuarios.json
 !vercel.json
 .firebase/
+
+# Datos del emulador local (persisten entre sesiones)
+.emu-data/

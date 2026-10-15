@@ -1,7 +1,7 @@
 // Reglas de seguridad de Firestore contra el emulador. Ejecutar: npm run test:rules (necesita Java).
 const fs = require('fs');
 const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, collection, query, where, limit } = require('firebase/firestore');
+const { doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, collection, query, where, limit, writeBatch } = require('firebase/firestore');
 
 const DEP = 'GERENCIA DE TALENTO Y CULTURA';
 const BP1 = 'bp1@usil.edu.pe', BP2 = 'bp2@usil.edu.pe', GER = 'ger1@usil.edu.pe', JEFE = 'jefe1@usil.edu.pe', OTRO = 'otro@usil.edu.pe';
@@ -31,7 +31,7 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
   const staff = mail => env.authenticatedContext(mail, { email: mail, email_verified: true, firebase: { sign_in_provider: 'password' } }).firestore();
   const bp1 = staff(BP1), bp2 = staff(BP2), ger = staff(GER);
   const sol = (db, id) => doc(db, 'solicitudes', id);
-  let n = 0; const t = async (nombre, f) => { await f(); n++; console.log('  ✓', nombre); };
+  let n = 0; const t = async (nombre, f) => { try { await f(); } catch (e) { console.log('  ✗', nombre, (String(e.stack).match(/rules\.test\.js:\d+/) || [''])[0]); throw e; } n++; console.log('  ✓', nombre); };
 
   await t('sin sesión no lee nada', () => assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'ruteo', DEP))));
   await t('Google o un correo sin verificar no entran', async () => {
@@ -102,7 +102,7 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     const largo = n => 'x'.repeat(n);
     const completa = nueva('FULL1', 'u1', {
       enviadoEl: '2026-10-07T12:00:00.000Z', origen: 'web', periodo: '2026-10', fechaSolicitud: '2026-10-07', cliente: largo(100), cargoCliente: largo(100), area: largo(100), seccion: largo(100),
-      codigo: '0000000001', colaborador: largo(100), puestoActual: largo(100), tieneAprobacion: 'Sí', presupuesto: 'Sí', fuentePresupuesto: 'Presupuesto aprobado', validaPresupuesto: largo(100),
+      codigo: '0000000001', colaborador: largo(100), puestoActual: largo(100), tieneAprobacion: 'No', presupuesto: 'Sí', fuentePresupuesto: 'Presupuesto aprobado', validaPresupuesto: largo(100),
       montoPresupuesto: '4500', urgencia: 'Inmediato', impacto: 'Alto', consecuencia: 'Retraso operativo', impactoDetalle: largo(950), solicitudConcreta: largo(2900),
       puntaje: '96', clasificacion: 'Caso bien preparado', fortalezas: largo(1500), alertas: largo(1500), recomendacion: largo(700),
       levantamiento: Array.from({ length: 40 }, (_, i) => ({ p: 'Pregunta ' + i, r: largo(300) })), aprobaciones: [{ level: 'a', name: 'b' }, { level: 'a' }, { level: 'c' }] });
@@ -221,6 +221,61 @@ const nueva = (id, uid, extra = {}) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
     await assertFails(getDoc(sol(alias, 'S-NUEVA')));                                // no hereda la bandeja del socio
     await assertFails(getDoc(doc(alias, 'bps', 'bpid-1')));
     await assertFails(updateDoc(sol(alias, 'AL1'), { estado: 'Aprobado' }));
+    await prueba(false);
+  });
+  await t('dominios de USIL y sus unidades entran (verificados); dominios parecidos o ajenos no', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false, accesoAnonimo: false }));
+    const con = (uid, mail, verificado = true) => env.authenticatedContext(uid, { email: mail, email_verified: verificado, firebase: { sign_in_provider: 'password' } }).firestore();
+    for (const [i, mail] of ['x@usil.pe', 'x@epg.usil.pe', 'x@sir.pe', 'x@sir.edu.pe', 'x@institutoemprendedores.pe', 'x@institutoemprendedores.edu.pe'].entries()) {
+      const db = con('uid-d' + i, mail);
+      await assertSucceeds(setDoc(sol(db, 'D' + i), nueva('D' + i, 'uid-d' + i, { enviadoPor: mail })));
+      await assertSucceeds(getDoc(doc(db, 'colaboradores', 'jefe1@usil.edu.pe')));
+    }
+    for (const [i, mail] of ['x@usil.pe.evil.com', 'x@evilusil.pe', 'x@xusil.edu.pe', 'x@gmail.com', 'x@hotmail.com'].entries()) {
+      const db = con('uid-e' + i, mail);
+      await assertFails(setDoc(sol(db, 'E' + i), nueva('E' + i, 'uid-e' + i, { enviadoPor: mail })));
+      await assertFails(getDoc(doc(db, 'colaboradores', 'jefe1@usil.edu.pe')));
+    }
+    await assertFails(setDoc(sol(con('uid-nv2', 'x@usil.pe', false), 'NV2'), nueva('NV2', 'uid-nv2', { enviadoPor: 'x@usil.pe' })));   // sin verificar no entra
+    await prueba(false);
+  });
+  await t('campos con formato fijo: un periodo o un tipo raro no entra (no puede tumbar la bandeja del Business Partner)', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false, accesoAnonimo: false }));
+    const db = env.authenticatedContext('uid-f', { email: 'x@usil.pe', email_verified: true, firebase: { sign_in_provider: 'password' } }).firestore();
+    const con = (id, extra) => setDoc(sol(db, id), nueva(id, 'uid-f', { enviadoPor: 'x@usil.pe', ...extra }));
+    await assertSucceeds(con('F0', { periodo: '2026-10', puntaje: '92', urgencia: 'Dentro de 30 días', enviadoEl: new Date().toISOString() }));
+    for (const [i, extra] of [{ periodo: '<img src=x onerror=1>' }, { periodo: '2026-13' }, { periodo: '2026-1' }, { periodo: { a: 1 } }, { periodo: 202610 },
+      { urgencia: { x: 1 } }, { urgencia: 'x'.repeat(101) }, { puntaje: 92 }, { enviadoEl: ['a'] }, { codigo: 7 }, { fuentePresupuesto: 'x'.repeat(201) }].entries())
+      await assertFails(con('F' + (i + 1), extra));
+    await prueba(false);
+  });
+  await t('aprobación previa: exige una captura JPEG por aprobación en el mismo lote; la leen el dueño, su BP y Gerencia (cuando se la pasan)', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'config/app'), { modoPrueba: false, accesoAnonimo: false }));
+    const ctx = (uid, mail) => env.authenticatedContext(uid, { email: mail, email_verified: true, firebase: { sign_in_provider: 'password' } }).firestore();
+    let paso = 0;   // si una comprobación falla, dice cuál
+    const S = p => { paso++; return assertSucceeds(p).catch(e => { console.log('   paso', paso, 'debía permitirse', String(e.message).slice(0, 300)); throw e; }); }, F = p => { paso++; return assertFails(p).catch(e => { console.log('   paso', paso, 'debía rechazarse'); throw e; }); };
+    const jefe = ctx('uid-ev', 'x@usil.pe'), otro = ctx('uid-ev2', 'x@usil.edu.pe');
+    const jpg = 'data:image/jpeg;base64,' + 'A'.repeat(500), aps = n => Array.from({ length: n }, () => ({ name: 'x' }));
+    const lote = (id, n, imgs, extra = {}) => { const b = writeBatch(jefe);
+      b.set(sol(jefe, id), nueva(id, 'uid-ev', { enviadoPor: 'x@usil.pe', tieneAprobacion: 'Sí', aprobaciones: aps(n), ...extra }));
+      imgs.forEach((img, i) => b.set(doc(jefe, 'solicitudes', id, 'evidencias', String(i)), { img, uid: 'uid-ev' })); return b.commit(); };
+    await S(lote('EV1', 1, [jpg])); await S(lote('EV2', 3, [jpg, jpg, jpg]));
+    await F(lote('EV3', 1, []));                                                       // sin captura
+    await F(lote('EV4', 2, [jpg]));                                                    // falta la de la segunda aprobación
+    await F(lote('EV5', 0, []));                                                       // dice que hay aprobación y no registra ninguna
+    await F(lote('EV6', 1, ['data:image/png;base64,' + 'A'.repeat(500)]));             // no es JPEG
+    await F(lote('EV7', 1, ['data:image/svg+xml;base64,' + 'A'.repeat(500)]));
+    await F(lote('EV8', 1, [jpg + 'A'.repeat(400000)]));                               // demasiado pesada
+    await F(lote('EV9', 1, ['<script>alert(1)</script>' + 'A'.repeat(200)]));
+    await S(setDoc(sol(jefe, 'EV10'), nueva('EV10', 'uid-ev', { enviadoPor: 'x@usil.pe', tieneAprobacion: 'No' })));   // sin aprobación no pide captura
+    await F(setDoc(doc(otro, 'solicitudes', 'EV10', 'evidencias', '0'), { img: jpg, uid: 'uid-ev2' }));       // nadie agrega capturas a la solicitud de otro
+    await F(setDoc(doc(jefe, 'solicitudes', 'EV1', 'evidencias', '3'), { img: jpg, uid: 'uid-ev' }));        // solo 0, 1 y 2
+    await F(updateDoc(doc(jefe, 'solicitudes', 'EV1', 'evidencias', '0'), { img: jpg + 'B' })); await F(deleteDoc(doc(jefe, 'solicitudes', 'EV1', 'evidencias', '0')));
+    const lee = (db, id) => getDocs(collection(db, 'solicitudes', id, 'evidencias'));
+    await S(lee(jefe, 'EV1')); await F(lee(otro, 'EV1'));                  // dueño sí; otro jefe no
+    await S(lee(bp1, 'EV1')); await F(lee(bp2, 'EV1')); await F(lee(ger, 'EV1'));   // su BP sí; otro BP no; Gerencia aún no
+    await env.withSecurityRulesDisabled(c => updateDoc(doc(c.firestore(), 'solicitudes', 'EV1'), { estado: 'Enviado a Gerencia' }));
+    await S(lee(ger, 'EV1'));                                                       // ya se la pasaron
     await prueba(false);
   });
   await env.cleanup();

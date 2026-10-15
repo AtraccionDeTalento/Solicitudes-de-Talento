@@ -27,7 +27,10 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
 
 (async () => {
   const args = process.argv.slice(2), archivo = args.find(a => !a.startsWith("--"));
-  await db.doc("config/app").set({ modoPrueba: true, busquedaJefes: false, accesoAnonimo: false });   // busquedaJefes: ver firestore.rules (colaboradores)   // en producción: cambiar a false (desde la consola de Firebase)
+  // modoPrueba: true solo en los emuladores o con --modo-prueba; en la nube se conserva lo que ya tenía el documento y, si no existe, queda en false.
+  // (Antes se escribía true en cada carga: repetirla en producción reabría el Maestro a todos los jefes.) busquedaJefes y accesoAnonimo vuelven siempre a false.
+  const previo = (await db.doc("config/app").get()).data() || {};
+  await db.doc("config/app").set({ modoPrueba: PRUEBA || args.includes("--modo-prueba") || previo.modoPrueba === true, busquedaJefes: false, accesoAnonimo: false });
   const validos = require("./departamentos"), rf = path.join(__dirname, "ruteo.local.json");
   // En los emuladores, si existen tools/ruteo.local.json y tools/usuarios.json se usan también: así pruebas con tus cuentas reales sin tocar la nube.
   if (!PRUEBA && !fs.existsSync(rf)) throw new Error("Falta tools/ruteo.local.json (ver tools/ruteo.ejemplo.txt)");
@@ -55,15 +58,22 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
       if (bpId) { bpIds[email] = bpId; await db.doc("bps/" + bpId).set({ nombre: u.nombre }); }
       if (!PRUEBA) console.log("usuario:", email, u.roles.join("+"));
     }
+    // Un socio de negocio sin cuenta con rol (nombre viejo, «HRBP de prueba») no debe aparecer al derivar: nadie vería el caso derivado a él.
+    const vivos = new Set((await db.collection("roles").get()).docs.map(d => d.data().bpId).filter(Boolean));
+    for (const d of (await db.collection("bps").get()).docs) if (!vivos.has(d.id)) { await d.ref.delete(); console.log("bps huérfano borrado:", d.data().nombre); }
   } else console.log("sin tools/usuarios.json: no se crearon usuarios");
 
-  // Cuenta de prueba de un jefe de área (los jefes reales se registran solos con su correo y confirman con el enlace).
+  // Cuentas de prueba de jefes de área (varias, para probar que cada uno ve solo lo suyo; dominios distintos para probar las unidades de USIL).
+  // Los jefes reales se registran solos con su correo y confirman con el enlace.
   if (PRUEBA) {
-    const email = "jefe1@usil.edu.pe", compartida = usuarios && Object.values(usuarios).map(u => u.clave).filter(Boolean).pop(), clave = compartida || crypto.randomBytes(9).toString("base64url");   // en pruebas usa la misma clave compartida de usuarios.json
-    try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: clave, emailVerified: true }); }
-    catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: clave, displayName: "Jefe de prueba", emailVerified: true }); }
-    await db.doc("lideres/" + email).set({ nombre: "JEFE DE PRUEBA", puesto: "JEFE DE AREA" });
-    console.log("Cuenta de prueba de un jefe de área:\n  " + email + (compartida ? "  (la clave compartida de usuarios.json)" : "  clave: " + clave));
+    const compartida = usuarios && Object.values(usuarios).map(u => u.clave).filter(Boolean).pop(), clave = compartida || crypto.randomBytes(9).toString("base64url");   // en pruebas usan la misma clave compartida de usuarios.json
+    const jefes = ["jefe1@usil.edu.pe", "jefe2@usil.edu.pe", "jefe3@usil.pe", "jefe4@epg.usil.pe"];
+    for (const [i, email] of jefes.entries()) {
+      try { const x = await admin.auth().getUserByEmail(email); await admin.auth().updateUser(x.uid, { password: clave, emailVerified: true }); }
+      catch (e) { if (e.code !== "auth/user-not-found") throw e; await admin.auth().createUser({ email, password: clave, displayName: "Jefe de prueba " + (i + 1), emailVerified: true }); }
+      await db.doc("lideres/" + email).set({ nombre: "JEFE DE PRUEBA " + (i + 1), puesto: "JEFE DE AREA" });
+    }
+    console.log("Cuentas de prueba de jefes de área:\n  " + jefes.join("\n  ") + "\n  " + (compartida ? "(la clave compartida de usuarios.json)" : "clave: " + clave));
   }
 
   // Ruteo: solo el identificador opaco del BP (ni nombre ni correo: cualquiera con sesión anónima puede leer este documento)
@@ -88,7 +98,7 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
     const items = [];
     filas.forEach(([mat, nombre, puesto, situacion, departamento, area, seccion, mail]) => {
       if (args.includes("--maestro")) items.push([db.doc("maestro/" + mat), { nombre, puesto, situacion, departamento, area, seccion }]);   // por defecto NO se sube el maestro por matrícula: la búsqueda es solo por correo
-      if (mail && /@usil\.edu\.pe$/.test(norm(mail))) { items.push([db.doc("lideres/" + norm(mail)), { nombre, puesto }]); items.push([db.doc("colaboradores/" + norm(mail)), { nombre, puesto, situacion, departamento, area, seccion, matricula: mat }]); }
+      if (mail && /@(usil\.edu\.pe|usil\.pe|epg\.usil\.pe|sir\.pe|sir\.edu\.pe|institutoemprendedores\.pe|institutoemprendedores\.edu\.pe)$/.test(norm(mail))) { items.push([db.doc("lideres/" + norm(mail)), { nombre, puesto }]); items.push([db.doc("colaboradores/" + norm(mail)), { nombre, puesto, situacion, departamento, area, seccion, matricula: mat }]); }
     });
     await lote(items);
     console.log("maestro:", filas.length, "personas");

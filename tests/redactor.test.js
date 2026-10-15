@@ -7,7 +7,7 @@ let n = 0; const ok = (t, f) => { f(); n++; console.log('  ✓', t); };
 const src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 const a = src.search(/const SETS\s*=\s*\{/); let i = src.indexOf('{', a), d = 0, j = i;
 for (; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (!d) break; } }
-const SETS = vm.runInNewContext('const SN=["Sí","No"],SNP=["Sí","No","Parcialmente"],SNC=["Sí","No","Por confirmar"],SNS=["Sí","No","No se sabe"];(' + src.slice(i, j + 1) + ')');
+const SETS = vm.runInNewContext('const PERSONAS=["Ninguna","1","2","3"],SN=["Sí","No"],SNP=["Sí","No","Parcialmente"],SNC=["Sí","No","Por confirmar"],SNS=["Sí","No","No se sabe"];(' + src.slice(i, j + 1) + ')');
 
 /** Registro completo como lo guarda la app: respuestas inventadas para TODAS las preguntas del movimiento. */
 function registro(mov, extra = {}) {
@@ -70,7 +70,8 @@ ok('PUNTOS A VALIDAR: avisa de lo que falta o no cuadra', () => {
   const invertida = redactar({ ...base, levantamiento: base.levantamiento.map(x => x.i === 'fechaFinEnc' ? { ...x, r: '2026-01-01' } : x) });
   assert.ok(invertida.alertas.some(a => /fin de la encargatura es anterior/.test(a)));
   assert.ok(redactar({ ...base, presupuesto: 'Por confirmar' }).alertas.some(a => /presupuesto no está confirmado/.test(a)));
-  assert.ok(redactar({ ...base, presupuesto: 'Sí', montoPresupuesto: '' }).alertas.some(a => /no registra el monto/.test(a)));
+  assert.ok(!redactar({ ...base, presupuesto: 'Sí', montoPresupuesto: '' }).alertas.some(a => /monto/.test(a)), 'el jefe no tiene que conocer el monto');
+  assert.ok(redactar({ ...base, presupuesto: 'Sí', validaPresupuesto: 'Nadie lo ha confirmado aún' }).alertas.some(a => /nadie lo ha confirmado/.test(a)));
   assert.ok(redactar({ ...base, aprobaciones: [] }).alertas.some(a => /no registra ninguna/.test(a)));
   assert.ok(redactar({ ...base, aprobaciones: [{ level: 'Presidencia', name: 'X', evidence: 'No' }] }).alertas.some(a => /no tiene evidencia/.test(a)));
   assert.ok(redactar({ ...base, puntaje: '40' }).alertas.some(a => /preparación bajo \(40\/100\)/.test(a)));
