@@ -18,6 +18,7 @@ const SIN=new Set(["levantamiento","aprobaciones","uid","gestionadoPor","gestion
 const correoJefe=v=>String(v||"").replace(/\+jefe(?=@)/,"").toLowerCase().trim();   // «usuario+jefe@» es la cuenta de formulario de un socio de negocio: su buzón es «usuario@»
 const mailto=c=>{c=correoJefe(c);return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c)?`<a class="mt" href="mailto:${esc(c)}">${esc(c)}</a>`:""};
 const lineaJefe=(n,cargo,c)=>`<div class="pr-jefe"><span class="pr-jefe-t">Jefe solicitante</span><b>${esc(n||"—")}</b>${cargo?` · ${esc(cargo)}`:""}${mailto(c)?` · ${mailto(c)}`:""}</div>`;
+const contarComentarios=l=>{const m={};l.forEach(c=>{const x=m[c.solicitudId]||(m[c.solicitudId]={n:0});x.n++;x.ultimo=c});return m};   // solicitudId → cuántos comentarios y el último
 const plano=(d,extra)=>{const o={};Object.entries(d).forEach(([k,v])=>{if(extra||!SIN.has(k))o[k]=v});return o};
 const pares=d=>(d.levantamiento||[]).map(x=>[x.p,x.r]);
 const nombres=async()=>{if(!nombres.c){nombres.c={};(await FB.getDocs(FB.collection(FB.db,"bps"))).forEach(d=>{nombres.c[d.id]=d.data().nombre})}return nombres.c};
@@ -47,7 +48,23 @@ const API={
     return sesion();
   },
   panelQuien:sesion,
-  async panelDatos(vista){const q=await sesion();return {email:q.email,bpId:q.bpId,vistas:q.vistas,vista,filas:(await filas(vista,q)).map(d=>plano(d)),estados:CFG[vista].estados,editables:CFG[vista].editables}},
+  async panelDatos(vista){const q=await sesion();return {email:q.email,bpId:q.bpId,vistas:q.vistas,vista,filas:(await filas(vista,q)).map(d=>plano(d)),estados:CFG[vista].estados,editables:CFG[vista].editables,comentarios:contarComentarios(await API.panelComentarios(vista).catch(()=>[]))}},
+  /** Comentarios internos (HRBP ↔ Gerencia): el jefe nunca los ve. El HRBP lee los de su cartera; Gerencia, todos. */
+  async panelComentarios(vista){
+    const q=await sesion();if(!CFG[vista]||!q.vistas.includes(vista))throw new Error("Sin acceso");
+    const c=FB.collection(FB.db,"comentarios");
+    return (await FB.getDocs(vista==="bp"?FB.query(c,FB.where("bpId","==",q.bpId)):c)).docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  },
+  async panelComentar(id,texto){
+    const q=await sesion();texto=String(texto||"").trim();if(texto.length<2)throw new Error("Escribe el comentario.");
+    const vista=q.vistas.includes("gerencia")&&!q.vistas.includes("bp")?"gerencia":(q.vistas.includes("bp")?"bp":"gerencia");
+    let sol;try{sol=(await FB.getDoc(FB.doc(FB.db,"solicitudes",id))).data()}catch(e){throw new Error("Esta solicitud ya no está disponible para ti.")}
+    // quien tiene los dos roles comenta con el que corresponde a la solicitud: socio de negocio si es de su cartera, si no Gerencia
+    const rol=q.vistas.includes("bp")&&sol.bpId===q.bpId?"bp":"gerencia";
+    try{await FB.setDoc(FB.doc(FB.collection(FB.db,"comentarios")),{solicitudId:id,bpId:sol.bpId,texto:texto.slice(0,1000),por:q.email,rol,fecha:new Date().toISOString()})}
+    catch(e){throw new Error(e.code==="permission-denied"?"No puedes comentar esta solicitud (Gerencia solo comenta lo que ya le pasaron).":e.message)}
+    return {ok:true};
+  },
   async panelExportar(vista){return (await filas(vista,await sesion())).map(d=>({...plano(d),levantamiento:pares(d),aprobaciones:d.aprobaciones||[]}))},
   async panelDetalle(id,vista){
     await sesion();const s=await FB.getDoc(FB.doc(FB.db,"solicitudes",id));if(!s.exists())throw new Error("Solicitud no disponible");const d=s.data();
@@ -55,11 +72,15 @@ const API={
     const [presupuestoInterno,traza]=await Promise.all([
       FB.getDoc(FB.doc(FB.db,"solicitudes",id,"interno","presupuesto")).then(x=>x.exists()?x.data():null).catch(()=>null),
       FB.getDocs(FB.query(FB.collection(FB.db,"eventos"),FB.where("solicitudId","==",id))).then(r=>r.docs.map(x=>x.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)))).catch(()=>[])]);
-    return {presupuestoInterno,traza,puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
+    const comentarios=await FB.getDocs(FB.query(FB.collection(FB.db,"comentarios"),FB.where("solicitudId","==",id))).then(r=>r.docs.map(x=>x.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)))).catch(()=>[]);
+    return {presupuestoInterno,traza,comentarios,puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
   },
   async panelTraza(id){
-    await sesion();
-    return (await FB.getDocs(FB.query(FB.collection(FB.db,"eventos"),FB.where("solicitudId","==",id)))).docs.map(x=>x.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+    await sesion();const orden=(a,b)=>String(a.fecha).localeCompare(String(b.fecha));
+    const [traza,comentarios]=await Promise.all([
+      FB.getDocs(FB.query(FB.collection(FB.db,"eventos"),FB.where("solicitudId","==",id))).then(r=>r.docs.map(x=>x.data()).sort(orden)),
+      FB.getDocs(FB.query(FB.collection(FB.db,"comentarios"),FB.where("solicitudId","==",id))).then(r=>r.docs.map(x=>x.data()).sort(orden)).catch(()=>[])]);
+    return {traza,comentarios};
   },
   async panelEventos(vista){
     const q=await sesion();if(!CFG[vista]||!q.vistas.includes(vista))throw new Error("Sin acceso");
@@ -212,15 +233,16 @@ const chipsPeriodo=pers=>{const asc=pers.slice().reverse(),vis=filtro.verMas?asc
 const onF=f=>{if(!f)return"";const i=f.indexOf(":");return filtro[f.slice(0,i)]===f.slice(i+1)?" on":""};
 const kpiPx=(cl,n,t,s,f)=>`<button type="button" class="px-kpi ${cl}${onF(f)}" ${f?`data-f="${f}"`:""}><span>${t}</span><b>${esc(n)}</b><em>${s}</em></button>`;
 const barraPx=(clave,pares)=>{const max=Math.max(1,...pares.map(x=>x[1]));return pares.length?pares.map(([k,n])=>`<button type="button" class="px-bar${clave&&filtro[clave]===k?" on":""}" ${clave?`data-f="${clave}:${esc(k)}"`:""}><span class="n" title="${esc(k)}">${esc(k)}</span><span class="t"><i style="width:${Math.round(n/max*100)}%"></i></span><b>${n}</b></button>`).join(""):'<p class="muted">Sin datos.</p>'};
+const insigniaCom=id=>{const c=D&&D.comentarios&&D.comentarios[id];return c?` <span class="bcom" title="${esc(c.n+" comentario"+(c.n===1?"":"s")+" interno"+(c.n===1?"":"s")+" · último de "+(c.ultimo.por||"")+": "+String(c.ultimo.texto||"").slice(0,80))}">💬 ${c.n}</span>`:""};
 function tablaBandeja(F,V,rol){
   const per=[...new Set(F.map(f=>f.periodo).filter(Boolean))].sort().reverse();
   return `<section class="gx-card" id="bandeja"><h3>${rol==="gerencia"?"Todas las solicitudes":"Bandeja completa"}</h3>
    <div class="tools"><input id="fq" placeholder="Buscar por colaborador, área o movimiento…" value="${esc(filtro.q)}" style="min-width:240px;flex:1"><select id="fe"><option value="">Todos los estados</option>${(rol==="gerencia"?["Enviado a Gerencia","Aprobado","Rechazado"]:["Por revisar",...ALL]).map(x=>`<option value="${esc(x)}"${x===filtro.estado?" selected":""}>${esc(eb(x))}</option>`).join("")}</select>
-   ${rol==="gerencia"?"":`<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select>`}<button class="p" id="xls">⬇ Descargar Excel</button><button class="p" id="trz">⬇ Trazabilidad</button></div>
+   ${rol==="gerencia"?"":`<select id="fp"><option value="">Todos los periodos</option>${per.map(p=>`<option ${p===filtro.periodo?"selected":""}>${esc(p)}</option>`).join("")}</select>`}<button class="p" id="xls">⬇ Descargar Excel</button><button class="p" id="trz">⬇ Descargar trazabilidad</button></div>
    ${["periodo","movimiento","departamento","estado","atencion"].some(k=>filtro[k])?`<div class="tools">${["periodo","movimiento","departamento","estado","atencion"].filter(k=>filtro[k]).map(k=>`<button type="button" class="gx-chip" data-f="${k}:${esc(filtro[k])}">${esc(k==="periodo"?periodoTxt(filtro[k]):k==="atencion"?ETIQ[filtro[k]]:eb(filtro[k]))} ✕</button>`).join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
    ${rol==="gerencia"&&SEL.size?`<div class="px-selbar"><b>${SEL.size}</b> caso${SEL.size===1?"":"s"} seleccionado${SEL.size===1?"":"s"}<button type="button" class="px-tog corte" id="btnCorte">✂ Hacer corte con la selección</button><button type="button" class="gx-chip" id="limpiarSel">Quitar selección</button></div>`:""}
    <div class="wrap"><table><tr>${rol==="gerencia"?`<th class="csel"><input type="checkbox" class="sel" id="selTodo" title="Seleccionar lo visible"${V.length&&V.slice(0,100).every(f=>SEL.has(f.id))?" checked":""}></th>`:""}<th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>Socio de negocio</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th></th></tr>
-   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}">${rol==="gerencia"?`<td class="csel"><input type="checkbox" class="sel" data-sel="${esc(f.id)}"${SEL.has(f.id)?" checked":""}></td>`:""}<td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button> <button type="button" class="gx-ver" data-trz="${esc(f.id)}" title="Ver el seguimiento de este caso">Trazabilidad</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
+   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}">${rol==="gerencia"?`<td class="csel"><input type="checkbox" class="sel" data-sel="${esc(f.id)}"${SEL.has(f.id)?" checked":""}></td>`:""}<td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}${insigniaCom(f.id)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button> <button type="button" class="gx-ver" data-trz="${esc(f.id)}" title="Ver el seguimiento de este caso">Trazabilidad</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
 }
 function pintarGerencia(){
   const hoy=new Date(),todos=metricas(D.filas,"",hoy);
@@ -478,32 +500,121 @@ function construirExcel(ExcelJS, rows, meta) {
   }
   return wb;
 }
+
+/** Libro «Trazabilidad» con buen formato: un resumen, una ficha por caso con su historia paso a paso (con los comentarios internos y el tiempo entre pasos) y una hoja plana para filtrar. */
+function construirExcelTrazabilidad(ExcelJS, rows, meta) {
+  const NAVY = "FF00195A", GRIS = "FFF3F6FC", AMARILLO = "FFFFF1C9", BORDE = { style: "thin", color: { argb: "FFD9E1F5" } };
+  const borde = { top: BORDE, bottom: BORDE, left: BORDE, right: BORDE };
+  const ESTADO = { "Aprobado": "FFD7F3E0", "Rechazado": "FFFBD9D9", "Enviado a Gerencia": "FFD9E6FF", "Devuelto al jefe": "FFFFE8B3", "En revisión BP": "FFFFF4C2", "Nuevo": "FFEDEFF5", "En pausa": "FFE5E5E5" };
+  const ROL = { bp: "Socio de negocio", gerencia: "Gerencia", jefe: "Jefe solicitante" };
+  const relleno = argb => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+  const txt = v => (v == null ? "" : String(v));
+  const local = iso => { const d = new Date(iso); return isNaN(d) ? null : new Date(d.getTime() - d.getTimezoneOffset() * 60000); };   // ExcelJS guarda en UTC: se corre a hora local para que Excel muestre la hora real
+  const dur = ms => {
+    if (ms == null || isNaN(ms) || ms < 0) return "";
+    const m = Math.round(ms / 60000); if (m < 1) return "menos de 1 min"; if (m < 60) return m + " min";
+    const h = Math.floor(m / 60); if (h < 24) return h + " h" + (m % 60 ? " " + (m % 60) + " min" : "");
+    const d = Math.floor(h / 24); return d + " d" + (h % 24 ? " " + (h % 24) + " h" : "");
+  };
+  const wb = new ExcelJS.Workbook(); wb.creator = "Solicitudes de Talento · USIL"; wb.created = new Date();
+  const ordenadas = rows.slice().sort((x, y) => txt(y.enviadoEl || y.fechaSolicitud).localeCompare(txt(x.enviadoEl || x.fechaSolicitud)));
+  const pasosDe = r => {
+    const ev = (meta.eventos || []).filter(e => e.solicitudId === r.id).map(e => ({ t: e.fecha, tipo: e.tipo, de: e.de, a: e.a, por: e.por, rol: e.rol, c: e.comentario, interno: false }));
+    const co = (meta.comentarios || []).filter(c => c.solicitudId === r.id).map(c => ({ t: c.fecha, tipo: "Comentario interno", de: "", a: "", por: c.por, rol: c.rol, c: c.texto, interno: true }));
+    return [{ t: r.enviadoEl || r.fechaSolicitud, tipo: "Envío de la solicitud", de: "", a: "Nuevo", por: r.enviadoPor, rol: "jefe", c: "", interno: false }, ...ev, ...co].sort((x, y) => txt(x.t).localeCompare(txt(y.t)));
+  };
+  const casos = ordenadas.map(r => { const p = pasosDe(r), t0 = new Date(p[0].t).getTime(), t1 = new Date(p[p.length - 1].t).getTime(); return { r, p, total: dur(t1 - t0), cerrado: ["Aprobado", "Rechazado"].includes(r.estado) }; });
+
+  // ---- Resumen
+  const rs = wb.addWorksheet("Resumen", { views: [{ showGridLines: false }], properties: { tabColor: { argb: NAVY } } });
+  rs.columns = [{ width: 44 }, { width: 16 }, { width: 4 }, { width: 30 }, { width: 14 }];
+  rs.mergeCells("A1:E1"); rs.getCell("A1").value = meta.titulo; rs.getCell("A1").font = { bold: true, size: 16, color: { argb: NAVY } }; rs.getRow(1).height = 28;
+  rs.getCell("A2").value = "Generado el " + meta.fecha + " por " + meta.usuario; rs.getCell("A2").font = { italic: true, color: { argb: "FF5B6A8F" } };
+  const nPasos = casos.reduce((a, c) => a + c.p.length, 0), nCom = casos.reduce((a, c) => a + c.p.filter(x => x.interno).length, 0);
+  const devueltos = casos.filter(c => c.p.some(x => x.a === "Devuelto al jefe")).length, resueltos = casos.filter(c => c.cerrado);
+  const prom = resueltos.length ? dur(resueltos.reduce((a, c) => a + (new Date(c.p[c.p.length - 1].t) - new Date(c.p[0].t)), 0) / resueltos.length) : "—";
+  [["Casos en este archivo", casos.length], ["Pasos registrados", nPasos], ["Comentarios internos", nCom], ["Casos devueltos al jefe al menos una vez", devueltos], ["Casos resueltos (aprobados o rechazados)", resueltos.length], ["Tiempo promedio hasta resolverse", prom]].forEach((k, i) => {
+    const f = rs.getRow(4 + i); f.getCell(1).value = k[0]; f.getCell(2).value = k[1]; f.getCell(1).font = { bold: true }; f.getCell(2).font = { bold: true, size: 13, color: { argb: NAVY } }; f.getCell(2).alignment = { horizontal: "center" };
+    [1, 2].forEach(c => { f.getCell(c).border = borde; if (i % 2) f.getCell(c).fill = relleno(GRIS); });
+  });
+  const hE = rs.getRow(12); ["Estado actual", "Casos"].forEach((t, i) => { const c = hE.getCell(i + 1); c.value = t; c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = relleno(NAVY); c.alignment = { horizontal: i ? "center" : "left" }; });
+  const porEstado = {}; casos.forEach(c => { const e = txt(c.r.estado) || "Nuevo"; porEstado[e] = (porEstado[e] || 0) + 1; });
+  Object.entries(porEstado).sort((a, b) => b[1] - a[1]).forEach(([e, n], i) => { const f = rs.getRow(13 + i); f.getCell(1).value = e; f.getCell(2).value = n; f.getCell(1).fill = relleno(ESTADO[e] || ESTADO.Nuevo); f.getCell(2).alignment = { horizontal: "center" }; [1, 2].forEach(c => { f.getCell(c).border = borde; }); });
+
+  // ---- Trazabilidad: una ficha por caso
+  const ws = wb.addWorksheet("Trazabilidad", { views: [{ state: "frozen", ySplit: 4, showGridLines: false }], properties: { tabColor: { argb: "FF1E9E5A" } } });
+  ws.columns = [{ key: "n", width: 6 }, { key: "f", width: 12 }, { key: "h", width: 8 }, { key: "ev", width: 24 }, { key: "de", width: 20 }, { key: "a", width: 20 }, { key: "por", width: 32 }, { key: "rol", width: 18 }, { key: "c", width: 70 }, { key: "d", width: 18 }];
+  ws.mergeCells("A1:J1"); ws.getCell("A1").value = meta.titulo; ws.getCell("A1").font = { bold: true, size: 16, color: { argb: NAVY } }; ws.getRow(1).height = 28;
+  ws.mergeCells("A2:J2"); ws.getCell("A2").value = "Cada caso muestra su historia paso a paso: lo que envió el jefe, cada gestión del socio de negocio y de Gerencia, y los comentarios internos (en amarillo)."; ws.getCell("A2").font = { italic: true, color: { argb: "FF5B6A8F" } };
+  const cab = ws.getRow(4); ["N°", "Fecha", "Hora", "Evento", "De", "A", "Por", "Rol", "Comentario", "Tiempo desde el paso anterior"].forEach((t, i) => {
+    const c = cab.getCell(i + 1); c.value = t; c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = relleno(NAVY); c.alignment = { vertical: "middle", horizontal: "center", wrapText: true }; c.border = borde; }); cab.height = 32;
+  casos.forEach(({ r, p, total }) => {
+    const b = ws.addRow([]), n = b.number; ws.mergeCells("A" + n + ":E" + n); ws.mergeCells("F" + n + ":J" + n);
+    const izq = ws.getCell("A" + n), der = ws.getCell("F" + n);
+    izq.value = [r.id, txt(r.colaborador), txt(r.movimiento), txt(r.departamento)].filter(Boolean).join("   ·   "); izq.font = { bold: true, color: { argb: "FFFFFFFF" } }; izq.fill = relleno("FF0A2E80"); izq.alignment = { vertical: "middle", wrapText: true };
+    der.value = "Estado: " + (txt(r.estado) || "Nuevo") + "   ·   Socio de negocio: " + (txt(r.bp) || "—") + "   ·   " + p.length + " pasos   ·   " + (total || "—") + " en total"; der.font = { bold: true, color: { argb: NAVY } }; der.fill = relleno(ESTADO[r.estado || "Nuevo"] || ESTADO.Nuevo); der.alignment = { vertical: "middle", wrapText: true };
+    b.height = 30;
+    p.forEach((x, i) => {
+      const d = local(x.t), f = ws.addRow({ n: i + 1, f: d, h: d, ev: x.tipo, de: x.de ? txt(x.de) : "", a: txt(x.a), por: txt(x.por), rol: ROL[x.rol] || txt(x.rol), c: txt(x.c), d: i ? dur(new Date(x.t) - new Date(p[i - 1].t)) : "" });
+      f.eachCell(c => { c.alignment = { vertical: "top", wrapText: true }; c.border = borde; if (x.interno) c.fill = relleno(AMARILLO); });
+      f.getCell("n").alignment = { vertical: "top", horizontal: "center" }; f.getCell("f").numFmt = "dd/mm/yyyy"; f.getCell("h").numFmt = "hh:mm"; f.getCell("d").alignment = { vertical: "top", horizontal: "center" };
+      f.getCell("ev").font = { bold: true, color: { argb: NAVY } };
+      if (!x.interno) { [["de", x.de], ["a", x.a]].forEach(([k, e]) => { if (ESTADO[e]) f.getCell(k).fill = relleno(ESTADO[e]); }); }
+    });
+    ws.addRow([]);   // espacio entre casos
+  });
+  ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "4:4" };
+
+  // ---- Datos: una fila por paso, para filtrar y ordenar
+  const wd = wb.addWorksheet("Datos (filtrable)", { views: [{ state: "frozen", ySplit: 1 }], properties: { tabColor: { argb: "FF7A8CC0" } } });
+  wd.columns = [{ header: "ID caso", key: "id", width: 24 }, { header: "Colaborador", key: "col", width: 28 }, { header: "Movimiento", key: "mov", width: 22 }, { header: "Departamento", key: "dep", width: 32 }, { header: "Estado actual del caso", key: "est", width: 22 }, { header: "Socio de negocio", key: "bp", width: 20 },
+    { header: "N°", key: "n", width: 6 }, { header: "Fecha", key: "f", width: 12 }, { header: "Hora", key: "h", width: 8 }, { header: "Evento", key: "ev", width: 24 }, { header: "De", key: "de", width: 20 }, { header: "A", key: "a", width: 20 }, { header: "Por", key: "por", width: 32 }, { header: "Rol", key: "rol", width: 18 }, { header: "Comentario", key: "c", width: 70 }, { header: "Tiempo desde el paso anterior", key: "d", width: 20 }];
+  const hd = wd.getRow(1); hd.height = 32; hd.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = relleno(NAVY); c.alignment = { vertical: "middle", horizontal: "center", wrapText: true }; c.border = borde; });
+  casos.forEach(({ r, p }) => p.forEach((x, i) => {
+    const d = local(x.t), f = wd.addRow({ id: r.id, col: txt(r.colaborador), mov: txt(r.movimiento), dep: txt(r.departamento), est: txt(r.estado) || "Nuevo", bp: txt(r.bp), n: i + 1, f: d, h: d, ev: x.tipo, de: txt(x.de), a: txt(x.a), por: txt(x.por), rol: ROL[x.rol] || txt(x.rol), c: txt(x.c), d: i ? dur(new Date(x.t) - new Date(p[i - 1].t)) : "" });
+    f.eachCell(c => { c.alignment = { vertical: "top", wrapText: true }; c.border = borde; if (x.interno) c.fill = relleno(AMARILLO); });
+    f.getCell("f").numFmt = "dd/mm/yyyy"; f.getCell("h").numFmt = "hh:mm"; if (ESTADO[f.getCell("est").value]) f.getCell("est").fill = relleno(ESTADO[f.getCell("est").value]);
+  }));
+  wd.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 16 } };
+  return wb;
+}
 // </excel>
 
 /** Línea de tiempo de UN caso: lo que envió el jefe y cada paso (derivaciones entre socios de negocio, devoluciones, escalada, decisión). Se VE en pantalla; el Excel con todos los casos sigue en «⬇ Trazabilidad». */
 const ROLES_TRAZA={bp:"Socio de negocio",gerencia:"Gerencia"};
-const htmlTraza=(f,traza)=>`<section class="sec"><h4>Trazabilidad</h4><div class="tlin"><div><b>Solicitud enviada</b> · ${esc(f.fechaSolicitud)}<br><small>${esc(f.cliente||"—")}${mailto(f.enviadoPor)?" · "+mailto(f.enviadoPor):""}</small></div>${(traza||[]).map(e=>`<div><b>${esc(e.tipo)}</b> · ${esc(eb(e.de||"—"))} → ${esc(eb(e.a))}<br><small>${esc(e.por)} (${esc(ROLES_TRAZA[e.rol]||e.rol)}) · ${esc(fechaHora(e.fecha))}</small>${e.comentario?`<br>${esc(e.comentario)}`:""}</div>`).join("")}</div></section>`;
+const htmlTraza=(f,traza,coment)=>{
+  const pasos=[...(traza||[]).map(e=>({...e,t:e.fecha})),...(coment||[]).map(c=>({tipo:"Comentario interno",por:c.por,rol:c.rol,comentario:c.texto,t:c.fecha,interno:true}))].sort((a,b)=>String(a.t).localeCompare(String(b.t)));
+  return `<section class="sec"><h4>Trazabilidad</h4><div class="tlin"><div><b>Solicitud enviada</b> · ${esc(f.fechaSolicitud)}<br><small>${esc(f.cliente||"—")}${mailto(f.enviadoPor)?" · "+mailto(f.enviadoPor):""}</small></div>${pasos.map(e=>e.interno
+    ?`<div class="int"><b>💬 Comentario interno</b><br><small>${esc(e.por)} (${esc(ROLES_TRAZA[e.rol]||e.rol)}) · ${esc(fechaHora(e.t))}</small><br>${esc(e.comentario)}</div>`
+    :`<div><b>${esc(e.tipo)}</b> · ${esc(eb(e.de||"—"))} → ${esc(eb(e.a))}<br><small>${esc(e.por)} (${esc(ROLES_TRAZA[e.rol]||e.rol)}) · ${esc(fechaHora(e.fecha))}</small>${e.comentario?`<br>${esc(e.comentario)}`:""}</div>`).join("")}</div></section>`;
+};
+/** Comentarios internos de un caso + el botón para agregar uno. Los ven solo el Socio de negocio del caso y Gerencia. */
+const htmlComentarios=(lista,vista)=>`<section class="sec" id="comSec"><h4>Comentarios internos <span class="orig">· solo Socio de negocio y Gerencia (el jefe no los ve)</span></h4>
+  ${(lista||[]).length?(lista||[]).map(c=>`<div class="qa"><span>${esc(ROLES_TRAZA[c.rol]||c.rol)} · ${esc(c.por)} · ${esc(fechaHora(c.fecha))}</span><p>${esc(c.texto)}</p></div>`).join(""):'<p class="muted" style="margin:0 0 8px">Aún no hay comentarios.</p>'}
+  <label class="lbl" for="cTxt" style="margin-top:10px">${vista==="gerencia"?"Comentario para el Socio de negocio":"Comentario para Gerencia (llega hasta Karla)"}</label>
+  <textarea id="cTxt" rows="2" maxlength="1000" placeholder="Escribe aquí lo que quieres dejar anotado…" style="width:100%"></textarea>
+  <div class="acts"><button type="button" class="btn ok" id="cBtn">💬 Agregar comentario</button></div></section>`;
 function verTraza(id){
   const f=D.filas.find(x=>x.id===id);if(!f)return;
-  google.script.run.withFailureHandler(fail).withSuccessHandler(traza=>{
+  google.script.run.withFailureHandler(fail).withSuccessHandler(({traza,comentarios})=>{
     const dlg=$("dlg");
     dlg.innerHTML=`<div class="dh"><div><span class="mov">Trazabilidad</span><h2>${esc(f.colaborador)}</h2><div class="meta"><span class="tag ${esc(f.estado)}">${esc(eb(f.estado||"Nuevo"))}</span><span>${esc(f.movimiento)}</span><span class="id">${esc(f.id)}</span></div></div><button type="button" class="x" id="cerrarT" aria-label="Cerrar">✕</button></div>
-     <div class="db">${htmlTraza(f,traza)}</div>
+     <div class="db">${htmlTraza(f,traza,comentarios)}</div>
      <div class="df"><div class="acts"><button type="button" class="btn sec" id="cerrarT2">Cerrar</button><span class="sp"></span><button type="button" class="btn ok" id="verCasoT">Ver caso completo</button></div></div>`;
     dlg.showModal();dlg.scrollTop=0;
     $("cerrarT").onclick=$("cerrarT2").onclick=()=>dlg.close();$("verCasoT").onclick=()=>detalle(id);dlg.onclick=e=>{if(e.target===dlg)dlg.close()};
   }).panelTraza(id);
 }
 function descargar(soloTraz){
-  const id=soloTraz?"trz":"xls",txt=soloTraz?"⬇ Trazabilidad":"⬇ Descargar Excel";
+  const id=soloTraz?"trz":"xls",txt=soloTraz?"⬇ Descargar trazabilidad":"⬇ Descargar Excel";
   const btn=(t,off)=>{const b=$(id);if(b){b.textContent=t;b.disabled=off}};
   btn("Preparando…",true);
   google.script.run.withFailureHandler(e=>{btn(txt,false);alert(e.message||e)}).withSuccessHandler(async rows=>{
     try{
-      const eventos=await API.panelEventos(vista).catch(()=>[]),cortes=vista==="gerencia"?await API.panelCortes().catch(()=>[]):[];
+      const eventos=await API.panelEventos(vista).catch(()=>[]),comentarios=await API.panelComentarios(vista).catch(()=>[]),cortes=vista==="gerencia"?await API.panelCortes().catch(()=>[]):[];
       if(typeof ExcelJS==="undefined") throw new Error("No se pudo cargar la librería de Excel. Revisa tu conexión y recarga.");
-      const wb=construirExcel(ExcelJS,rows,{eventos,cortes,titulo:"Solicitudes de Talento · "+TITULOS[vista],usuario:D.email,fecha:new Date().toLocaleString("es-PE")});
-      if(soloTraz)wb.worksheets.filter(w=>w.name!=="Trazabilidad").forEach(w=>wb.removeWorksheet(w.id));   // solo la hoja de trazabilidad
+      const meta={eventos,cortes,comentarios,titulo:"Solicitudes de Talento · "+TITULOS[vista],usuario:D.email,fecha:new Date().toLocaleString("es-PE")};
+      const wb=soloTraz?construirExcelTrazabilidad(ExcelJS,rows,{...meta,titulo:"Trazabilidad de solicitudes · "+TITULOS[vista]}):construirExcel(ExcelJS,rows,meta);
       const buf=await wb.xlsx.writeBuffer();
       const a=document.createElement("a");
       a.href=URL.createObjectURL(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
@@ -585,19 +696,21 @@ function detalle(id){
         <div style="grid-column:1/-1"><label class="lbl" for="pn">Nota (opcional)</label><input id="pn" maxlength="300" value="${esc(PB.pn)}" style="width:100%"></div></div>
         <div class="acts"><span class="muted">Se guarda con cualquier acción de abajo, o ahora mismo:</span><button type="button" class="btn sec" id="gpres">Guardar presupuesto</button></div></section>`
       :`<section class="sec"><h4>Presupuesto confirmado por el Socio de negocio</h4><div class="grid">${fila("¿Hay presupuesto?",f.presupuestoConfirmado||"Sin confirmar")}${fila("Monto",pi&&pi.monto)}${fila("Nota",pi&&pi.nota)}${pi?fila("Registrado por",pi.por+" · "+fechaHora(pi.fecha)):""}</div></section>`;
-    const secTraza=htmlTraza(f,d.traza);
+    const secTraza=htmlTraza(f,d.traza,d.comentarios),secComent=htmlComentarios(d.comentarios,vista);
     const susten=(d.sustento||base)?`<section class="sec px-sus"><h4>Sustento ejecutivo</h4><p class="tx-p ejec">${marcar(d.sustento||base.split("\n").slice(0,2).join(" "))}</p></section>`:"";
     $("dlg").innerHTML=`
      <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
        <div class="meta"><span class="tag ${esc(f.estado)}">${esc(eb(f.estado||"Nuevo"))}</span><span>${esc(f.fechaSolicitud)}</span><span class="id">${esc(f.id)}</span></div></div>
        <button type="button" class="x" id="cerrarX" aria-label="Cerrar">✕</button></div>
-     <div class="db">${vista==="gerencia"?`${solic}${visib}${secPres}${susten}<button type="button" class="px-det" id="verDet" aria-expanded="false">Ver detallado ▾</button><div id="det" hidden>${secTexto}${secResumen}${secResto}</div>${secTraza}`:`${secTexto}${secResumen}${secPres}${secResto}${secTraza}`}
+     <div class="db">${vista==="gerencia"?`${solic}${visib}${secPres}${secComent}${susten}<button type="button" class="px-det" id="verDet" aria-expanded="false">Ver detallado ▾</button><div id="det" hidden>${secTexto}${secResumen}${secResto}</div>${secTraza}`:`${secTexto}${secResumen}${secPres}${secComent}${secResto}${secTraza}`}
      </div>
      <div class="df">${ed?`<label for="nc">Observación o comentario${vista==="bp"?" (lo ve Gerencia y, si la devuelves, el jefe)":""}</label>
        <textarea id="nc" rows="2" placeholder="Escribe aquí tu observación…">${esc(vista==="bp"?f.comentarioBP:f.comentarioGerencia)}</textarea>
        <div class="acts"><button type="button" class="btn sec" id="cerrar">Cerrar</button><span class="sp"></span>${ACCIONES[vista].map((a,i)=>`<button type="button" class="btn ${a[2]}" data-i="${i}">${esc(a[0])}</button>`).join("")}</div>`
        :`<div class="acts"><span class="muted">Esta solicitud ya no está en tu etapa: solo lectura.</span><span class="sp"></span><button type="button" class="btn sec" id="cerrar">Cerrar</button></div>`}</div>`;
     const dlg=$("dlg");dlg.showModal();dlg.scrollTop=0;evidencias(id);
+    const cb=$("cBtn");if(cb)cb.onclick=()=>{const t=$("cTxt").value.trim();if(t.length<2){$("cTxt").focus();return aviso("Escribe el comentario")}
+      cb.disabled=true;google.script.run.withFailureHandler(e=>{cb.disabled=false;aviso(e.message||e)}).withSuccessHandler(()=>{aviso("✓ Comentario agregado");cargar(vista);detalle(id)}).panelComentar(id,t)};   // se recarga la bandeja (insignia) y el detalle
     ["pc","pm","pn"].forEach(k=>{const e=$(k);if(e)e.oninput=e.onchange=()=>{PB[k]=e.value;PB.sucio=true}});
     const vd=$("verDet");if(vd)vd.onclick=()=>{const h=$("det").hidden;$("det").hidden=!h;vd.textContent=h?"Ocultar detallado ▴":"Ver detallado ▾";vd.setAttribute("aria-expanded",String(h))};
     const cerrar=()=>dlg.close();$("cerrarX").onclick=cerrar;$("cerrar").onclick=cerrar;

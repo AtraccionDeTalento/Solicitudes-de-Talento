@@ -107,6 +107,26 @@ const tz = (id, a, uid, extra = {}) => ({ solicitudId: id, uid, tipo: 'Cambio de
     await S(getDocs(query(collection(bp2, 'eventos'), where('bpId', '==', 'bpid-2'))));                                  // la consulta del panel por bpId sigue valiendo
     await S(getDocs(query(collection(ger, 'eventos'), where('solicitudId', '==', 'S5'))));
   });
+  await t('comentarios internos: el HRBP del caso escribe (con su firma y su rol) y Gerencia lo lee; el jefe, otro HRBP y los anónimos no', async () => {
+    const com = (id, extra = {}) => ({ solicitudId: 'S2', bpId: 'bpid-1', texto: 'Caso sólido; recomiendo aprobar con el monto indicado.', por: BP1, rol: 'bp', fecha: 'hoy', ...extra });
+    const C = (db, id, d) => setDoc(doc(db, 'comentarios', id), d);
+    await admin(db => updateDoc(R(db, 'S2'), { estado: 'Enviado a Gerencia' }));                       // S2 ya está con Gerencia
+    await S(C(bp1, 'K1', com('K1')));
+    await F(C(bp2, 'K2', com('K2', { por: BP2 })));                                                      // otro HRBP
+    await F(C(jefe, 'K3', com('K3', { por: JEFE })));                                                    // el jefe no comenta
+    await F(C(bp1, 'K4', com('K4', { por: BP2 })));                                                      // firma ajena
+    await F(C(bp1, 'K5', com('K5', { texto: '' }))); await F(C(bp1, 'K6', com('K6', { texto: 'x'.repeat(1001) })));
+    await F(C(bp1, 'K7', com('K7', { rol: 'gerencia' })));                                               // un HRBP no se hace pasar por Gerencia
+    await F(C(bp1, 'K8', com('K8', { bpId: 'bpid-2' }))); await F(C(bp1, 'K9', com('K9', { extra: 1 })));
+    await S(C(ger, 'K10', com('K10', { por: GER, rol: 'gerencia', texto: 'Visto. Lo llevo al comité del jueves.' })));    // Gerencia responde un caso que ya le pasaron
+    await F(C(ger, 'K11', com('K11', { solicitudId: 'S1', por: GER, rol: 'gerencia' })));               // S1 aún no le llega a Gerencia
+    await S(getDocs(query(collection(bp1, 'comentarios'), where('solicitudId', '==', 'S2'))));         // el HRBP del caso
+    await S(getDocs(query(collection(bp1, 'comentarios'), where('bpId', '==', 'bpid-1'))));            // lo que carga el panel
+    await S(getDocs(collection(ger, 'comentarios')));                                                    // Gerencia los ve todos
+    await F(getDocs(query(collection(bp2, 'comentarios'), where('solicitudId', '==', 'S2'))));         // otro HRBP
+    await F(getDocs(query(collection(jefe, 'comentarios'), where('solicitudId', '==', 'S2')))); await F(getDoc(doc(jefe, 'comentarios', 'K1')));
+    await F(updateDoc(doc(bp1, 'comentarios', 'K1'), { texto: 'editado' }));                             // no se editan
+  });
   await env.cleanup();
   console.log('\n' + n + ' pruebas de seguimiento y presupuesto OK');
 })().catch(e => { console.error(e); process.exit(1); });

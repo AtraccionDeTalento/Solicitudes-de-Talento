@@ -68,6 +68,23 @@ service cloud.firestore {
         && (!('comentario' in request.resource.data) || request.resource.data.comentario.size() <= 1000);
       allow update, delete: if false;
     }
+    // Comentarios internos: el HRBP escribe para Gerencia (y Gerencia responde). Solo los ven el HRBP del caso y Gerencia; el JEFE nunca. Se agregan, no se editan ni se borran.
+    // Gerencia solo comenta casos que ya le pasaron. El HRBP que recibe una derivación ve también los comentarios anteriores (se consulta por solicitudId).
+    match /comentarios/{id} {
+      allow get, list: if tieneRol('gerencia')
+        || (tieneRol('bp') && resource.data.bpId == bpDe())
+        || (tieneRol('bp') && get(/databases/$(db)/documents/solicitudes/$(resource.data.solicitudId)).data.bpId == bpDe());
+      allow create: if (tieneRol('bp') || tieneRol('gerencia'))
+        && request.resource.data.keys().hasOnly(['solicitudId', 'bpId', 'texto', 'por', 'rol', 'fecha'])
+        && request.resource.data.por == yo()
+        && request.resource.data.texto is string && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() <= 1000
+        && request.resource.data.fecha is string && request.resource.data.fecha.size() <= 40
+        && exists(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId))
+        && request.resource.data.bpId == get(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.bpId
+        && ((request.resource.data.rol == 'bp' && tieneRol('bp') && request.resource.data.bpId == bpDe())
+          || (request.resource.data.rol == 'gerencia' && tieneRol('gerencia') && get(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']));
+      allow update, delete: if false;
+    }
     // Un socio de negocio o Gerencia que también pide como jefe usa una cuenta aparte «usuario+jefe@usil.edu.pe» (clave = su DNI); lee los datos de su correo base.
     match /lideres/{correo} { allow get: if personal() && (correo == yo() || correo == yo().replace('[+]jefe@', '@')); }
     match /maestro/{mat} {
