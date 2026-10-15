@@ -1,6 +1,6 @@
 // Capa Firebase compartida por index.html y panel.html. La configuración web de Firebase NO es secreta: la seguridad la dan firestore.rules.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-import { getAuth, connectAuthEmulator, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, setPersistence, browserSessionPersistence, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { getAuth, connectAuthEmulator, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, setPersistence, browserSessionPersistence, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -15,7 +15,7 @@ const emu = ["localhost", "127.0.0.1"].includes(location.hostname) && !new URLSe
 const app = initializeApp(emu ? { apiKey: "emulador", authDomain: "localhost", projectId: "demo-local", appId: "emulador" } : firebaseConfig);
 export const auth = getAuth(app), db = getFirestore(app);
 if (emu) { connectFirestoreEmulator(db, "127.0.0.1", 8080); connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); }
-export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, writeBatch, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, setPersistence, browserSessionPersistence, signOut };
+export { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, writeBatch, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, setPersistence, browserSessionPersistence, signOut };
 
 /** Correo sin tildes ni ñ y en minúsculas (una «ñ» se escribe «n»), como se guarda en Auth y en las reglas. */
 export const normalizar = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
@@ -29,7 +29,7 @@ const esUsil = email => /^[^@\s]+@(usil\.edu\.pe|usil\.pe|epg\.usil\.pe|sir\.pe|
 /** Mensaje claro según el motivo real del fallo de ingreso (antes cualquier error decía «clave incorrecta», aun si no había conexión). */
 export const mensajeAcceso = codigo => ({
   "auth/network-request-failed": "No hay conexión con el servidor de acceso. Revisa tu internet y vuelve a intentar (en pruebas locales: que los emuladores estén abiertos).",
-  "auth/too-many-requests": "Demasiados intentos fallidos. Espera unos minutos o usa «Recuperar clave».",
+  "auth/too-many-requests": "Demasiados intentos fallidos. Espera unos minutos y vuelve a intentar.",
   "auth/user-disabled": "Tu cuenta está deshabilitada. Avisa a tu Socio de negocio.",
   "auth/invalid-email": "El correo no es válido."
 }[codigo] || "El correo o la clave no coinciden. Si es tu primera vez, tu clave es tu DNI completo.");
@@ -56,14 +56,9 @@ export async function crearCuenta(email, clave, clave2) {
   if (clave !== clave2) throw new Error("Las dos claves no coinciden.");
   let u;
   try { await setPersistence(auth, browserSessionPersistence); u = (await createUserWithEmailAndPassword(auth, email, clave)).user; }
-  catch (e) { throw new Error(e.code === "auth/email-already-in-use" ? "Ese correo ya tiene cuenta: entra con tu clave o usa «Recuperar clave»." : e.code === "auth/weak-password" ? "Esa clave es demasiado débil." : "No se pudo crear la cuenta. Intenta de nuevo."); }
+  catch (e) { throw new Error(e.code === "auth/email-already-in-use" ? "Ese correo ya tiene cuenta: entra con tu clave. Si no la recuerdas, pide que te la restablezcan." : e.code === "auth/weak-password" ? "Esa clave es demasiado débil." : "No se pudo crear la cuenta. Intenta de nuevo."); }
   try { await sendEmailVerification(u); } finally { await signOut(auth); }
   return "Cuenta creada. Te enviamos un enlace a " + email + ": ábrelo para confirmar tu correo y luego entra con tu clave.";
-}
-/** Envía el enlace para elegir una clave nueva. Responde igual exista o no la cuenta (no revela quién tiene cuenta). */
-export async function olvideClave(email) {
-  try { await sendPasswordResetEmail(auth, normalizar(email)); } catch (e) { if (e.code !== "auth/user-not-found" && e.code !== "auth/invalid-email") throw new Error("No se pudo enviar el correo ahora. Intenta más tarde."); }
-  return "Si tu correo tiene cuenta, te llegará un enlace para elegir una clave nueva.";
 }
 export const salir = () => signOut(auth);
 /** HRBP o Gerencia con sesión de correo y clave (verificada) o null: van directo al panel. */

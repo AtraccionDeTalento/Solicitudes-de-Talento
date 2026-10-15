@@ -119,10 +119,10 @@ ok('el hosting no publica .git, .github, tools, tests, docs ni la configuración
 });
 
 ok('cada Business Partner crea su cuenta con su correo y su clave; el correo se confirma y las reglas exigen un rol autorizado', () => {
-  assert.ok(/panelCrear/.test(panel) && /sendEmailVerification/.test(panel) && /panelOlvide/.test(panel) && /sendPasswordResetEmail/.test(panel));
+  assert.ok(/panelCrear/.test(panel) && /sendEmailVerification/.test(panel));
+  assert.ok(!/panelOlvide|sendPasswordResetEmail|olvideClave/.test(panel + leer('firebase.js')), 'la recuperación de clave por correo se eliminó: las claves las restablece el administrador');
   assert.ok(/emailVerified/.test(panel) && /Falta confirmar tu correo/.test(panel), 'sin confirmar el correo no se entra');
   assert.ok(/String\(clave\)\.length<12/.test(panel), 'la clave elegida debe tener 12+ caracteres');
-  assert.ok(/mensaje:"Si tu correo tiene cuenta/.test(panel), 'la recuperación debe responder igual exista o no la cuenta');
   assert.ok(/email_verified == true/.test(rules) && /exists\([^\n]*roles/.test(rules), 'las reglas exigen correo verificado y un rol autorizado');
 });
 
