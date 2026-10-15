@@ -57,6 +57,10 @@ const API={
       FB.getDocs(FB.query(FB.collection(FB.db,"eventos"),FB.where("solicitudId","==",id))).then(r=>r.docs.map(x=>x.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)))).catch(()=>[])]);
     return {presupuestoInterno,traza,puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
   },
+  async panelTraza(id){
+    await sesion();
+    return (await FB.getDocs(FB.query(FB.collection(FB.db,"eventos"),FB.where("solicitudId","==",id)))).docs.map(x=>x.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  },
   async panelEventos(vista){
     const q=await sesion();if(!CFG[vista]||!q.vistas.includes(vista))throw new Error("Sin acceso");
     const c=FB.collection(FB.db,"eventos");
@@ -216,7 +220,7 @@ function tablaBandeja(F,V,rol){
    ${["periodo","movimiento","departamento","estado","atencion"].some(k=>filtro[k])?`<div class="tools">${["periodo","movimiento","departamento","estado","atencion"].filter(k=>filtro[k]).map(k=>`<button type="button" class="gx-chip" data-f="${k}:${esc(filtro[k])}">${esc(k==="periodo"?periodoTxt(filtro[k]):k==="atencion"?ETIQ[filtro[k]]:eb(filtro[k]))} ✕</button>`).join("")}<button type="button" class="gx-chip" data-f="limpiar:1">Limpiar filtros</button></div>`:""}
    ${rol==="gerencia"&&SEL.size?`<div class="px-selbar"><b>${SEL.size}</b> caso${SEL.size===1?"":"s"} seleccionado${SEL.size===1?"":"s"}<button type="button" class="px-tog corte" id="btnCorte">✂ Hacer corte con la selección</button><button type="button" class="gx-chip" id="limpiarSel">Quitar selección</button></div>`:""}
    <div class="wrap"><table><tr>${rol==="gerencia"?`<th class="csel"><input type="checkbox" class="sel" id="selTodo" title="Seleccionar lo visible"${V.length&&V.slice(0,100).every(f=>SEL.has(f.id))?" checked":""}></th>`:""}<th>Fecha</th><th>Colaborador</th><th>Movimiento</th><th>Departamento</th><th>Líder</th><th>Socio de negocio</th><th>Urgencia</th><th>Puntaje</th><th>Estado</th><th></th></tr>
-   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}">${rol==="gerencia"?`<td class="csel"><input type="checkbox" class="sel" data-sel="${esc(f.id)}"${SEL.has(f.id)?" checked":""}></td>`:""}<td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button> <button type="button" class="gx-ver" data-trz="${esc(f.id)}" title="Descargar la trazabilidad de este caso">⬇ Trazabilidad</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
+   ${V.map(f=>`<tr class="f" data-id="${esc(f.id)}">${rol==="gerencia"?`<td class="csel"><input type="checkbox" class="sel" data-sel="${esc(f.id)}"${SEL.has(f.id)?" checked":""}></td>`:""}<td>${esc(f.fechaSolicitud)}</td><td>${esc(f.colaborador)}</td><td>${esc(f.movimiento)}</td><td>${esc(f.departamento)}</td><td>${esc(f.cliente)}</td><td>${esc(f.bp)}${f.derivadoPor?` <span class="pill u3" title="Derivada por otro Socio de negocio">↪ ${esc(f.derivadoPor)}</span>`:""}</td><td><span class="pill ${PILL_U[f.urgencia]||"u4"}">${esc(f.urgencia||"—")}</span></td><td>${esc(f.puntaje||"—")}</td><td><span class="pill ${PILL_E[f.estado]||"e0"}">${esc(eb(f.estado||"Nuevo"))}</span></td><td><button type="button" class="gx-ver" data-ver="${esc(f.id)}">Ver caso</button> <button type="button" class="gx-ver" data-trz="${esc(f.id)}" title="Ver el seguimiento de este caso">Trazabilidad</button></td></tr>`).join("")||'<tr><td colspan="10" class="muted">No hay solicitudes con estos filtros.</td></tr>'}</table></div></section>`;
 }
 function pintarGerencia(){
   const hoy=new Date(),todos=metricas(D.filas,"",hoy);
@@ -329,7 +333,7 @@ $("tabs").onclick=e=>e.target.dataset.v&&cargar(e.target.dataset.v);
 $("app").onclick=e=>{const t=e.target;
   if(t.id==="xls")return descargar();
   if(t.id==="trz")return descargar(true);
-  if(t.dataset.trz)return descargarCaso(t.dataset.trz);
+  if(t.dataset.trz)return verTraza(t.dataset.trz);
   const repintar=()=>{const y=scrollY;pintar();scrollTo(0,y)};
   if(t.dataset&&t.dataset.tog){const b=t.nextElementSibling;b.hidden=!b.hidden;t.textContent=b.hidden?"Ver detallado ▾":"Ocultar detallado ▴";return}
   if(t.id==="btnCorte")return dialogoCorte();
@@ -476,18 +480,19 @@ function construirExcel(ExcelJS, rows, meta) {
 }
 // </excel>
 
-/** Trazabilidad de UN caso (envío del jefe y cada paso: derivaciones entre socios de negocio, devoluciones, escalada, decisión). */
-async function descargarCaso(id){
+/** Línea de tiempo de UN caso: lo que envió el jefe y cada paso (derivaciones entre socios de negocio, devoluciones, escalada, decisión). Se VE en pantalla; el Excel con todos los casos sigue en «⬇ Trazabilidad». */
+const ROLES_TRAZA={bp:"Socio de negocio",gerencia:"Gerencia"};
+const htmlTraza=(f,traza)=>`<section class="sec"><h4>Trazabilidad</h4><div class="tlin"><div><b>Solicitud enviada</b> · ${esc(f.fechaSolicitud)}<br><small>${esc(f.cliente||"—")}${mailto(f.enviadoPor)?" · "+mailto(f.enviadoPor):""}</small></div>${(traza||[]).map(e=>`<div><b>${esc(e.tipo)}</b> · ${esc(eb(e.de||"—"))} → ${esc(eb(e.a))}<br><small>${esc(e.por)} (${esc(ROLES_TRAZA[e.rol]||e.rol)}) · ${esc(fechaHora(e.fecha))}</small>${e.comentario?`<br>${esc(e.comentario)}`:""}</div>`).join("")}</div></section>`;
+function verTraza(id){
   const f=D.filas.find(x=>x.id===id);if(!f)return;
-  try{
-    if(typeof ExcelJS==="undefined")throw new Error("No se pudo cargar la librería de Excel. Revisa tu conexión y recarga.");
-    const eventos=(await API.panelEventos(vista)).filter(e=>e.solicitudId===id);
-    const wb=construirExcel(ExcelJS,[f],{eventos,cortes:[],titulo:"Trazabilidad del caso "+id,usuario:D.email,fecha:new Date().toLocaleString("es-PE")});
-    wb.worksheets.filter(w=>w.name!=="Trazabilidad").forEach(w=>wb.removeWorksheet(w.id));
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
-    a.download="Trazabilidad_"+id+".xlsx";document.body.appendChild(a);a.click();a.remove();
-  }catch(x){alert("No se pudo generar la trazabilidad: "+(x.message||x))}
+  google.script.run.withFailureHandler(fail).withSuccessHandler(traza=>{
+    const dlg=$("dlg");
+    dlg.innerHTML=`<div class="dh"><div><span class="mov">Trazabilidad</span><h2>${esc(f.colaborador)}</h2><div class="meta"><span class="tag ${esc(f.estado)}">${esc(eb(f.estado||"Nuevo"))}</span><span>${esc(f.movimiento)}</span><span class="id">${esc(f.id)}</span></div></div><button type="button" class="x" id="cerrarT" aria-label="Cerrar">✕</button></div>
+     <div class="db">${htmlTraza(f,traza)}</div>
+     <div class="df"><div class="acts"><button type="button" class="btn sec" id="cerrarT2">Cerrar</button><span class="sp"></span><button type="button" class="btn ok" id="verCasoT">Ver caso completo</button></div></div>`;
+    dlg.showModal();dlg.scrollTop=0;
+    $("cerrarT").onclick=$("cerrarT2").onclick=()=>dlg.close();$("verCasoT").onclick=()=>detalle(id);dlg.onclick=e=>{if(e.target===dlg)dlg.close()};
+  }).panelTraza(id);
 }
 function descargar(soloTraz){
   const id=soloTraz?"trz":"xls",txt=soloTraz?"⬇ Trazabilidad":"⬇ Descargar Excel";
@@ -580,8 +585,7 @@ function detalle(id){
         <div style="grid-column:1/-1"><label class="lbl" for="pn">Nota (opcional)</label><input id="pn" maxlength="300" value="${esc(PB.pn)}" style="width:100%"></div></div>
         <div class="acts"><span class="muted">Se guarda con cualquier acción de abajo, o ahora mismo:</span><button type="button" class="btn sec" id="gpres">Guardar presupuesto</button></div></section>`
       :`<section class="sec"><h4>Presupuesto confirmado por el Socio de negocio</h4><div class="grid">${fila("¿Hay presupuesto?",f.presupuestoConfirmado||"Sin confirmar")}${fila("Monto",pi&&pi.monto)}${fila("Nota",pi&&pi.nota)}${pi?fila("Registrado por",pi.por+" · "+fechaHora(pi.fecha)):""}</div></section>`;
-    const ROLES={bp:"Socio de negocio",gerencia:"Gerencia"};
-    const secTraza=`<section class="sec"><h4>Trazabilidad</h4><div class="tlin"><div><b>Solicitud enviada</b> · ${esc(f.fechaSolicitud)}<br><small>${esc(f.cliente||"—")}${mailto(f.enviadoPor)?" · "+mailto(f.enviadoPor):""}</small></div>${(d.traza||[]).map(e=>`<div><b>${esc(e.tipo)}</b> · ${esc(eb(e.de||"—"))} → ${esc(eb(e.a))}<br><small>${esc(e.por)} (${esc(ROLES[e.rol]||e.rol)}) · ${esc(fechaHora(e.fecha))}</small>${e.comentario?`<br>${esc(e.comentario)}`:""}</div>`).join("")}</div></section>`;
+    const secTraza=htmlTraza(f,d.traza);
     const susten=(d.sustento||base)?`<section class="sec px-sus"><h4>Sustento ejecutivo</h4><p class="tx-p ejec">${marcar(d.sustento||base.split("\n").slice(0,2).join(" "))}</p></section>`:"";
     $("dlg").innerHTML=`
      <div class="dh"><div><span class="mov">${esc(f.movimiento)}</span><h2>${esc(f.colaborador)}</h2>
