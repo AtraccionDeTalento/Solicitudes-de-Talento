@@ -38,13 +38,30 @@ service cloud.firestore {
     }
     // Trazabilidad: cada gestión (devolver, pausar, derivar, escalar, aprobar, rechazar, comentar) deja un evento que nadie edita ni borra.
     // Solo se crea si coincide con lo que la propia persona acaba de hacer en la solicitud (mismo estado, mismo socio de negocio, firmado por ella).
+    // La solicitud y su evento se escriben en el MISMO lote (por eso se valida contra getAfter: lo que la solicitud será al terminar el lote): o queda todo o no queda nada.
     match /eventos/{id} {
-      allow get, list: if tieneRol('gerencia') || (tieneRol('bp') && resource.data.bpId == bpDe());
+      allow get, list: if tieneRol('gerencia') || (tieneRol('bp') && resource.data.bpId == bpDe())
+        || (tieneRol('bp') && get(/databases/$(db)/documents/solicitudes/$(resource.data.solicitudId)).data.bpId == bpDe());   // el HRBP que recibe una derivación ve también el historial anterior (se consulta por solicitudId)
       allow create: if (tieneRol('bp') || tieneRol('gerencia'))
         && request.resource.data.keys().hasOnly(['solicitudId', 'bpId', 'tipo', 'de', 'a', 'por', 'rol', 'fecha', 'comentario'])
         && request.resource.data.por == yo()
-        && exists(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId))
-        && get(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.gestionadoPor == yo() && get(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.estado == request.resource.data.a && get(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.bpId == request.resource.data.bpId
+        && existsAfter(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId))
+        && getAfter(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.gestionadoPor == yo() && getAfter(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.estado == request.resource.data.a && getAfter(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.bpId == request.resource.data.bpId
+        && (!('comentario' in request.resource.data) || request.resource.data.comentario.size() <= 1000);
+      allow update, delete: if false;
+    }
+    // Seguimiento que ve el JEFE: la misma historia que «eventos» pero SIN correos ni nombres de los socios de negocio (solo el rol), porque los jefes no deben conocerlos.
+    // Lo escribe quien gestiona, en el mismo lote que la solicitud; lo lee el dueño de la solicitud. Nadie lo edita ni lo borra.
+    match /trazas/{id} {
+      allow get, list: if (personal() || anonimo()) && resource.data.uid == request.auth.uid;
+      allow create: if (tieneRol('bp') || tieneRol('gerencia'))
+        && request.resource.data.keys().hasOnly(['solicitudId', 'uid', 'tipo', 'de', 'a', 'rol', 'fecha', 'comentario'])
+        && request.resource.data.rol in ['bp', 'gerencia']
+        && existsAfter(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId))
+        && getAfter(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.gestionadoPor == yo()
+        && getAfter(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.estado == request.resource.data.a
+        && getAfter(/databases/$(db)/documents/solicitudes/$(request.resource.data.solicitudId)).data.uid == request.resource.data.uid
+        && request.resource.data.tipo is string && request.resource.data.tipo.size() <= 40
         && (!('comentario' in request.resource.data) || request.resource.data.comentario.size() <= 1000);
       allow update, delete: if false;
     }
@@ -67,7 +84,10 @@ service cloud.firestore {
         if (tieneRol('bp') && resource.data.bpId == bpDe()
           && resource.data.estado in ['Nuevo', 'En revisión BP', 'Devuelto al jefe', 'En pausa']
           && request.resource.data.estado in ['En revisión BP', 'Devuelto al jefe', 'Enviado a Gerencia', 'En pausa']
-          && gestion(['comentarioBP', 'textoGerencia', 'textoOrigen', 'bpId', 'derivadoDe']) && derivacion())
+          && gestion(['comentarioBP', 'textoGerencia', 'textoOrigen', 'bpId', 'derivadoDe', 'presupuestoConfirmado']) && derivacion()
+          // «¿hay presupuesto?» lo confirma el HRBP (Sí o No) y es lo único que ve el jefe; el monto vive aparte (solicitudes/{id}/interno/presupuesto). Sin esa confirmación no se escala a Gerencia.
+          && request.resource.data.get('presupuestoConfirmado', '') in ['', 'Sí', 'No']
+          && (request.resource.data.estado != 'Enviado a Gerencia' || request.resource.data.get('presupuestoConfirmado', '') in ['Sí', 'No']))
         || (tieneRol('gerencia')
           && resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']
           && request.resource.data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado', 'En revisión BP']
@@ -85,6 +105,20 @@ service cloud.firestore {
         || (tieneRol('bp') && get(/databases/$(db)/documents/solicitudes/$(id)).data.bpId == bpDe())
         || (tieneRol('gerencia') && get(/databases/$(db)/documents/solicitudes/$(id)).data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']);
       allow update, delete: if false;
+    }
+
+    // Monto del presupuesto: solo lo escribe y lo lee el HRBP de la solicitud; Gerencia lo lee cuando ya se la pasaron. El jefe (dueño de la solicitud) NO lo puede leer: por eso va en un
+    // documento aparte y no dentro de la solicitud (un campo dentro del documento lo vería su dueño). Se escribe en el mismo lote que la gestión del HRBP.
+    match /solicitudes/{id}/interno/{n} {
+      allow create, update: if n == 'presupuesto' && tieneRol('bp') && get(/databases/$(db)/documents/solicitudes/$(id)).data.bpId == bpDe()
+        && get(/databases/$(db)/documents/solicitudes/$(id)).data.estado in ['Nuevo', 'En revisión BP', 'Devuelto al jefe', 'En pausa']
+        && request.resource.data.keys().hasOnly(['monto', 'nota', 'por', 'fecha']) && request.resource.data.por == yo()
+        && request.resource.data.monto is string && request.resource.data.monto.size() <= 60
+        && (!('nota' in request.resource.data) || (request.resource.data.nota is string && request.resource.data.nota.size() <= 300))
+        && request.resource.data.fecha is string && request.resource.data.fecha.size() <= 40;
+      allow get, list: if (tieneRol('bp') && get(/databases/$(db)/documents/solicitudes/$(id)).data.bpId == bpDe())
+        || (tieneRol('gerencia') && get(/databases/$(db)/documents/solicitudes/$(id)).data.estado in ['Enviado a Gerencia', 'Aprobado', 'Rechazado']);
+      allow delete: if false;
     }
 
     // Solo cambian estado, el comentario del rol y quién gestionó.
