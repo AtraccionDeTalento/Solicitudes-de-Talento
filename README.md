@@ -33,3 +33,6 @@ Quien es socio de negocio o Gerencia **y también pide como jefe de área** (por
 - **Panel (HRBP / Gerencia):** `usuario@usil.edu.pe` con su clave propia, en `panel.html`.
 - **Formulario (jefe de área):** `usuario+jefe@usil.edu.pe` con su DNI como clave. En `index.html` se escribe el correo normal y el programa prueba solo con la cuenta `+jefe`; entra como jefe y **no** salta al panel.
 `node tools/cargar-datos.js --jefes=tools/jefes-dni.csv` crea las cuentas `+jefe` del personal del panel.
+
+## Quién puede pedir
+Piden los **jefes de área** (y jefaturas). Las **socias de negocio no crean solicitudes**: en `tools/usuarios.json` su entrada lleva `"pideComoJefe": false`, que `cargar-datos.js` copia a su rol y las **reglas** hacen cumplir en el servidor (ni con la cuenta del panel ni con el alias `usuario+jefe@`). Además no se les crea cuenta de formulario. Quien no tenga la marca (por ejemplo el Subgerente de Talento, que es jefatura) pide con su acceso `+jefe`.

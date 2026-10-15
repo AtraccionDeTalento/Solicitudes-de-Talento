@@ -7,4 +7,5 @@ El correo se escribe sin tildes ni ñ (cmunozse, no cmuñozse). roles: "bp" (HRB
   "ger1@usil.edu.pe":  { "nombre": "Nombre de Gerencia", "roles": ["gerencia"] }
 }
 
+(Opcional: "pideComoJefe": false en una entrada impide que esa persona cree solicitudes (las socias de negocio no piden gente; piden los jefes de área). Si falta, puede pedir.)
 (Opcional, solo para pruebas locales: agregar "clave": "..." crea la cuenta ya lista, sin registro. Las claves reales deben tener 12 o más caracteres.)

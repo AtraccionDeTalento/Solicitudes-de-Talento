@@ -15,6 +15,9 @@ service cloud.firestore {
     function prueba() { return get(/databases/$(db)/documents/config/app).data.modoPrueba == true; }
     function bpDe() { return get(/databases/$(db)/documents/roles/$(yo())).data.bpId; }
     function yo() { return 'email' in request.auth.token ? request.auth.token.email : '-'; }
+    // Quien pide es el JEFE de área. Un socio de negocio al que se le marcó «pideComoJefe: false» en su rol (las socias de negocio) no crea solicitudes, ni con su cuenta del panel
+    // ni con el alias usuario+jefe@. El resto (jefes de área; también el Subgerente de Talento, que tiene rol de socio pero es jefatura) pide con normalidad.
+    function puedePedir() { let base = yo().replace('[+]jefe@', '@'); return !exists(/databases/$(db)/documents/roles/$(base)) || get(/databases/$(db)/documents/roles/$(base)).data.get('pideComoJefe', true) == true; }
     function tieneRol(r) {
       return personal() && exists(/databases/$(db)/documents/roles/$(yo()))
         && r in get(/databases/$(db)/documents/roles/$(yo())).data.roles;
@@ -75,7 +78,7 @@ service cloud.firestore {
 
     match /solicitudes/{id} {
       // ponytail: sin Cloud Functions no hay límite de envíos por usuario; si hace falta, activar App Check o pasar a plan Blaze.
-      allow create: if ((personal() && request.resource.data.enviadoPor == yo()) || (anonimoOk() && dominioOk(request.resource.data.enviadoPor))) && nueva(id, request.resource.data);
+      allow create: if ((personal() && request.resource.data.enviadoPor == yo() && puedePedir()) || (anonimoOk() && dominioOk(request.resource.data.enviadoPor))) && nueva(id, request.resource.data);
       allow get, list:
         if ((personal() || anonimo()) && resource.data.uid == request.auth.uid)
         || (tieneRol('bp') && resource.data.bpId == bpDe())

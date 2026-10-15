@@ -54,7 +54,7 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
       // Sin clave en usuarios.json: no se crea cuenta; la persona se registra sola con su correo y elige su clave (panel → «Crear mi cuenta»).
       const previo = await db.doc("roles/" + email).get();   // el bpId es aleatorio y se conserva entre cargas
       const bpId = u.roles.includes("bp") ? ((previo.exists && previo.data().bpId) || crypto.randomBytes(12).toString("hex")) : null;
-      await db.doc("roles/" + email).set({ nombre: u.nombre, roles: u.roles, ...(bpId ? { bpId } : {}) });
+      await db.doc("roles/" + email).set({ nombre: u.nombre, roles: u.roles, pideComoJefe: u.pideComoJefe !== false, ...(bpId ? { bpId } : {}) });   // pideComoJefe: false = no crea solicitudes (socias de negocio)
       if (bpId) { bpIds[email] = bpId; await db.doc("bps/" + bpId).set({ nombre: u.nombre }); }
       if (!PRUEBA) console.log("usuario:", email, u.roles.join("+"));
     }
@@ -109,9 +109,10 @@ async function lote(items) {   // items: [[ref, data], ...] en tandas de 400
   if (jf) {
     const [cab, ...filas] = csv(fs.readFileSync(jf.slice(8), "utf8").replace(/^﻿/, "")).filter(r => r.length > 1);
     if (cab[0] !== "email" || cab[1] !== "documento") throw new Error("El CSV de jefes debe empezar con las columnas email,documento");
+    const sinPedir = new Set(Object.entries(usuarios || {}).filter(([, u]) => u.pideComoJefe === false).map(([k]) => norm(k)));   // socias de negocio: sin cuenta de formulario
     const personal = new Set(Object.keys(usuarios || {}).map(norm));   // socios de negocio y Gerencia: su cuenta del formulario es usuario+jefe@… (su cuenta del panel conserva su clave)
     let nuevos = 0, previos = 0, fallos = 0, i = 0;
-    const hilo = async () => { while (i < filas.length) { const [mail, doc, nombre] = filas[i++], base = norm(mail), email = personal.has(base) ? base.replace("@", "+jefe@") : base;
+    const hilo = async () => { while (i < filas.length) { const [mail, doc, nombre] = filas[i++], base = norm(mail), email = personal.has(base) ? base.replace("@", "+jefe@") : base; if (sinPedir.has(base)) continue;
       try { await admin.auth().getUserByEmail(email); previos++; }
       catch (e) { if (e.code !== "auth/user-not-found") { fallos++; continue; }
         try { await admin.auth().createUser({ email, password: doc, displayName: nombre, emailVerified: true }); nuevos++; } catch (x) { fallos++; } } } };
