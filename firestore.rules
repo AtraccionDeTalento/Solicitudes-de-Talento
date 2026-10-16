@@ -93,6 +93,9 @@ service cloud.firestore {
       allow list: if (staff() || ((personal() || anonimoOk()) && prueba())) && request.query.limit <= 50 && prueba();
     }
 
+    // Catálogo de descriptivos de puesto: solo lectura para quien ya inició sesión; lo carga el administrador (tools/cargar-dps.js).
+    match /dps/{id} { allow get, list: if personal(); }
+
     match /solicitudes/{id} {
       // ponytail: sin Cloud Functions no hay límite de envíos por usuario; si hace falta, activar App Check o pasar a plan Blaze.
       allow create: if ((personal() && request.resource.data.enviadoPor == yo() && puedePedir()) || (anonimoOk() && dominioOk(request.resource.data.enviadoPor))) && nueva(id, request.resource.data);
@@ -167,9 +170,9 @@ service cloud.firestore {
         && d.enviadoPor.size() < 120
         && d.movimiento in ['Promoción', 'Encargatura', 'Reemplazo', 'Puesto nuevo', 'Incremento salarial', 'Movimiento interno', 'Otro']
         // Solo los campos que envía la app, con tamaños acotados: nadie puede guardar datos ajenos al formulario ni documentos enormes.
-        && d.keys().hasOnly(['id', 'enviadoEl', 'enviadoPor', 'origen', 'periodo', 'levantamiento', 'aprobaciones', 'puntaje', 'clasificacion', 'fortalezas', 'alertas', 'recomendacion', 'fechaSolicitud', 'cliente', 'cargoCliente', 'departamento', 'area', 'seccion', 'codigo', 'colaborador', 'puestoActual', 'movimiento', 'tieneAprobacion', 'presupuesto', 'fuentePresupuesto', 'validaPresupuesto', 'montoPresupuesto', 'urgencia', 'impacto', 'consecuencia', 'impactoDetalle', 'solicitudConcreta', 'uid', 'bpId', 'estado', 'comentarioBP', 'comentarioGerencia'])
+        && d.keys().hasOnly(['id', 'enviadoEl', 'enviadoPor', 'origen', 'periodo', 'levantamiento', 'aprobaciones', 'puntaje', 'clasificacion', 'fortalezas', 'alertas', 'recomendacion', 'fechaSolicitud', 'cliente', 'cargoCliente', 'departamento', 'area', 'seccion', 'codigo', 'colaborador', 'puestoActual', 'movimiento', 'tieneAprobacion', 'presupuesto', 'fuentePresupuesto', 'validaPresupuesto', 'montoPresupuesto', 'urgencia', 'impacto', 'consecuencia', 'impactoDetalle', 'solicitudConcreta', 'uid', 'bpId', 'estado', 'comentarioBP', 'comentarioGerencia', 'dp'])
         && d.keys().hasAll(['id', 'uid', 'bpId', 'estado', 'enviadoPor', 'movimiento', 'departamento', 'impactoDetalle', 'solicitudConcreta', 'comentarioBP', 'comentarioGerencia'])
-        && s(d, 'cliente', 200) && s(d, 'cargoCliente', 200) && s(d, 'colaborador', 200) && s(d, 'puestoActual', 200) && s(d, 'area', 200) && s(d, 'seccion', 200) && s(d, 'validaPresupuesto', 200) && s(d, 'clasificacion', 100) && s(d, 'fortalezas', 2000) && s(d, 'alertas', 2000) && s(d, 'recomendacion', 800) && s(d, 'impactoDetalle', 1000) && s(d, 'solicitudConcreta', 3000)
+        && s(d, 'cliente', 200) && s(d, 'cargoCliente', 200) && s(d, 'colaborador', 200) && s(d, 'puestoActual', 200) && s(d, 'area', 200) && s(d, 'seccion', 200) && s(d, 'validaPresupuesto', 200) && s(d, 'clasificacion', 100) && s(d, 'fortalezas', 2000) && s(d, 'alertas', 2000) && s(d, 'recomendacion', 800) && s(d, 'impactoDetalle', 1000) && s(d, 'solicitudConcreta', 3000) && s(d, 'dp', 8000)
         && s(d, 'origen', 20) && s(d, 'enviadoEl', 40) && s(d, 'fechaSolicitud', 40) && s(d, 'codigo', 60) && s(d, 'tieneAprobacion', 20) && s(d, 'presupuesto', 20) && s(d, 'fuentePresupuesto', 200) && s(d, 'montoPresupuesto', 60) && s(d, 'urgencia', 100) && s(d, 'impacto', 100) && s(d, 'consecuencia', 200) && s(d, 'puntaje', 10)
         && (!('periodo' in d) || (d.periodo is string && d.periodo.matches('20[0-9]{2}-(0[1-9]|1[0-2])')))   // el panel arma meses con el periodo: un valor raro no puede tumbarle la bandeja al Business Partner
         && d.get('levantamiento', []) is list && d.get('levantamiento', []).size() <= 80 && d.get('aprobaciones', []) is list && d.get('aprobaciones', []).size() <= 3

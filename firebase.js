@@ -88,6 +88,12 @@ export async function maestro(extra) {
   return s.exists() ? aItem(s.data()) : null;
 }
 
+/** Catálogo de descriptivos de puesto (colección dps): [{id, titulo, departamento, datos}]. */
+export async function dps() {
+  await conSesion();
+  return (await getDocs(collection(db, "dps"))).docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo)));
+}
+
 /** Socio de negocio asignado a un departamento (solo el nombre, para que el jefe confirme a quién va su solicitud): texto, "" si no hay nombre o null si el departamento no tiene ruteo. */
 export async function socioDe(departamento) {
   if (!departamento) return "";

@@ -8,5 +8,6 @@ const abierto = p => new Promise(ok => { const s = net.connect(p, "127.0.0.1"); 
   process.on("exit", () => emu.kill());
   while (!(await abierto(8080) && await abierto(9099))) await new Promise(r => setTimeout(r, 1500));
   await new Promise(r => correr(["tools/seed-local.js", "--real", "--jefes=tools/jefes-dni.csv"]).on("exit", r));
+  if (require("fs").existsSync(path.join(__dirname, "dps.local.json"))) await new Promise(r => correr(["tools/cargar-dps.js", "--emu"]).on("exit", r));   // catálogo de descriptivos de puesto
   correr(["tools/serve.js"]);
 })();

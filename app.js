@@ -644,6 +644,7 @@ function gather(){
   const per=($("fechaSolicitud").value||today()).slice(0,7);
   const obj={periodo:per,periodoLabel:monthLabel(per)};
   FIXED.forEach(id=>obj[id]=$(id).value);
+  obj.dp=window.DPF?DPF.json():"";
   obj.dynamic={};
   document.querySelectorAll("[data-dynamic='1']").forEach(el=>{if(!el.closest(".hidden")) obj.dynamic[el.id]=el.value});
   obj.approvals=[...document.querySelectorAll(".approval-card")].map(c=>({
@@ -656,6 +657,7 @@ function fill(data){
   FIXED.forEach(id=>$(id).value=data[id]??"");
   if(!$("fechaSolicitud").value) $("fechaSolicitud").value=today();
   renderSpecific();
+  window.DPF&&DPF.cargar(data.dp);
   Object.entries(data.dynamic||{}).forEach(([k,v])=>{const el=$(k);if(el) el.value=v??""});
   applyWhen();
   lockNew(false);
@@ -795,7 +797,7 @@ function presUI(){
   if(e){e.closest(".q").classList.toggle("hidden",v!=="Sí");if(v!=="Sí")e.value=""}
 }
 function ocultarPreguntas(){if(CONFIG.sinPreguntas) document.querySelectorAll("#form .q").forEach(q=>{if(!q.querySelector("#movimiento,#departamento,#confirmo")) q.classList.add("hidden")})}
-function refresh(){ocultarPreguntas();presUI();
+function refresh(){ocultarPreguntas();window.DPF&&DPF.render();presUI();
   let tot=0,okc=0;
   $("form").querySelectorAll("input,select,textarea").forEach(el=>{
     if(el.id==="confirmo"||el.type==="button") return;
@@ -854,6 +856,7 @@ function aPlano(rec){
   const p={id:rec.id,enviadoEl:new Date().toISOString(),enviadoPor:SESSION.email.toLowerCase(),origen:"web",periodo:d.periodo,levantamiento,aprobaciones:d.approvals||[],
     puntaje:String(ev.score??""),clasificacion:ev.label||"",fortalezas:lista(ev.strengths),alertas:lista(ev.alerts),recomendacion:ev.recommendation||""};
   FIXED.forEach(k=>{if(k!=="emailCliente")p[k]=String(d[k]??"")});
+  p.dp=String(d.dp||"");
   return p;
 }
 let submitting=false;

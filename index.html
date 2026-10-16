@@ -30,6 +30,11 @@ header p{margin:2px 0 8px;color:#C9D6F5;font-size:13px}
 #barfill{height:100%;width:0;background:#F3BE00;transition:width .25s}
 #barTxt{color:#C9D6F5;font-size:12px;margin-top:4px}
 .wrap{max-width:1100px;margin:auto;padding:18px 20px 84px}
+@media(min-width:1180px){.wrap{max-width:1560px}#dpCols.conDp{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px;align-items:start}#dpCols.conDp #dpPanel{position:sticky;top:12px;max-height:calc(100vh - 100px);overflow:auto}}
+#dpPanel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px;font-size:14px;box-shadow:0 2px 10px #00195A0A}
+#dpPanel .dpHead{font-weight:800;color:var(--green);text-transform:uppercase;font-size:12px;letter-spacing:.05em;border-bottom:2px solid #E2E8F8;padding-bottom:6px;margin-bottom:10px}
+#dpPanel h4{margin:0 0 4px;font-size:16px}#dpPanel .dpm{color:var(--muted);font-size:13px;margin:4px 0}#dpPanel ul{margin:6px 0 8px;padding-left:18px}#dpPanel details{border-top:1px solid #E8EDFB;padding:6px 0}#dpPanel summary{cursor:pointer;font-weight:700}
+#dpPanel label{display:block;font-weight:600;font-size:13px;margin-top:10px}#dpPanel input,#dpPanel select,#dpPanel textarea{width:100%;margin-top:4px}
 #stepper{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 #stepper button{background:#fff;color:var(--muted);border:1px solid var(--border);padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center}
 #stepper button b{display:inline-flex;width:22px;height:22px;border-radius:50%;background:#E8EDFB;align-items:center;justify-content:center;font-size:12px}
@@ -157,6 +162,8 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
   <nav id="stepper" aria-label="Pasos de la solicitud"></nav>
   <div id="errSummary" class="alert hidden" role="alert"></div>
 
+  <div id="dpCols">
+  <div>
   <form id="form" novalidate>
     <section class="panel step" data-step="0">
       <h2>1 · Datos de la solicitud</h2>
@@ -205,6 +212,9 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
       <div class="q"><label class="check"><input type="checkbox" id="confirmo"> Confirmo que la información es veraz y que cuenta con el respaldo indicado.</label><div class="err"></div></div>
     </section>
   </form>
+  </div>
+  <aside id="dpPanel" class="hidden" aria-label="Descriptivo de puesto"></aside>
+  </div>
 
   <section id="done" class="panel hidden"></section>
   <section id="mine" class="panel hidden"></section>
@@ -241,5 +251,6 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 <script src="assets/nspell.min.js"></script>
 <script src="ortografia.js"></script>
 <script src="app.js"></script>
+<script src="dpform.js"></script>
 </body>
 </html>
