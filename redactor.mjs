@@ -13,6 +13,8 @@ const GRUPO_DE = {
   'Necesidad': 'situacion', 'Destino': 'propuesta', 'Situación y tipo de cambio': 'situacion', 'Qué cambia en el rol': 'rol',
   'Contexto de la reestructuración': 'situacion', 'Alcance de los cambios': 'propuesta', 'Impacto económico': 'economico',
   'Situación que origina la revisión': 'situacion', 'Cambios en el puesto': 'rol', 'Sustento': 'sustento',
+  'Estructura y presupuesto': 'condiciones', 'Posición no aprobada en la estructura': 'condiciones', 'Cambio en el presupuesto': 'economico', 'Cambios en la posición': 'rol', 'Detalle del cambio en la posición': 'rol',
+  'Cantidad y características': 'propuesta', 'Evidencia de la oferta externa': 'sustento',
   'El caso': 'situacion', 'Sustento, resultado e impacto': 'sustento', 'La solicitud': 'situacion', 'Resultado esperado e impacto': 'resultado'
 };
 export const BLOQUES_CONOCIDOS = Object.keys(GRUPO_DE);
@@ -23,9 +25,9 @@ const SECCIONES = [['situacion', 'Situación y necesidad'], ['propuesta', 'Propu
 export const REQUERIDOS = {
   'Promoción': { puestoPropuesto: 'puesto propuesto', desdeCuando: 'fecha desde la que ejerce las funciones', queCambioPromo: 'qué cambió en el rol' },
   'Encargatura': { puestoEncargado: 'posición que requiere cobertura', fechaInicioEnc: 'fecha de inicio', fechaFinEnc: 'fecha de fin' },
-  'Reemplazo': { puestoReemplazo: 'posición a reemplazar', fechaInicioReemplazo: 'fecha de inicio' },
+  'Reemplazo': { personaOVacanteReemplazo: 'a quién se reemplaza', fechaInicioReemplazo: 'fecha desde la que se requiere cubrir' },
   'Puesto nuevo': { puestoNuevo: 'nombre del puesto', necesidadPuesto: 'necesidad del negocio', fechaRequerida: 'fecha requerida' },
-  'Incremento salarial': { motivoIncremento: 'motivo del incremento', propuestaNegocio: 'valor de la propuesta', evidenciaRiesgo: 'evidencia de respaldo' },
+  'Incremento salarial': { motivoIncremento: 'motivo del incremento', propuestaNegocio: 'valor de la propuesta', situacionOrigen: 'detalle del motivo' },
   'Movimiento lateral': { puestoDestino: 'puesto destino', motivoMovimiento: 'necesidad que origina el movimiento' },   // tipo anterior: se conserva para leer casos viejos
   'Movimiento interno': { puestoDestino: 'puesto destino', motivoMovimiento: 'necesidad que origina el movimiento' },
   'Movimiento horizontal': { tipoHorizontal: 'tipo de movimiento', motivoHorizontal: 'necesidad que origina el movimiento', funcionesNuevasHorizontal: 'funciones nuevas' },
@@ -62,8 +64,8 @@ export function redactar(r, opciones = {}) {
   const cantidad = () => { const n = T('cantidadPosiciones'); return n && n !== '1' ? ` (${n} posiciones)` : ''; };
   const clausula = {
     'Promoción': () => `la promoción de ${persona}${T('puestoPropuesto') ? ` al puesto de ${v('puestoPropuesto')}` : ''}${F('desdeCuando') ? `, con funciones desde ${fecha(v('desdeCuando'))}` : ''}`,
-    'Encargatura': () => `${T('tipoEncargatura') ? 'la ' + minus(v('tipoEncargatura')) : 'la encargatura'} de ${persona}${T('puestoEncargado') ? ` en la posición de ${v('puestoEncargado')}` : ''}${T('aQuienReemplaza') ? `, en reemplazo de ${v('aQuienReemplaza')}` : ''}${F('fechaInicioEnc') && F('fechaFinEnc') ? `, del ${fecha(v('fechaInicioEnc'))} al ${fecha(v('fechaFinEnc'))}` : F('fechaInicioEnc') ? `, desde ${fecha(v('fechaInicioEnc'))}` : ''}`,
-    'Reemplazo': () => `el reemplazo en la posición de ${T('puestoReemplazo') || 'la posición indicada'}${cantidad()}${T('personaOVacanteReemplazo') ? `, de ${v('personaOVacanteReemplazo')}` : ''}${F('fechaInicioReemplazo') ? `, con ingreso desde ${fecha(v('fechaInicioReemplazo'))}` : ''}`,
+    'Encargatura': () => `${T('tipoEncargatura') ? 'la ' + minus(v('tipoEncargatura')) : 'la encargatura'} de ${persona}${T('puestoEncargado') ? `, para cubrir ${v('puestoEncargado')}` : ''}${F('fechaInicioEnc') && F('fechaFinEnc') ? `, del ${fecha(v('fechaInicioEnc'))} al ${fecha(v('fechaFinEnc'))}` : F('fechaInicioEnc') ? `, desde ${fecha(v('fechaInicioEnc'))}` : ''}`,
+    'Reemplazo': () => `el reemplazo${T('personaOVacanteReemplazo') ? ` de ${v('personaOVacanteReemplazo')}` : ' de la posición indicada'}${F('fechaInicioReemplazo') ? `, con cobertura desde ${fecha(v('fechaInicioReemplazo'))}` : ''}`,
     'Puesto nuevo': () => `la creación del puesto ${T('puestoNuevo') || 'indicado'}${cantidad()}${T('temporalPermanente') ? ` (${minus(v('temporalPermanente'))})` : ''}${T('reportaA') ? `, con reporte a ${v('reportaA')}` : ''}${F('fechaRequerida') ? `, requerido para ${fecha(v('fechaRequerida'))}` : ''}`,
     'Incremento salarial': () => `un incremento salarial para ${persona}${T('motivoIncremento') ? `, por ${minus(v('motivoIncremento'))}` : ''}${v('propuestaNegocio') ? `, con una propuesta de ${usa('propuestaNegocio', importe(v('tipoPropuestaNegocio'), v('propuestaNegocio')))}` : ''}`,
     'Movimiento lateral': () => `el movimiento lateral de ${persona}${T('puestoDestino') ? ` al puesto de ${v('puestoDestino')}` : ''}${T('areaDestino') ? `, en ${v('areaDestino')}` : ''}`,

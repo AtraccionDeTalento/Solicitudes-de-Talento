@@ -22,6 +22,7 @@ const MOVS=["Promoción","Encargatura","Reemplazo","Puesto nuevo","Incremento sa
 const DEPARTAMENTOS=["DIRECCION GENERAL DE SEDES DESCENTRALIZADAS", "DIRECCION GENERAL DEL CSIR", "ESCUELA DE POSGRADO", "GERENCIA DE ADMINISTRACION Y SEGURIDAD", "GERENCIA DE PROYECTOS - SEDE PERU", "GERENCIA DE TALENTO Y CULTURA", "GERENCIA GENERAL", "GERENCIA LEGAL", "GERENCIA SENIOR DE FINANZAS", "PRESIDENCIA EJECUTIVA", "RECTORADO", "VICEPRESIDENCIA DE ASUNTOS CORPORATIVOS", "VICEPRESIDENCIA DE COMUNICACIONES E INNOVACION DIG", "VICEPRESIDENCIA SENIOR", "VICERRECTORADO ACADEMICO", "VICERRECTORADO DE INVESTIGACION"];   // Maestro 05-10-2026; define el BP que recibe la solicitud
 const NOCODE=["Puesto nuevo"];   // sin matrícula individual
 const PERSONAS=["Ninguna","1","2","3","4","5","6 a 10","11 a 20","Más de 20"];   // personas a cargo: se elige, no se escribe
+const SNP=["Sí","No","Parcialmente"], SNC=["Sí","No","Por confirmar"];   // Encargatura (funciones) y Reemplazo (estructura, presupuesto) las usan por indicación de Talento
 const SN=["Sí","No"];   // las preguntas de opción se responden Sí o No: no hay «Parcialmente», «Por confirmar», «No se sabe» ni «Por definir»
 
 // Preguntas agrupadas por bloque (situación → cambio → sustento → resultado → impacto).
@@ -29,97 +30,85 @@ const SN=["Sí","No"];   // las preguntas de opción se responden Sí o No: no h
 const SETS = {
 "Promoción":[
  {t:"Cambio propuesto",q:[
-  ["puestoPropuesto","¿A qué puesto se propone promover?","text"],
-  ["desdeCuando","¿Desde cuándo realiza o realizará estas funciones?","date"],
-  ["posicionExiste","¿Existe la posición en la estructura?","select",SN],
-  ["mayorDecision","¿Tendrá mayor nivel de decisión?","select",SN],
-  ["personasCargo","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS]]},
+  ["puestoPropuesto","¿A qué puesto se propone promover al colaborador?","text"],
+  ["desdeCuando","¿Desde cuándo asumiría o viene realizando las funciones del nuevo puesto?","date"],
+  ["posicionExiste","¿La posición existe y está aprobada dentro de la estructura?","select",SN]]},
  {t:"Qué cambió en el rol",q:[
-  ["queCambioPromo","¿Qué cambió en el rol para que hoy se plantee una promoción?","textarea","Describe el cambio principal en alcance, responsabilidad o complejidad."],
-  ["nuevasResponsabilidades","¿Qué mayor responsabilidad asumirá o ya viene asumiendo?","textarea","Ej.: liderar equipo, manejar presupuesto, tomar decisiones, responder por resultados."],
-  ["mayorAlcance","¿Cómo aumentó el alcance del puesto?","textarea","Ej.: más procesos, clientes, presupuesto, sedes o responsabilidad transversal."],
-  ["funcionesNuevas","¿Qué actividades nuevas realizará?","textarea","Ej.: seguimiento de indicadores, coordinación de reuniones, validación de reportes."]]},
+  ["queCambioPromo","¿Qué cambia respecto a su puesto actual?","textarea","Responsabilidades, alcance, nivel de decisión, equipo a cargo, procesos o presupuesto."]]},
  {t:"Sustento de la promoción",q:[
-  ["porQuePromocion","¿Por qué este cambio corresponde a una promoción y no solo a un incremento salarial?","textarea"]]},
+  ["porQueColabPromo","¿Por qué se propone a este colaborador para asumir la nueva posición?","textarea","Experiencia, resultados, desempeño, conocimiento o funciones que ya viene realizando."]]},
  {t:"Resultado esperado e impacto",q:[
-  ["resultadoEsperadoPromo","¿Qué se logrará al formalizar la promoción?","textarea","Describe el beneficio concreto para el área, el equipo o el negocio."],
-  ["impactoNoPromocion","¿Qué ocurriría si la promoción no se formaliza?","textarea"]]}],
+  ["resultadoImpactoPromo","¿Qué se busca lograr con la promoción y qué ocurriría si no se formaliza?","textarea"]]}],
 "Encargatura":[
  {t:"Tipo y motivo",q:[
-  ["tipoEncargatura","Tipo de encargatura","select",["Nueva encargatura","Renovación de encargatura","Cambio de encargatura"]],
-  ["motivoEncargo","¿Qué situación genera la necesidad de la encargatura?","select",["Vacaciones","Licencia","Vacante","Cese","Proyecto","Otro"]],
-  ["puestoEncargado","¿Qué posición requiere cobertura?","text"],
-  ["aQuienReemplaza","¿A quién reemplaza o qué vacancia cubre?","text"]]},
+  ["tipoEncargatura","Tipo de encargatura","select",["Nueva encargatura","Renovación","Cambio de encargatura"]],
+  ["motivoEncargo","¿Qué situación genera la necesidad de la encargatura?","select",["Vacaciones","Licencia","Vacante","Cese","Proyecto temporal","Otro"]],
+  ["puestoEncargado","¿Qué posición requiere cobertura y a quién reemplaza?","text"]]},
  {t:"Vigencia",q:[
   ["fechaInicioEnc","Fecha de inicio","date"],
-  ["fechaFinEnc","Fecha estimada de fin","date"],
-  ["yaEmpezo","¿La encargatura ya empezó?","select",SN]]},
- {t:"Condiciones de la renovación",when:["tipoEncargatura","Renovación de encargatura"],q:[
-  ["fechaPrimerConvenio","Fecha del primer convenio","date"],
-  ["fechaTerminoActual","Fecha de término actual","date"],
-  ["periodoRenovacion","¿Por cuánto tiempo se desea renovar?","text","Ej.: 3 meses"],
-  ["mismasFuncionesRen","¿Se mantienen las mismas funciones?","select",SN],
-  ["cambiaMontoRen","¿Cambió el monto de la asignación?","select",SN],
-  ["resultadosRen","¿Qué resultados o evidencias muestran que la encargatura ha funcionado durante el periodo anterior?","textarea","Ej.: se mantuvo el cumplimiento de metas, no hubo interrupciones operativas y el equipo tuvo continuidad de liderazgo."]]},
- {t:"Condiciones del cambio",when:["tipoEncargatura","Cambio de encargatura"],q:[
-  ["puestoEncargaturaAnterior","Posición encargada anterior","text"],
-  ["cambiaAsignacionEnc","¿Cambia la asignación económica?","select",SN],
-  ["motivoCambioEnc","¿Por qué cambia la encargatura a una nueva posición?","textarea"]]},
+  ["fechaFinEnc","Fecha estimada de fin","date"]]},
  {t:"Funciones durante la encargatura",q:[
-  ["mantieneFunciones","¿Mantendrá sus funciones actuales?","select",SN],
+  ["mantieneFunciones","¿Mantendrá sus funciones actuales?","select",SNP],
   ["equipoAdicional","¿Tendrá equipo adicional a cargo? ¿Cuántas personas?","select",PERSONAS],
   ["responsabilidadesExtra","¿Qué responsabilidades adicionales asumirá?","textarea"]]},
  {t:"Resultado esperado e impacto",q:[
-  ["resultadoEsperadoEnc","¿Qué se busca asegurar con esta encargatura?","textarea","Ej.: continuidad de liderazgo, cobertura de una vacancia, cumplimiento de metas o continuidad operativa."],
-  ["riesgoNoFormalizar","¿Qué ocurriría si no se formaliza?","textarea"]]}],
+  ["objetivoEnc","¿Qué se busca asegurar con esta encargatura?","select",["Continuidad operativa","Continuidad del liderazgo","Cobertura de una posición crítica","Cumplimiento de metas","Continuidad de proyecto o proceso","Otro"]],
+  ["riesgoNoFormalizar","¿Qué impacto tendría no formalizarla?","textarea"]]},
+ {t:"Condiciones de la renovación",when:["tipoEncargatura","Renovación"],q:[
+  ["fechaPrimerConvenio","Fecha del primer convenio","date"],
+  ["fechaTerminoActual","¿Hasta qué fecha está vigente actualmente?","date"],
+  ["periodoRenovacion","¿Por cuánto tiempo adicional se solicita renovar?","text","Ej.: 3 meses"],
+  ["mismasFuncionesRen","¿Se mantienen las mismas funciones y condiciones?","select",SN],
+  ["cambiaMontoRen","¿Cambia el monto de la asignación?","select",SN],
+  ["resultadosRen","¿Qué resultados justifican continuar con la encargatura?","textarea","Ej.: se mantuvo el cumplimiento de metas, no hubo interrupciones operativas y el equipo tuvo continuidad de liderazgo."]]},
+ {t:"Condiciones del cambio",when:["tipoEncargatura","Cambio de encargatura"],q:[
+  ["puestoEncargaturaAnterior","¿Qué posición tenía encargada anteriormente?","text"],
+  ["puestoEncargaturaNueva","¿A qué nueva posición cambia la encargatura?","text"],
+  ["motivoCambioEnc","¿Por qué se requiere cambiar la encargatura?","textarea"],
+  ["cambiaAsignacionEnc","¿Cambia la asignación económica?","select",SN]]}],
 "Reemplazo":[
  {t:"Posición a reemplazar",q:[
-  ["puestoReemplazo","¿Qué puesto queda vacante y requiere ser cubierto?","text","El cargo que se necesita cubrir (el puesto, no la persona)."],
-  ["personaOVacanteReemplazo","¿Qué colaborador se reemplaza?","text","La persona que salió o saldrá. Si el puesto no tuvo titular, escribe «Sin titular»."],
-  ["motivoVacanteReemplazo","¿Cuál es el motivo por el que la posición queda vacante?","select",["Renuncia","Cese","Promoción","Traslado","Cambio interno","Otro"]],
-  ["fechaVacanteReemplazo","¿Desde qué fecha se encuentra vacante la posición?","date"],
-  ["fechaInicioReemplazo","¿Desde qué fecha se requiere que se incorpore? (fecha de ingreso)","date"],
-  ["personasCargoReemplazo","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS]]},
- {t:"Alcance del puesto",q:[
-  ["responsabilidadesReemplazo","¿Qué responsabilidades tendrá la persona que ocupe el puesto?","textarea","Describe las principales responsabilidades del puesto que se va a cubrir."],
-  ["cambioAlcanceReemplazo","¿Cambia algo del puesto respecto a quien lo dejó (alcance, nivel de responsabilidad o toma de decisiones)?","textarea","Si todo sigue igual, indícalo y explica brevemente."]]},
- {t:"Resultado esperado e impacto",q:[
-  ["resultadoEsperadoReemplazo","¿Qué se busca asegurar o mejorar con este reemplazo?","textarea","Describe el resultado esperado para el área, equipo u operación."],
-  ["impactoNoReemplazo","¿Qué ocurriría si la posición no se cubre o el reemplazo no se formaliza?","textarea"]]}],
+  ["personaOVacanteReemplazo","¿A quién reemplaza el colaborador?","text","Nombre y/o posición de la persona que deja la vacante."],
+  ["motivoVacanteReemplazo","¿Cuál es el motivo del reemplazo?","select",["Renuncia","Cese","Promoción","Movimiento interno","Otro"]],
+  ["fechaInicioReemplazo","¿Desde cuándo se requiere cubrir la posición?","date"]]},
+ {t:"Estructura y presupuesto",q:[
+  ["posicionAprobadaRep","¿La posición ya está aprobada dentro de la estructura vigente?","select",SNC],
+  ["presupuestoSeMantiene","¿Se mantiene el presupuesto de la posición reemplazada?","select",SNC]]},
+ {t:"Posición no aprobada en la estructura",when:["posicionAprobadaRep","No"],q:[
+  ["tipoPosicionRep","¿Corresponde a una posición adicional o a una modificación de estructura?","select",["Posición adicional","Modificación de estructura"]]]},
+ {t:"Cambio en el presupuesto",when:["presupuestoSeMantiene","No"],q:[
+  ["cambioPresupuestoRep","¿Qué cambia en el presupuesto?","textarea","Indica brevemente qué cambia."]]},
+ {t:"Cambios en la posición",q:[
+  ["cambioPosicionRep","¿Existe algún cambio respecto a la posición que se está reemplazando?","select",["No, se mantiene igual","Sí, cambia puesto, responsabilidades, nivel o condiciones"]]]},
+ {t:"Detalle del cambio en la posición",when:["cambioPosicionRep","Sí, cambia puesto, responsabilidades, nivel o condiciones"],q:[
+  ["cambioPosicionDetalle","Explica brevemente qué cambia","textarea"]]}],
 "Puesto nuevo":[
  {t:"El puesto solicitado",q:[
-  ["puestoNuevo","Nombre del puesto solicitado","text"],
-  ["motivoPuestoNuevo","Motivo de la creación del puesto","select",["Crecimiento del negocio","Reestructuración de área","Proyecto nuevo","Reemplazo de una función","Otro"],"Si el puesto nace de una reestructuración del área, elige «Reestructuración de área» y explícalo abajo."],
-  ["cantidadPosiciones","¿Cuántas posiciones de este puesto necesitas?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si necesitas varias posiciones iguales (por ejemplo 2 asistentes comerciales), envíalas juntas en esta misma solicitud."],
-  ["temporalPermanente","¿Es permanente o temporal?","select",["Permanente","Temporal"]],
-  ["reportaA","¿A quién reportará?","text"],
-  ["personasCargoPN","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS],
-  ["fechaRequerida","Fecha de ingreso requerida","date"]]},
+  ["puestoNuevo","¿Qué puesto se solicita crear?","text"]]},
  {t:"Necesidad del negocio",q:[
-  ["necesidadPuesto","¿Qué necesidad del negocio origina la creación del puesto?","textarea","Explica brevemente qué está pasando en el área o negocio."],
-  ["problemaResuelve","¿Qué problema existe actualmente por no contar con esta posición?","textarea"],
-  ["porQueNoAbsorbe","¿Por qué la estructura actual no puede absorber esta necesidad?","textarea"],
-  ["similarOtraUnidad","¿Existe una posición similar en otra unidad?","select",SN]]},
+  ["necesidadPuesto","¿Qué necesidad del negocio origina la creación del puesto?","textarea","Crecimiento, reestructuración, proyecto nuevo, nueva función o necesidad operativa."],
+  ["porQueNoAbsorbe","¿Por qué la estructura actual no puede cubrir esta necesidad?","textarea"]]},
+ {t:"Cantidad y características",q:[
+  ["cantidadPosiciones","¿Cuántas posiciones se requieren?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si necesitas varias posiciones iguales (por ejemplo 2 asistentes comerciales), envíalas juntas en esta misma solicitud."],
+  ["fechaRequerida","¿Desde cuándo se requieren? (fecha tentativa)","date"],
+  ["temporalPermanente","¿La posición será permanente o temporal?","select",["Permanente","Temporal"]],
+  ["reportaA","¿A quién reportará?","text"],
+  ["personasCargoPN","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS]]},
  {t:"Alcance del puesto",q:[
-  ["responsabilidadesPuesto","¿Qué responsabilidades tendrá el puesto?","textarea","Ej.: coordinar al equipo, supervisar la operación, tomar decisiones, controlar indicadores."],
-  ["entregables","¿Qué resultados concretos deberá entregar?","textarea","Ej.: cumplimiento de SLA, reducción de incidencias, cierre mensual, mejora de indicadores."]]},
+  ["responsabilidadesPuesto","¿Qué responsabilidades y resultados principales tendrá el puesto?","textarea","Puedes apoyarte en el descriptivo de puesto. Ej.: coordinar al equipo, cumplimiento de SLA, cierre mensual, mejora de indicadores."]]},
  {t:"Resultado esperado e impacto",q:[
-  ["mejoraEsperadaPN","¿Qué cambiará o mejorará concretamente con la creación de este puesto?","textarea","Describe el beneficio esperado para la operación, el equipo o el negocio."],
-  ["impactoNoCrear","¿Qué ocurriría si el puesto no se crea?","textarea"]]}],
+  ["impactoNoCrear","¿Qué impacto tendría no crear esta posición?","textarea"]]}],
 "Incremento salarial":[
  {t:"Motivo y situación",q:[
-  ["motivoIncremento","Motivo principal del incremento","select",["Retención","Equidad interna","Ampliación de responsabilidades","Mérito","Regularización","Contraoferta","Obtención de Grado Académico","Otro"]],
-  ["desdeCuandoInc","¿Desde cuándo se presenta esta situación?","date"],
-  ["situacionOrigen","¿Qué situación origina la solicitud?","textarea"],
-  ["queCambio","¿Qué cambió en el puesto, desempeño o contexto que sustenta la revisión?","textarea"]]},
- {t:"Evidencia y riesgo de salida",q:[
+  ["motivoIncremento","¿Cuál es el motivo principal del incremento?","select",["Retención","Ampliación de responsabilidades","Mérito","Regularización","Obtención de Grado Académico","Otro"]],
+  ["situacionOrigen","¿Detallar el motivo seleccionado?","textarea","Explica qué está ocurriendo actualmente y por qué se solicita el incremento."],
+  ["impactoSalida","¿Qué ocurriría si el incremento no se realiza?","textarea"]]},
+ {t:"Evidencia y riesgo de salida",when:["motivoIncremento","Retención"],q:[
   ["riesgoSalida","¿Existe riesgo de salida?","select",SN],
-  ["ofertaExterna","¿Existe oferta externa?","select",SN],
-  ["intencionRenuncia","¿Comunicó intención de renuncia?","select",SN],
-  ["evidenciaRiesgo","¿Qué evidencia concreta respalda la solicitud?","textarea"],
-  ["impactoSalida","¿Qué impacto tendría una eventual salida o no atender la revisión?","textarea"]]},
- {t:"Resultado esperado",q:[
-  ["resultadoEsperadoInc","¿Qué se busca lograr con la revisión salarial?","textarea","Ej.: corregir equidad, retener talento, reconocer una ampliación sostenida de responsabilidades."]]},
+  ["intencionRenuncia","¿El colaborador comunicó intención de renuncia?","select",SN],
+  ["ofertaExterna","¿Existe una oferta externa?","select",SN]]},
+ {t:"Evidencia de la oferta externa",when:["ofertaExterna","Sí"],q:[
+  ["evidenciaOferta","Evidencia de la oferta externa","select",["Correo","Carta oferta","Mensaje","Otro"]]]},
  {t:"Propuesta del negocio",q:[
   ["tipoPropuestaNegocio","Tipo de propuesta del negocio","select",["Monto en S/","Porcentaje %"]],
   ["propuestaNegocio","Valor de la propuesta","number"]]}],
@@ -141,20 +130,18 @@ const SETS = {
   ["solicitaIncrementoML","¿Se solicita un incremento salarial con este movimiento?","select",SN]]}],
 "Otro":[
  {t:"La solicitud",q:[
-  ["especificarOtro","Especifica qué tipo de movimiento es","text"],
-  ["descripcionOtro","¿Qué movimiento o decisión se solicita?","textarea"],
-  ["sustentoOtro","¿Qué situación origina la solicitud?","textarea"]]},
+  ["descripcionOtro","¿Qué movimiento o cambio se solicita?","textarea"],
+  ["sustentoOtro","¿Por qué se solicita este movimiento?","textarea"]]},
  {t:"Resultado esperado e impacto",q:[
-  ["resultadoEsperadoOtro","¿Qué se espera lograr?","textarea"],
-  ["impactoOtro","¿Qué ocurriría si no se atiende?","textarea"]]}]
+  ["impactoOtro","¿Qué ocurriría si no se realiza?","textarea"]]}]
 };
 
 // Límites [mínimo, máximo] de caracteres por pregunta. Texto corto: 2-100. Párrafos por nivel: L 60-600, M 40-500, S 30-300.
 const TA_TIER={L:[60,600],M:[40,500],S:[30,300]};
-const TIER_L=["queCambioPromo","porQuePromocion","motivoMovimiento","necesidadPuesto","problemaResuelve","porQueNoAbsorbe","situacionOrigen","queCambio","evidenciaRiesgo","queCambioRev","sustentoSubvaloracion","objetivoCaso","sustentoCaso","descripcionOtro","sustentoOtro","motivoHorizontal","motivoReestructura","objetivoReestructura","responsabilidadesPuesto"];
-const TIER_S=["cambioPresupuestoRev","cambioDecisionRev","funcionesOtroPuesto","funcionesActualesHorizontal","cambiosReporteRest","resultadosRen","motivoCambioEnc"];
+const TIER_L=["queCambioPromo","porQueColabPromo","motivoMovimiento","necesidadPuesto","porQueNoAbsorbe","situacionOrigen","queCambioRev","sustentoSubvaloracion","objetivoCaso","sustentoCaso","descripcionOtro","sustentoOtro","motivoHorizontal","motivoReestructura","objetivoReestructura","responsabilidadesPuesto"];
+const TIER_S=["cambioPresupuestoRev","cambioPresupuestoRep","cambioPosicionDetalle","cambioDecisionRev","funcionesOtroPuesto","funcionesActualesHorizontal","cambiosReporteRest","resultadosRen","motivoCambioEnc"];
 const LIM_OV={personasCargo:[1,60],personasCargoPN:[1,60],personasCargoReemplazo:[1,60],equipoAdicional:[1,60],cambioPersonasRev:[1,60],periodoRenovacion:[2,40],vigenciaCaso:[2,60],
-  aQuienReemplaza:[3,120],personaOVacanteReemplazo:[3,120],validaPresupuesto:[3,120],areaApoyoHorizontal:[3,120],tipoCasoEspecial:[3,100],
+  puestoEncargado:[3,160],personaOVacanteReemplazo:[3,120],validaPresupuesto:[3,120],areaApoyoHorizontal:[3,120],tipoCasoEspecial:[3,100],
   detalleMovimientosRest:[60,1500],solicitudConcreta:[50,3000]};
 function limits(id,type){const [mn,mx]=limitsBase(id,type);return CONFIG.modoPrueba&&mn>3?[3,mx]:[mn,mx]}
 function limitsBase(id,type){
@@ -424,22 +411,12 @@ function buildExecutiveSummary(){
     const proposed=direct("puestoPropuesto");
     add(`Se solicita la promoción de ${person}${current?` de ${current}`:""}${proposed?` a ${proposed}`:""}`);
 
-    if(direct("queCambioPromo")){
-      add(`La promoción se plantea: ${stripEnd(direct("queCambioPromo"))}`);
-    } else {
-      add("La promoción se plantea por una evolución relevante del alcance y nivel de responsabilidad del rol");
-    }
+    if(direct("queCambioPromo")) add(`Respecto a su puesto actual, cambia: ${stripEnd(direct("queCambioPromo"))}`);
+    else add("La promoción se plantea por una evolución relevante del alcance y nivel de responsabilidad del rol");
+    if(direct("posicionExiste")==="No") add("La posición propuesta aún no existe o no está aprobada dentro de la estructura");
 
-    const drivers=[];
-    if(direct("nuevasResponsabilidades")) drivers.push("mayores responsabilidades");
-    if(direct("mayorAlcance")) drivers.push("un alcance más amplio");
-    if(direct("mayorDecision")==="Sí") drivers.push("mayor autonomía de decisión");
-    if(direct("personasCargo")&&direct("personasCargo")!=="Ninguna") drivers.push("responsabilidad sobre equipo");
-    if(drivers.length) add(`El cambio se evidencia en ${joinNatural(drivers)}`);
-
-    if(direct("porQuePromocion")) add(`Corresponde una promoción, y no solo un incremento salarial: ${stripEnd(direct("porQuePromocion"))}`);
-    if(direct("resultadoEsperadoPromo")) add(`Con la formalización se busca: ${stripEnd(direct("resultadoEsperadoPromo"))}`);
-    if(direct("impactoNoPromocion")) add(`Si la promoción no se formaliza: ${stripEnd(direct("impactoNoPromocion"))}`);
+    if(direct("porQueColabPromo")) add(`Se propone a este colaborador porque: ${stripEnd(direct("porQueColabPromo"))}`);
+    if(direct("resultadoImpactoPromo")) add(`Resultado esperado e impacto de no formalizarla: ${stripEnd(direct("resultadoImpactoPromo"))}`);
 
     add("Se solicita la aprobación de la promoción y la revisión salarial correspondiente");
   }
@@ -448,62 +425,58 @@ function buildExecutiveSummary(){
     const tipo=direct("tipoEncargatura");
     const role=direct("puestoEncargado");
     const reason=direct("motivoEncargo");
+    const cobertura=role?`, para cubrir: ${stripEnd(role)}`:"";
 
-    if(tipo==="Renovación de encargatura"){
-      add(`Se solicita renovar la encargatura de ${person}${role?` como ${role}`:""}${direct("periodoRenovacion")?` por ${direct("periodoRenovacion")}`:""}`);
-      if(reason) add(`Motivo de la renovación: ${stripEnd(reason)}`);
+    if(tipo==="Renovación"){
+      add(`Se solicita renovar la encargatura de ${person}${cobertura}${direct("periodoRenovacion")?` por ${direct("periodoRenovacion")} adicionales`:""}`);
+      if(reason) add(`Situación que origina la encargatura: ${stripEnd(reason)}`);
       if(direct("resultadosRen")){
         let result=stripEnd(direct("resultadosRen"))
           .replace(/^Durante el periodo de encargatura\s*/i,"")
           .replace(/^Durante el periodo anterior\s*/i,"");
-        add(`Resultados del periodo anterior: ${result}`);
+        add(`Resultados que justifican continuar: ${result}`);
       }
     } else if(tipo==="Cambio de encargatura"){
-      add(`Se solicita el cambio de encargatura de ${person}${role?` hacia la posición de ${role}`:""}`);
+      const nueva=direct("puestoEncargaturaNueva");
+      add(`Se solicita el cambio de encargatura de ${person}${nueva?` hacia la posición de ${stripEnd(nueva)}`:""}${direct("puestoEncargaturaAnterior")?`, que tenía encargada la posición de ${stripEnd(direct("puestoEncargaturaAnterior"))}`:""}`);
       if(direct("motivoCambioEnc")) add(`El cambio se requiere: ${stripEnd(direct("motivoCambioEnc"))}`);
     } else {
-      add(`Se solicita una nueva encargatura para ${person}${role?` como ${role}`:""}`);
-      if(reason) add(`Motivo de la encargatura: ${stripEnd(reason)}`);
+      add(`Se solicita una nueva encargatura para ${person}${cobertura}`);
+      if(reason) add(`Situación que origina la encargatura: ${stripEnd(reason)}`);
     }
 
     if(direct("responsabilidadesExtra")) add(`Durante la encargatura, la persona asumirá responsabilidades adicionales asociadas a: ${stripEnd(direct("responsabilidadesExtra"))}`);
-    if(direct("resultadoEsperadoEnc")) add(`Con la encargatura se busca: ${stripEnd(direct("resultadoEsperadoEnc"))}`);
+    if(direct("objetivoEnc")) add(`Con la encargatura se busca asegurar: ${lowerLead(direct("objetivoEnc"))}`);
     if(direct("riesgoNoFormalizar")) add(`Si la encargatura no se formaliza: ${stripEnd(direct("riesgoNoFormalizar"))}`);
     add("Se solicita aprobar la encargatura en las condiciones indicadas");
   }
 
   else if(mov==="Reemplazo"){
-    const role=direct("puestoReemplazo");
     const replaced=direct("personaOVacanteReemplazo");
     const reason=direct("motivoVacanteReemplazo");
     const start=direct("fechaInicioReemplazo");
+    const aprob=direct("posicionAprobadaRep"), pres=direct("presupuestoSeMantiene");
 
-    add(`Se solicita el reemplazo ${replaced?`de ${replaced} `:""}en la posición de ${role||"la posición indicada"}${cantPos()}`);
-    if(reason) add(`Motivo de la vacante: ${stripEnd(reason)}`);
-    if(start) add(`Se requiere la incorporación a partir del ${start}`);
+    add(`Se solicita el reemplazo${replaced?` de ${replaced}`:""}`);
+    if(reason) add(`Motivo del reemplazo: ${stripEnd(reason)}`);
+    if(start) add(`Se requiere cubrir la posición a partir del ${start}`);
 
-    if(direct("responsabilidadesReemplazo")) add(`Responsabilidades asociadas: ${stripEnd(direct("responsabilidadesReemplazo"))}`);
-    if(direct("cambioAlcanceReemplazo")) add(`Cambio de alcance y responsabilidad: ${stripEnd(direct("cambioAlcanceReemplazo"))}`);
+    if(aprob==="No") add(`La posición no está aprobada en la estructura vigente${direct("tipoPosicionRep")?` y corresponde a una ${lowerLead(direct("tipoPosicionRep"))}`:""}`);
+    else if(aprob==="Por confirmar") add("La aprobación de la posición dentro de la estructura vigente está por confirmar");
+    if(pres==="No") add(`El presupuesto de la posición reemplazada cambia${direct("cambioPresupuestoRep")?`: ${stripEnd(direct("cambioPresupuestoRep"))}`:""}`);
+    else if(pres==="Por confirmar") add("El presupuesto de la posición reemplazada está por confirmar");
+    if(/^Sí/.test(direct("cambioPosicionRep"))) add(`La posición presenta cambios respecto a la que se reemplaza${direct("cambioPosicionDetalle")?`: ${stripEnd(direct("cambioPosicionDetalle"))}`:""}`);
 
-    if(direct("resultadoEsperadoReemplazo")) add(`Con el reemplazo se busca: ${stripEnd(direct("resultadoEsperadoReemplazo"))}`);
-    if(direct("impactoNoReemplazo")) add(`Si la posición no se cubre o el reemplazo no se formaliza: ${stripEnd(direct("impactoNoReemplazo"))}`);
     add("Se solicita la evaluación del reemplazo y, de corresponder, la revisión de las condiciones asociadas al movimiento");
   }
 
   else if(mov==="Puesto nuevo"){
     const role=direct("puestoNuevo");
-    add(`Se solicita la creación del puesto ${role||"propuesto"}${cantPos()}`);
-    if(direct("motivoPuestoNuevo")) add(`Motivo de la creación: ${direct("motivoPuestoNuevo")}`);
+    add(`Se solicita la creación del puesto ${role||"propuesto"}${cantPos()}${direct("temporalPermanente")?` (${direct("temporalPermanente").toLowerCase()})`:""}`);
 
     if(direct("necesidadPuesto")) add(`La creación del puesto se origina: ${stripEnd(direct("necesidadPuesto"))}`);
-    if(direct("problemaResuelve")) add(`Actualmente: ${stripEnd(direct("problemaResuelve"))}`);
-    if(direct("porQueNoAbsorbe")) add(`La estructura actual no puede absorber esta necesidad: ${stripEnd(direct("porQueNoAbsorbe"))}`);
-
-    if(direct("mejoraEsperadaPN")){
-      add(`Con la creación del puesto se busca: ${stripEnd(direct("mejoraEsperadaPN"))}`);
-    } else if(direct("entregables") || direct("responsabilidadesPuesto")){
-      add("Con la creación del puesto se busca concentrar responsabilidades, ordenar la gestión y asegurar resultados que hoy se encuentran distribuidos en la estructura");
-    }
+    if(direct("porQueNoAbsorbe")) add(`La estructura actual no puede cubrir esta necesidad: ${stripEnd(direct("porQueNoAbsorbe"))}`);
+    if(direct("responsabilidadesPuesto")) add(`Responsabilidades y resultados principales del puesto: ${stripEnd(direct("responsabilidadesPuesto"))}`);
 
     if(direct("impactoNoCrear")) add(`Si el puesto no se crea: ${stripEnd(direct("impactoNoCrear"))}`);
     add("Se solicita la aprobación de la creación de la nueva posición");
@@ -515,18 +488,16 @@ function buildExecutiveSummary(){
     add(`Se solicita una revisión salarial para ${person}${motivo?` por ${motivo.toLowerCase()}`:""}`);
 
     if(direct("situacionOrigen")) add(`La solicitud se origina: ${stripEnd(direct("situacionOrigen"))}`);
-    if(direct("queCambio")) add(`El contexto ha cambiado: ${stripEnd(direct("queCambio"))}`);
-    if(direct("evidenciaRiesgo")) add(`La evidencia disponible indica: ${stripEnd(direct("evidenciaRiesgo"))}`);
-
-    if(direct("resultadoEsperadoInc")){
-      add(`Con la revisión salarial se busca: ${stripEnd(direct("resultadoEsperadoInc"))}`);
-    } else if(motivo==="Equidad interna"){
-      add("Con la revisión salarial se busca corregir la brecha identificada y preservar consistencia salarial frente a posiciones comparables");
-    } else if(motivo==="Retención" || motivo==="Contraoferta"){
+    if(motivo==="Retención"){
+      const riesgo=[];
+      if(direct("riesgoSalida")==="Sí") riesgo.push("riesgo de salida");
+      if(direct("intencionRenuncia")==="Sí") riesgo.push("intención de renuncia comunicada");
+      if(direct("ofertaExterna")==="Sí") riesgo.push(`una oferta externa${direct("evidenciaOferta")?` (evidencia: ${direct("evidenciaOferta").toLowerCase()})`:""}`);
+      if(riesgo.length) add(`Se identifica ${joinNatural(riesgo)}`);
       add("Con la revisión salarial se busca mitigar el riesgo de salida y preservar conocimiento relevante para el equipo");
     }
 
-    if(direct("impactoSalida")) add(`Si la situación no se atiende: ${stripEnd(direct("impactoSalida"))}`);
+    if(direct("impactoSalida")) add(`Si el incremento no se realiza: ${stripEnd(direct("impactoSalida"))}`);
     if(prop) add(`El cliente plantea como referencia una propuesta de ${prop}, sujeta a la validación técnica de Compensaciones`);
     add("Se solicita a Compensaciones evaluar la consistencia interna y definir la recomendación salarial correspondiente");
   }
@@ -549,11 +520,10 @@ function buildExecutiveSummary(){
   }
 
   else {
-    add(`Se solicita la revisión del caso presentado para ${person}${direct("especificarOtro")?` (${direct("especificarOtro")})`:""}`);
+    add(`Se solicita la revisión del caso presentado para ${person}`);
     if(direct("descripcionOtro")) add(`La solicitud consiste en: ${stripEnd(direct("descripcionOtro"))}`);
-    if(direct("sustentoOtro")) add(`El caso se origina: ${stripEnd(direct("sustentoOtro"))}`);
-    if(direct("resultadoEsperadoOtro")) add(`Con la medida se busca: ${stripEnd(direct("resultadoEsperadoOtro"))}`);
-    if(direct("impactoOtro")) add(`Si no se atiende: ${stripEnd(direct("impactoOtro"))}`);
+    if(direct("sustentoOtro")) add(`Se solicita porque: ${stripEnd(direct("sustentoOtro"))}`);
+    if(direct("impactoOtro")) add(`Si no se realiza: ${stripEnd(direct("impactoOtro"))}`);
     add("Se solicita la evaluación y decisión correspondiente por parte del Comité");
   }
 
@@ -672,6 +642,7 @@ const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el c
 const CODE_HTML=`<div class="q"><label for="correoColab">Correo del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
 const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SN,"Solo indica si hay o no: tu Socio de negocio lo confirma."],["validaPresupuesto","¿Quién te confirmó que hay presupuesto?","select",["Mi Socio de negocio (HRBP)","Alguien de Talento (Compensaciones, Selección…)","Mi gerencia o dirección"],"No necesitas conocer fuente ni monto: solo quién te dijo que hay presupuesto."]];   // fuente y monto ya no se piden al jefe (siguen como campos vacíos en el registro)
 const G4=[["urgencia","¿Para cuándo se necesita implementar este movimiento?","select",["Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
+const EVID_AP=["Correo","Acta","Documento","Reunión registrada","Otro"];
 const LEVELS=["Presidencia","Gerencia General","Líder de Unidad","Líder de Área","Líder inmediato","Otro"], EVID=["Correo","Acta","Reunión","Documento","Otro"];
 
 function renderSpecific(){
@@ -687,7 +658,7 @@ function renderSpecific(){
 function applyWhen(){
   document.querySelectorAll("[data-when]").forEach(s=>{
     const [id,v]=s.dataset.when.split("|");
-    s.classList.toggle("hidden",!($(id)&&$(id).value===v));
+    s.classList.toggle("hidden",!($(id)&&$(id).value===v&&!$(id).closest(".hidden")));
   });
   const t=$("tipoPropuestaNegocio"),v=$("propuestaNegocio");
   if(t&&v){
@@ -734,7 +705,7 @@ function ponerCaptura(card,url,nombre){
 function addApproval(p={}){
   const card=document.createElement("div");
   card.className="approval-card";
-  card.innerHTML=`<div class="inline" style="justify-content:space-between;margin-bottom:10px"><b>Aprobación <span class="n"></span></b><button type="button" class="secondary rm">Eliminar aprobación</button></div><div class="grid">${apF("ap-name","Nombre de quien aprobó","text")}${apF("ap-role","Cargo","text")}${apF("ap-date","Fecha de aprobación","date")}${apF("ap-type","Detalle de la evidencia (opcional): dónde y cuándo, ej. «Teams, 10/10, 4 pm»","text")}<div class="q"><label>Captura de la confirmación del jefe aprobador de esta posición (obligatoria)</label><input class="ap-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Captura de la confirmación del jefe aprobador"><div class="help ap-info"></div><div class="err"></div></div><input type="hidden" class="ap-level" value="Gerencia"><input type="hidden" class="ap-evidence" value="Sí"></div><div class="help" style="margin-top:6px">Adjunta una captura (Teams, WhatsApp corporativo, correo…) donde se vea que el jefe aprobador confirma, con su nombre y la fecha. Se comprime en tu equipo antes de enviarse; solo la verán tu Socio de negocio y Gerencia.</div>`;
+  card.innerHTML=`<div class="inline" style="justify-content:space-between;margin-bottom:10px"><b>Aprobación <span class="n"></span></b><button type="button" class="secondary rm">Eliminar aprobación</button></div><div class="grid">${apF("ap-name","Nombre de quien aprobó","text")}${apF("ap-date","Fecha de aprobación","date")}${apF("ap-type","Evidencia de la aprobación","select",EVID_AP)}<div class="q"><label>Captura de la confirmación del jefe aprobador de esta posición (obligatoria)</label><input class="ap-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Captura de la confirmación del jefe aprobador"><div class="help ap-info"></div><div class="err"></div></div><input type="hidden" class="ap-level" value="Gerencia"><input type="hidden" class="ap-role"><input type="hidden" class="ap-evidence" value="Sí"></div><div class="help" style="margin-top:6px">Adjunta una captura (Teams, WhatsApp corporativo, correo…) donde se vea que el jefe aprobador confirma, con su nombre y la fecha. Se comprime en tu equipo antes de enviarse; solo la verán tu Socio de negocio y Gerencia.</div>`;
   $("approvals").appendChild(card);
   [["level","ap-level"],["name","ap-name"],["role","ap-role"],["date","ap-date"],["evidence","ap-evidence"],["type","ap-type"]].forEach(([k,c])=>card.querySelector("."+c).value=p[k]||(k==="level"?"Gerencia":k==="evidence"?"Sí":""));
   card.querySelector(".rm").addEventListener("click",()=>{card.remove();renumberApprovals();refresh()});
@@ -789,7 +760,7 @@ function required(el){
   if(el.classList.contains("ap-file")) return true;   // la captura siempre: las reglas del servidor también la exigen
   if(!CONFIG.camposObligatorios) return el.id==="movimiento"||el.id==="departamento";
   if(el.id==="montoPresupuesto"||el.id==="fuentePresupuesto") return false;   // el jefe no conoce fuente ni monto
-  if(el.classList.contains("ap-type")) return false;   // el detalle es opcional: lo obligatorio es la captura
+  if(el.classList.contains("ap-role")) return false;   // el cargo ya no se pide
   return true;
 }
 function check(el){
