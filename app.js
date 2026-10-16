@@ -7,6 +7,7 @@ const CONFIG = {
   endpoint:"firebase",                  // «firebase» = las solicitudes se guardan en Firestore (firebase.js). Vacío = solo en este navegador.
   camposObligatorios:true,             // false = ningún campo es obligatorio (solo Tipo de movimiento y Departamento, necesarios para el ruteo). true = exige todos como antes.
   demoClics:true,                      // true = 7 clics seguidos en el logo de USIL rellenan TODO el formulario con datos al azar (solo pruebas). PONER false antes de abrirlo a los jefes.
+  sinPreguntas:true,                   // true = el formulario se muestra SIN preguntas (solo Tipo de movimiento y Departamento, necesarios para el ruteo): base para el rediseño. false = vuelve a mostrar todas.
   modoPrueba:false,                    // true = mínimos de caracteres reducidos (3) para probar. PONER EN false antes de abrirlo a los jefes.
   panelUrl:"panel.html",                // Panel de revisión de HRBP y Gerencia (misma carpeta del sitio).
   soporte:"",                          // Correo de soporte que se muestra al pie.
@@ -27,113 +28,14 @@ const SN=["Sí","No"];   // las preguntas de opción se responden Sí o No: no h
 
 // Preguntas agrupadas por bloque (situación → cambio → sustento → resultado → impacto).
 // Tupla: [id, etiqueta, tipo, opciones|ayuda, ayuda]. Un bloque con when:[id,valor] solo aparece si ese campo tiene ese valor.
-const SETS = {
-"Promoción":[
- {t:"Cambio propuesto",q:[
-  ["puestoPropuesto","¿A qué puesto se propone promover al colaborador?","text"],
-  ["desdeCuando","¿Desde cuándo asumiría o viene realizando las funciones del nuevo puesto?","date"],
-  ["posicionExiste","¿La posición existe y está aprobada dentro de la estructura?","select",SN]]},
- {t:"Qué cambió en el rol",q:[
-  ["queCambioPromo","¿Qué cambia respecto a su puesto actual?","textarea","Responsabilidades, alcance, nivel de decisión, equipo a cargo, procesos o presupuesto."]]},
- {t:"Sustento de la promoción",q:[
-  ["porQueColabPromo","¿Por qué se propone a este colaborador para asumir la nueva posición?","textarea","Experiencia, resultados, desempeño, conocimiento o funciones que ya viene realizando."]]},
- {t:"Resultado esperado e impacto",q:[
-  ["resultadoImpactoPromo","¿Qué se busca lograr con la promoción y qué ocurriría si no se formaliza?","textarea"]]}],
-"Encargatura":[
- {t:"Tipo y motivo",q:[
-  ["tipoEncargatura","Tipo de encargatura","select",["Nueva encargatura","Renovación","Cambio de encargatura"]],
-  ["motivoEncargo","¿Qué situación genera la necesidad de la encargatura?","select",["Vacaciones","Licencia","Vacante","Cese","Proyecto temporal","Otro"]],
-  ["puestoEncargado","¿Qué posición requiere cobertura y a quién reemplaza?","text"]]},
- {t:"Vigencia",q:[
-  ["fechaInicioEnc","Fecha de inicio","date"],
-  ["fechaFinEnc","Fecha estimada de fin","date"]]},
- {t:"Funciones durante la encargatura",q:[
-  ["mantieneFunciones","¿Mantendrá sus funciones actuales?","select",SNP],
-  ["equipoAdicional","¿Tendrá equipo adicional a cargo? ¿Cuántas personas?","select",PERSONAS],
-  ["responsabilidadesExtra","¿Qué responsabilidades adicionales asumirá?","textarea"]]},
- {t:"Resultado esperado e impacto",q:[
-  ["objetivoEnc","¿Qué se busca asegurar con esta encargatura?","select",["Continuidad operativa","Continuidad del liderazgo","Cobertura de una posición crítica","Cumplimiento de metas","Continuidad de proyecto o proceso","Otro"]],
-  ["riesgoNoFormalizar","¿Qué impacto tendría no formalizarla?","textarea"]]},
- {t:"Condiciones de la renovación",when:["tipoEncargatura","Renovación"],q:[
-  ["fechaPrimerConvenio","Fecha del primer convenio","date"],
-  ["fechaTerminoActual","¿Hasta qué fecha está vigente actualmente?","date"],
-  ["periodoRenovacion","¿Por cuánto tiempo adicional se solicita renovar?","text","Ej.: 3 meses"],
-  ["mismasFuncionesRen","¿Se mantienen las mismas funciones y condiciones?","select",SN],
-  ["cambiaMontoRen","¿Cambia el monto de la asignación?","select",SN],
-  ["resultadosRen","¿Qué resultados justifican continuar con la encargatura?","textarea","Ej.: se mantuvo el cumplimiento de metas, no hubo interrupciones operativas y el equipo tuvo continuidad de liderazgo."]]},
- {t:"Condiciones del cambio",when:["tipoEncargatura","Cambio de encargatura"],q:[
-  ["puestoEncargaturaAnterior","¿Qué posición tenía encargada anteriormente?","text"],
-  ["puestoEncargaturaNueva","¿A qué nueva posición cambia la encargatura?","text"],
-  ["motivoCambioEnc","¿Por qué se requiere cambiar la encargatura?","textarea"],
-  ["cambiaAsignacionEnc","¿Cambia la asignación económica?","select",SN]]}],
-"Reemplazo":[
- {t:"Posición a reemplazar",q:[
-  ["personaOVacanteReemplazo","¿A quién reemplaza el colaborador?","text","Nombre y/o posición de la persona que deja la vacante."],
-  ["motivoVacanteReemplazo","¿Cuál es el motivo del reemplazo?","select",["Renuncia","Cese","Promoción","Movimiento interno","Otro"]],
-  ["fechaInicioReemplazo","¿Desde cuándo se requiere cubrir la posición?","date"]]},
- {t:"Estructura y presupuesto",q:[
-  ["posicionAprobadaRep","¿La posición ya está aprobada dentro de la estructura vigente?","select",SNC],
-  ["presupuestoSeMantiene","¿Se mantiene el presupuesto de la posición reemplazada?","select",SNC]]},
- {t:"Posición no aprobada en la estructura",when:["posicionAprobadaRep","No"],q:[
-  ["tipoPosicionRep","¿Corresponde a una posición adicional o a una modificación de estructura?","select",["Posición adicional","Modificación de estructura"]]]},
- {t:"Cambio en el presupuesto",when:["presupuestoSeMantiene","No"],q:[
-  ["cambioPresupuestoRep","¿Qué cambia en el presupuesto?","textarea","Indica brevemente qué cambia."]]},
- {t:"Cambios en la posición",q:[
-  ["cambioPosicionRep","¿Existe algún cambio respecto a la posición que se está reemplazando?","select",["No, se mantiene igual","Sí, cambia puesto, responsabilidades, nivel o condiciones"]]]},
- {t:"Detalle del cambio en la posición",when:["cambioPosicionRep","Sí, cambia puesto, responsabilidades, nivel o condiciones"],q:[
-  ["cambioPosicionDetalle","Explica brevemente qué cambia","textarea"]]}],
-"Puesto nuevo":[
- {t:"El puesto solicitado",q:[
-  ["puestoNuevo","¿Qué puesto se solicita crear?","text"]]},
- {t:"Necesidad del negocio",q:[
-  ["necesidadPuesto","¿Qué necesidad del negocio origina la creación del puesto?","textarea","Crecimiento, reestructuración, proyecto nuevo, nueva función o necesidad operativa."],
-  ["porQueNoAbsorbe","¿Por qué la estructura actual no puede cubrir esta necesidad?","textarea"]]},
- {t:"Cantidad y características",q:[
-  ["cantidadPosiciones","¿Cuántas posiciones se requieren?","select",["1","2","3","4","5","6","7","8","9","10","Más de 10"],"Si necesitas varias posiciones iguales (por ejemplo 2 asistentes comerciales), envíalas juntas en esta misma solicitud."],
-  ["fechaRequerida","¿Desde cuándo se requieren? (fecha tentativa)","date"],
-  ["temporalPermanente","¿La posición será permanente o temporal?","select",["Permanente","Temporal"]],
-  ["reportaA","¿A quién reportará?","text"],
-  ["personasCargoPN","¿Tendrá personas a cargo? ¿Cuántas?","select",PERSONAS]]},
- {t:"Alcance del puesto",q:[
-  ["responsabilidadesPuesto","¿Qué responsabilidades y resultados principales tendrá el puesto?","textarea","Puedes apoyarte en el descriptivo de puesto. Ej.: coordinar al equipo, cumplimiento de SLA, cierre mensual, mejora de indicadores."]]},
- {t:"Resultado esperado e impacto",q:[
-  ["impactoNoCrear","¿Qué impacto tendría no crear esta posición?","textarea"]]}],
-"Incremento salarial":[
- {t:"Motivo y situación",q:[
-  ["motivoIncremento","¿Cuál es el motivo principal del incremento?","select",["Retención","Ampliación de responsabilidades","Mérito","Regularización","Obtención de Grado Académico","Otro"]],
-  ["situacionOrigen","¿Detallar el motivo seleccionado?","textarea","Explica qué está ocurriendo actualmente y por qué se solicita el incremento."],
-  ["impactoSalida","¿Qué ocurriría si el incremento no se realiza?","textarea"]]},
- {t:"Evidencia y riesgo de salida",when:["motivoIncremento","Retención"],q:[
-  ["riesgoSalida","¿Existe riesgo de salida?","select",SN],
-  ["intencionRenuncia","¿El colaborador comunicó intención de renuncia?","select",SN],
-  ["ofertaExterna","¿Existe una oferta externa?","select",SN]]},
- {t:"Evidencia de la oferta externa",when:["ofertaExterna","Sí"],q:[
-  ["evidenciaOferta","Evidencia de la oferta externa","select",["Correo","Carta oferta","Mensaje","Otro"]]]},
- {t:"Propuesta del negocio",q:[
-  ["tipoPropuestaNegocio","Tipo de propuesta del negocio","select",["Monto en S/","Porcentaje %"]],
-  ["propuestaNegocio","Valor de la propuesta","number"]]}],
-"Movimiento interno":[
- {t:"Necesidad",q:[
-  ["motivoMovimiento","¿Qué necesidad origina el movimiento interno?","textarea"],
-  ["problemaResuelveML","¿Qué problema organizacional busca resolver?","textarea"]]},
- {t:"Destino",q:[
-  ["puestoDestino","Puesto destino","text"],
-  ["areaDestino","Área destino","text"],
-  ["cambioUbicacion","¿Existe cambio de ubicación?","select",SN],
-  ["cambioJornada","¿Existe cambio de jornada?","select",SN]]},
- {t:"Cambios en el rol",q:[
-  ["cambiaResponsabilidad","¿Cambia el nivel de responsabilidad?","select",SN],
-  ["cambiaAlcance","¿Cómo cambia el alcance?","textarea"],
-  ["nuevasFuncionesML","¿Qué funciones nuevas asumirá?","textarea"]]},
- {t:"Resultado esperado e impacto",q:[
-  ["resultadoEsperadoML","¿Qué se espera lograr con el movimiento?","textarea"],
-  ["solicitaIncrementoML","¿Se solicita un incremento salarial con este movimiento?","select",SN]]}],
-"Otro":[
- {t:"La solicitud",q:[
-  ["descripcionOtro","¿Qué movimiento o cambio se solicita?","textarea"],
-  ["sustentoOtro","¿Por qué se solicita este movimiento?","textarea"]]},
- {t:"Resultado esperado e impacto",q:[
-  ["impactoOtro","¿Qué ocurriría si no se realiza?","textarea"]]}]
+const SETS = {   // Paso 2 vacío a propósito: las preguntas se rehacen en el rediseño (las anteriores quedan en el commit bb625f6)
+"Promoción":[],
+"Encargatura":[],
+"Reemplazo":[],
+"Puesto nuevo":[],
+"Incremento salarial":[],
+"Movimiento interno":[],
+"Otro":[]
 };
 
 // Límites [mínimo, máximo] de caracteres por pregunta. Texto corto: 2-100. Párrafos por nivel: L 60-600, M 40-500, S 30-300.
@@ -653,7 +555,20 @@ function renderSpecific(){
   $("specificIntro").textContent=sets
     ? `Preguntas para ${mov}. Todas son obligatorias; responde con hechos concretos siguiendo la secuencia: situación actual → cambio propuesto → sustento → resultado esperado → impacto.`
     : "Selecciona primero el tipo de movimiento en el paso 1.";
-  applyWhen();
+  applyWhen();palabras();
+}
+// Las palabras de las preguntas comunes se ajustan a la casuística elegida (la promoción, el reemplazo, la creación del puesto…).
+const COSA={"Promoción":["la promoción","esta promoción"],"Encargatura":["la encargatura","esta encargatura"],"Reemplazo":["el reemplazo","este reemplazo"],"Puesto nuevo":["la creación del puesto","la creación de este puesto"],"Incremento salarial":["el incremento salarial","este incremento"],"Movimiento interno":["el movimiento interno","este movimiento"],"Otro":["la solicitud","esta solicitud"]};
+function palabras(){
+  const [de,esta]=COSA[$("movimiento").value]||["el movimiento","este movimiento"];
+  const L=(id,t)=>{const q=$(id)&&$(id).closest(".q"),l=q&&q.querySelector("label");if(l) l.textContent=t};
+  L("tieneAprobacion",`¿${de[0].toUpperCase()+de.slice(1)} cuenta con la aprobación de la gerencia?`);
+  L("presupuesto",`¿Cuenta con presupuesto para ${esta}?`);
+  L("urgencia",`¿Para cuándo se necesita implementar ${esta}?`);
+  L("impacto",`Nivel de impacto si no se ejecuta ${de}`);
+  L("consecuencia",`Principal consecuencia de no aprobar ${de}`);
+  const h=$("impactoDetalle").closest(".q").querySelector(".help");if(h) h.textContent=`¿Qué pasaría si ${esta} no se ejecuta?`;
+  $("hColab").textContent=NOCODE.includes($("movimiento").value)?"Posición solicitada":"Colaborador";
 }
 function applyWhen(){
   document.querySelectorAll("[data-when]").forEach(s=>{
@@ -867,7 +782,7 @@ function evaluateCase(d){
 }
 
 // ---------- Asistente por pasos ----------
-const STEPS=["Solicitud","Levantamiento","Aprobaciones","Presupuesto","Impacto","Sustento","Revisión"];
+const STEPS=["Solicitud","Levantamiento","Aprobaciones y presupuesto","Impacto","Sustento","Revisión"];
 let cur=0,reached=0,editingCaseId=null,prevMov="",sustentoTouched=false,lastRec=null;
 
 function renderStepper(){
@@ -879,7 +794,8 @@ function presUI(){
   const v=p.value,e=$("validaPresupuesto");   // «¿quién lo confirmó?» solo si dice que hay presupuesto
   if(e){e.closest(".q").classList.toggle("hidden",v!=="Sí");if(v!=="Sí")e.value=""}
 }
-function refresh(){presUI();
+function ocultarPreguntas(){if(CONFIG.sinPreguntas) document.querySelectorAll("#form .q").forEach(q=>{if(!q.querySelector("#movimiento,#departamento,#confirmo")) q.classList.add("hidden")})}
+function refresh(){ocultarPreguntas();presUI();
   let tot=0,okc=0;
   $("form").querySelectorAll("input,select,textarea").forEach(el=>{
     if(el.id==="confirmo"||el.type==="button") return;
@@ -897,18 +813,18 @@ function go(n){
   cur=n;reached=Math.max(reached,n);
   document.querySelectorAll(".step").forEach(s=>s.classList.toggle("on",+s.dataset.step===n));
   $("errSummary").classList.add("hidden");
-  if(n===5&&!sustentoTouched){$("solicitudConcreta").value=buildExecutiveSummary();counters()}
-  if(n===6) renderReview();
+  if(n===4&&!sustentoTouched){$("solicitudConcreta").value=buildExecutiveSummary();counters()}
+  if(n===STEPS.length-1) renderReview();
   counters();
   window.Ortografia&&Ortografia.revisarVisibles();   // revisa la ortografía de los textos largos del paso
   $("prevBtn").disabled=n===0;
-  $("nextBtn").textContent=n===6?(editingCaseId?"Guardar cambios":"Enviar solicitud"):"Siguiente →";
+  $("nextBtn").textContent=n===STEPS.length-1?(editingCaseId?"Guardar cambios":"Enviar solicitud"):"Siguiente →";
   refresh();window.scrollTo({top:0});
 }
 function next(){
   const errs=validate(cur);
   if(errs.length) return showErrors(errs);
-  cur===6?submit():go(cur+1);
+  cur===STEPS.length-1?submit():go(cur+1);
 }
 function toast(m){const t=$("toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2800)}
 
@@ -1206,10 +1122,10 @@ async function demoFill(enviar,dep,mov0){
     }else{
       $("codigo").value=per.codigo;setEmployeeFields(per);$("codigoHelp").textContent="Datos de ejemplo cargados desde la base de personal.";
     }
-    for(let s=0;s<=5;s++){go(s);await demoTick(150);demoAuto(s)}
+    for(let s=0;s<STEPS.length-1;s++){go(s);await demoTick(150);demoAuto(s)}
     dset("impactoDetalle",("[DEMO] "+$("impactoDetalle").value).slice(0,480));
-    go(6);$("confirmo").checked=true;
-    const faltan=[0,1,2,3,4,5].reduce((n,i)=>n+validate(i).length,0);
+    go(STEPS.length-1);$("confirmo").checked=true;
+    const faltan=[...STEPS.keys()].slice(0,-1).reduce((n,i)=>n+validate(i).length,0);
     toast((faltan?`Ejemplo cargado (${mov}); ${faltan} campo(s) pendiente(s): revisa los pasos.`:`Ejemplo cargado (${mov}). Pulsa «Enviar solicitud».`));
     afterAuto();
     if(enviar&&!faltan){await submit();bs.forEach(b=>{b.disabled=false;b.textContent=b.dataset.t});return lastRec}
@@ -1262,6 +1178,7 @@ function init(){
   $("presupuesto").addEventListener("change",presUI);presUI();
   $("g4").innerHTML=G4.map(qHTML).join("");
   $("g4b").innerHTML=qHTML(["impactoDetalle","Explique brevemente el impacto","textarea","¿Qué pasaría si este movimiento no se ejecuta?"]);
+  palabras();
   $("g5").innerHTML=qHTML(["solicitudConcreta","Sustento ejecutivo","textarea","Se genera a partir de tus respuestas; puedes editarlo."]);
   $("form").addEventListener("input",onAny);$("form").addEventListener("change",onAny);
   $("stepper").addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b&&!b.disabled) go(+b.dataset.go)});

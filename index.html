@@ -163,7 +163,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
       <p class="muted">Todos los campos son obligatorios.</p>
       <h3>Solicitud</h3><div class="grid" id="g0a"></div>
       <p class="muted" id="registraComo"></p><div class="grid hidden" id="g0b"></div>   <!-- el líder se completa solo con quien inició sesión -->
-      <h3>Colaborador</h3>
+      <h3 id="hColab">Colaborador</h3>
       <div class="grid" id="g0c"></div>
     </section>
 
@@ -174,35 +174,32 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
     </section>
 
     <section class="panel step" data-step="2">
-      <h2>3 · Aprobaciones previas</h2>
+      <h2>3 · Aprobaciones y presupuesto</h2>
       <p class="muted">Si ya existe una aprobación, regístrala: quién aprobó, fecha y evidencia.</p>
       <div class="grid" id="g2"></div>
       <div id="approvalsWrap" class="hidden" style="margin-top:16px">
         <div id="approvals"></div>
         <button type="button" class="secondary" id="addApproval">+ Agregar otra aprobación</button>
       </div>
-    </section>
-
-    <section class="panel step" data-step="3">
-      <h2>4 · Presupuesto</h2>
+      <h3 style="margin-top:22px">Presupuesto</h3>
       <p class="muted">Solo indica si hay presupuesto y, si lo hay, quién te lo confirmó (tu Socio de negocio o alguien de Talento). No necesitas conocer la fuente ni el monto.</p>
       <div class="grid" id="g3"></div>
     </section>
 
-    <section class="panel step" data-step="4">
-      <h2>5 · Prioridad y necesidad del negocio</h2>
+    <section class="panel step" data-step="3">
+      <h2>4 · Prioridad y necesidad del negocio</h2>
       <div class="grid" id="g4"></div>
       <div id="g4b" style="margin-top:16px"></div>
     </section>
 
-    <section class="panel step" data-step="5">
-      <h2>6 · Sustento ejecutivo para Comité</h2>
+    <section class="panel step" data-step="4">
+      <h2>5 · Sustento ejecutivo para Comité</h2>
       <p class="muted">Se genera con tus respuestas. Léelo y edítalo si hace falta: es el texto que se eleva al Comité.</p>
       <div id="g5"></div>
     </section>
 
-    <section class="panel step" data-step="6">
-      <h2>7 · Revisión y envío</h2>
+    <section class="panel step" data-step="5">
+      <h2>6 · Revisión y envío</h2>
       <p class="muted">El índice mide qué tan completa está la información; no aprueba ni rechaza el movimiento.</p>
       <div id="reviewBox"></div>
       <div class="q"><label class="check"><input type="checkbox" id="confirmo"> Confirmo que la información es veraz y que cuenta con el respaldo indicado.</label><div class="err"></div></div>
