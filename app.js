@@ -614,7 +614,7 @@ const fechaLarga=iso=>{const [y,m,d]=iso.split("-");return `lunes ${d}/${m}/${y}
 const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
 const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS],["area","Área","text"],["seccion","Sección","text"]];
 const CODE_HTML=`<div class="q"><label for="correoColab">Buscar por correo institucional</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div id="colabCard" class="colabcard hidden"></div><div id="colabManualWrap" class="hidden"><button type="button" class="linkbtn" data-colab="manual">¿No lo encuentras? Completar a mano</button></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
-const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SN,"Solo indica si hay o no: tu Socio de negocio lo confirma."],["validaPresupuesto","¿Quién te confirmó que hay presupuesto?","select",["Mi Socio de negocio (HRBP)","Alguien de Talento (Compensaciones, Selección…)","Mi gerencia o dirección"],"No necesitas conocer fuente ni monto: solo quién te dijo que hay presupuesto."]];   // fuente y monto ya no se piden al jefe (siguen como campos vacíos en el registro)
+const G3=[["presupuesto","¿Presupuesto confirmado por tu Socio de negocio?","select",SN,"Responde Sí solo si tu Socio de negocio ya te lo confirmó."],["validaPresupuesto","¿Quién te confirmó que hay presupuesto?","select",["Mi Socio de negocio (HRBP)","Alguien de Talento (Compensaciones, Selección…)","Mi gerencia o dirección"],"No necesitas conocer fuente ni monto: solo quién te dijo que hay presupuesto."]];   // fuente y monto ya no se piden al jefe (siguen como campos vacíos en el registro)
 const G4=[["urgencia","¿Para cuándo se necesita implementar este movimiento?","select",["Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
 const EVID_AP=["Correo","Acta","Documento","Reunión registrada","Otro"];
 const LEVELS=["Presidencia","Gerencia General","Líder de Unidad","Líder de Área","Líder inmediato","Otro"], EVID=["Correo","Acta","Reunión","Documento","Otro"];
@@ -663,7 +663,7 @@ const COSA={"Promoción":["la promoción","esta promoción"],"Encargatura":["la 
 function palabras(){
   const [de,esta]=COSA[$("movimiento").value]||["el movimiento","este movimiento"];
   const L=(id,t)=>{const q=$(id)&&$(id).closest(".q"),l=q&&q.querySelector("label");if(l) l.textContent=t};
-  L("presupuesto",`¿Cuenta con presupuesto para ${esta}?`);
+  L("presupuesto","¿Presupuesto confirmado por tu Socio de negocio?");
   L("urgencia",`¿Para cuándo se necesita implementar ${esta}?`);
   L("impacto",`Nivel de impacto si no se ejecuta ${de}`);
   L("consecuencia",`Principal consecuencia de no aprobar ${de}`);
@@ -895,7 +895,7 @@ function renderStepper(){
 function presUI(){
   const p=$("presupuesto");if(!p) return;
   const v=p.value,e=$("validaPresupuesto");   // «¿quién lo confirmó?» solo si dice que hay presupuesto
-  if(e){e.closest(".q").classList.toggle("hidden",v!=="Sí");if(v!=="Sí")e.value=""}
+  if(e){e.closest(".q").classList.add("hidden");e.value=v==="Sí"?"Mi Socio de negocio (HRBP)":""}   // la pregunta ya dice que lo confirmó el Socio de negocio
 }
 function ocultarPreguntas(){["fechaSolicitud","impacto","consecuencia","impactoDetalle"].forEach(id=>$(id).closest(".q").classList.add("hidden"));   // la fecha es automática; el impacto ya se pregunta dentro de cada movimiento
   if(CONFIG.sinPreguntas) document.querySelectorAll("#form .q").forEach(q=>{if(!q.querySelector("#movimiento,#departamento,#confirmo")) q.classList.add("hidden")})}
