@@ -40,7 +40,10 @@
       "**/*.log",
       ".claude/**",
       ".claude",
-      "acceso-publico/**"
+      "acceso-publico/**",
+      "**/*.docx",
+      "**/*.xlsx",
+      "**/*.csv"
     ],
     "headers": [
       {
