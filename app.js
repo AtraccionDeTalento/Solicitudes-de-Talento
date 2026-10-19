@@ -646,14 +646,26 @@ const G4=[["urgencia","¿Para cuándo se necesita implementar este movimiento?",
 const EVID_AP=["Correo","Acta","Documento","Reunión registrada","Otro"];
 const LEVELS=["Presidencia","Gerencia General","Líder de Unidad","Líder de Área","Líder inmediato","Otro"], EVID=["Correo","Acta","Reunión","Documento","Otro"];
 
+// Pantalla 1: cada movimiento es una tarjeta con una frase que el jefe entiende sin leer más.
+const MOV_UI={"Promoción":["⬆️","Promover a alguien"],"Encargatura":["⏳","Encargar un puesto por un tiempo"],"Reemplazo":["🔁","Cubrir a alguien que sale"],"Puesto nuevo":["➕","Crear un puesto nuevo"],"Incremento salarial":["💰","Revisar un sueldo"],"Movimiento interno":["↔️","Mover a alguien de área o puesto"],"Otro":["✳️","Otro cambio"]};
+function tarjetasMov(){
+  const q=$("movimiento").closest(".q");q.classList.add("cardmode");
+  q.insertAdjacentHTML("afterbegin",`<div class="movcards" role="group" aria-label="Tipo de movimiento">${MOVS.map(m=>`<button type="button" class="movcard" data-mov="${esc(m)}" aria-pressed="false"><i aria-hidden="true">${MOV_UI[m][0]}</i><span>${esc(MOV_UI[m][1])}</span></button>`).join("")}</div>`);
+  q.addEventListener("click",e=>{const b=e.target.closest(".movcard");if(!b) return;const sel=$("movimiento");if(sel.value===b.dataset.mov) return;sel.value=b.dataset.mov;sel.dispatchEvent(new Event("change",{bubbles:true}))});
+}
+function syncMov(){
+  const m=$("movimiento").value;
+  document.querySelectorAll(".movcard").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mov===m)));
+  $("bloqueColab").classList.toggle("hidden",!m);
+}
 function renderSpecific(){
   const mov=$("movimiento").value, sets=SETS[mov];
   prevMov=mov;
   $("specificQuestions").innerHTML=sets?sets.map(s=>`<div class="qgroup"${s.when?` data-when="${esc(s.when.join("|"))}"`:""}><h3>${esc(s.t)}</h3><div class="grid2">${s.q.map(qHTML).join("")}</div></div>`).join(""):"";
   document.querySelectorAll("#specificQuestions input,#specificQuestions select,#specificQuestions textarea").forEach(el=>el.dataset.dynamic="1");
   $("specificIntro").textContent=sets
-    ? `Preguntas para ${mov}. Todas son obligatorias; responde con hechos concretos siguiendo la secuencia: situación actual → cambio propuesto → sustento → resultado esperado → impacto.`
-    : "Selecciona primero el tipo de movimiento en el paso 1.";
+    ? `Solo lo necesario para ${(COSA[mov]||["el movimiento"])[0]}. Respuestas cortas y concretas.`
+    : "Elige primero qué necesitas.";
   applyWhen();palabras();
 }
 // Las palabras de las preguntas comunes se ajustan a la casuística elegida (la promoción, el reemplazo, la creación del puesto…).
@@ -854,12 +866,12 @@ function evaluateCase(d){
     if(!conf) alerts.push(d.validaPresupuesto?"Indica presupuesto, pero nadie lo ha confirmado aún.":"Falta indicar quién confirmó el presupuesto.");
   }else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
   else alerts.push("No se ha definido el estado del presupuesto.");
-  b.impacto+={"Inmediato":6,"Dentro de 30 días":5,"Dentro de 60 días":3,"Más adelante":2}[d.urgencia]||0;
+  b.impacto+={"Inmediato":20,"Dentro de 30 días":20,"Dentro de 60 días":16,"Más adelante":12}[d.urgencia]||0;   // el impacto ya va dentro de las preguntas de cada movimiento: aquí solo cuenta la urgencia
   b.impacto+={"Crítico":6,"Alto":5,"Medio":3,"Bajo":1}[d.impacto]||0;
   if(d.consecuencia) b.impacto+=d.consecuencia==="Sin impacto relevante"?0:3;
   if(nonempty(d.impactoDetalle)){const q=Q(String(d.impactoDetalle).trim());b.impacto+=Math.round(5*(String(d.impactoDetalle).trim().length<20?1:q.p));if(q.nivel==="invalido") alerts.push("El detalle del impacto no parece texto con sentido.")}
   score+=b.impacto;
-  if(b.impacto>=16) strengths.push("Impacto y urgencia del negocio identificados."); else alerts.push("Falta fortalecer la justificación de impacto o urgencia.");
+  b.impacto=Math.min(20,b.impacto);if(d.urgencia) strengths.push("Urgencia del negocio identificada."); else alerts.push("Falta indicar para cuándo se necesita.");
   if(d.impacto==="Bajo"&&d.urgencia==="Inmediato") alerts.push("Urgencia inmediata con impacto bajo: revisa que sean coherentes.");
   if((d.impacto==="Alto"||d.impacto==="Crítico")&&d.consecuencia==="Sin impacto relevante") alerts.push("Indicas impacto alto pero «sin impacto relevante» como consecuencia: revisa que sean coherentes.");
   if(!nonempty(d.solicitudConcreta)) alerts.push("Falta generar o completar el sustento ejecutivo para Comité.");
@@ -883,7 +895,7 @@ function evaluateCase(d){
 }
 
 // ---------- Asistente por pasos ----------
-const STEPS=["Solicitud","Levantamiento","Aprobaciones y presupuesto","Impacto","Sustento","Revisión"];
+const STEPS=["¿Qué necesitas?","Cuéntanos","Revisa y envía"];
 let cur=0,reached=0,editingCaseId=null,prevMov="",sustentoTouched=false,lastRec=null;
 
 function renderStepper(){
@@ -895,9 +907,9 @@ function presUI(){
   const v=p.value,e=$("validaPresupuesto");   // «¿quién lo confirmó?» solo si dice que hay presupuesto
   if(e){e.closest(".q").classList.toggle("hidden",v!=="Sí");if(v!=="Sí")e.value=""}
 }
-function ocultarPreguntas(){$("fechaSolicitud").closest(".q").classList.add("hidden");   // la fecha es automática: no se muestra
+function ocultarPreguntas(){["fechaSolicitud","impacto","consecuencia","impactoDetalle"].forEach(id=>$(id).closest(".q").classList.add("hidden"));   // la fecha es automática; el impacto ya se pregunta dentro de cada movimiento
   if(CONFIG.sinPreguntas) document.querySelectorAll("#form .q").forEach(q=>{if(!q.querySelector("#movimiento,#departamento,#confirmo")) q.classList.add("hidden")})}
-function refresh(){ocultarPreguntas();window.DPF&&DPF.render();presUI();
+function refresh(){ocultarPreguntas();syncMov();window.DPF&&DPF.render();presUI();
   let tot=0,okc=0;
   $("form").querySelectorAll("input,select,textarea").forEach(el=>{
     if(el.id==="confirmo"||el.type==="button") return;
@@ -915,8 +927,7 @@ function go(n){
   cur=n;reached=Math.max(reached,n);
   document.querySelectorAll(".step").forEach(s=>s.classList.toggle("on",+s.dataset.step===n));
   $("errSummary").classList.add("hidden");
-  if(n===4&&!sustentoTouched){$("solicitudConcreta").value=buildExecutiveSummary();counters()}
-  if(n===STEPS.length-1) renderReview();
+  if(n===STEPS.length-1){if(!sustentoTouched){$("solicitudConcreta").value=buildExecutiveSummary();counters()}renderReview()}
   counters();
   window.Ortografia&&Ortografia.revisarVisibles();   // revisa la ortografía de los textos largos del paso
   $("prevBtn").disabled=n===0;
@@ -1273,7 +1284,7 @@ function onAny(e){
   draftTimer=setTimeout(()=>store(draftKey(),JSON.stringify({data:gather(),cur,reached})),400);
 }
 function init(){
-  $("g0a").innerHTML=G0A.map(qHTML).join("");
+  $("g0a").innerHTML=G0A.map(qHTML).join("");tarjetasMov();
   $("g0b").innerHTML=G0B.map(qHTML).join("");
   $("g0c").innerHTML=CODE_HTML+G0C.map(qHTML).join("");
   $("g2").innerHTML=qHTML(["tieneAprobacion","¿Cuenta con la aprobación de la gerencia?","select",SN,"La gerencia es el primer filtro. Una conversación en reunión no cuenta como aprobación: debe haber evidencia."]);
@@ -1379,7 +1390,7 @@ function enter(){
   const dr=load(draftKey(),null);
   editingCaseId=null;reached=0;showShell();
   fill(dr&&dr.data?dr.data:baseData());lockLeader();autoLider();
-  if(dr&&dr.data){reached=dr.reached||0;go(Math.min(dr.cur||0,reached));toast("Borrador recuperado")}
+  if(dr&&dr.data){reached=Math.min(dr.reached||0,STEPS.length-1);go(Math.min(dr.cur||0,reached,STEPS.length-1));toast("Borrador recuperado")}
   else{lockNew(false);go(0)}
 }
 function logout(explicit){
