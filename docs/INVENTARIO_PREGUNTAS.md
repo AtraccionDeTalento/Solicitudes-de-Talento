@@ -17,6 +17,8 @@ Generado del código actual (rama piloto). Columna **Dónde**: archivo y línea 
 
 ### Encargatura
 
+En pantalla, las preguntas de Cambio de encargatura (13 a 16 aquí) se numeran 7 a 10, porque solo aparece uno de los dos bloques.
+
 | # | Pregunta | Respuesta | Condición | Dónde |
 |---|---|---|---|---|
 | 1 | Tipo de encargatura | Nueva encargatura · Renovación · Cambio de encargatura |  | app.js:41 |
@@ -115,19 +117,19 @@ Generado del código actual (rama piloto). Columna **Dónde**: archivo y línea 
 | Paso 1 | Nombre del líder | No (del inicio de sesión) | app.js:614 |
 | Paso 1 | Cargo del líder | No (del inicio de sesión) | app.js:614 |
 | Paso 1 | Correo del líder | No (del inicio de sesión) | app.js:614 |
-| Paso 1 | Nombre y apellido del colaborador | Solo en «Corregir datos» | app.js:315 |
+| Paso 1 | Nombre y apellido del colaborador | Solo en «Corregir datos» | app.js:615 |
 | Paso 1 | Puesto | Solo en «Corregir datos» | app.js:615 |
-| Paso 1 | Departamento | Puesto nuevo / «Corregir datos» | app.js:516 |
+| Paso 1 | Departamento | Puesto nuevo / «Corregir datos» | app.js:615 |
 | Paso 1 | Área | Puesto nuevo / «Corregir datos» | app.js:615 |
 | Paso 1 | Sección | Puesto nuevo / «Corregir datos» | app.js:615 |
-| Paso 2 | ¿La solicitud cuenta con aprobación de la gerencia? | Sí | app.js:1068 |
+| Paso 2 | ¿La solicitud cuenta con aprobación de la gerencia? | Sí | app.js:1291 |
 | Paso 2 | ¿Presupuesto confirmado por tu Socio de negocio? | Sí (no en Reemplazo) | app.js:617 |
 | Paso 2 | ¿Quién te confirmó que hay presupuesto? | No (se llena solo) | app.js:617 |
 | Paso 2 | ¿Para cuándo se necesita implementar este movimiento? | No (oculta) | app.js:618 |
 | Paso 2 | Nivel de impacto si no se ejecuta | No (oculta) | app.js:618 |
 | Paso 2 | Principal consecuencia de no aprobar | No (oculta) | app.js:618 |
-| Paso 2 | Explique brevemente el impacto | No (oculta) | app.js:1068 |
-| Paso 3 | Sustento ejecutivo (se arma solo) | Plegado en Revisión | app.js:1068 |
+| Paso 2 | Explique brevemente el impacto | No (oculta) | app.js:1295 |
+| Paso 3 | Sustento ejecutivo (se arma solo) | Plegado en Revisión | app.js:1297 |
 | Paso 1 | Buscar por correo institucional (colaborador) | Sí | app.js:616 |
 | Paso 2 | Aprobación: ¿Quién aprobó? · Fecha de aprobación · Evidencia de aprobación · Adjuntar evidencia | Si hay aprobación | app.js:737 |
 | Paso 3 | Confirmo que la información es veraz… | Sí | index.html:288 |
