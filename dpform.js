@@ -50,7 +50,14 @@
     return { titulo: "", mision: d.mision || "", funciones: (d.funciones || []).join("\n"), reportaA: d.reportaA || "", supervisaA: d.supervisaA || "", grado: e.grado || "", profesion: e.profesion || "", experiencia: e.experienciaMinPuesto || "",
       idiomas: niv(d.idiomas).join(", "), ofimatica: niv(d.ofimatica).join(", "), competencias: [...niv(c.transversales), ...niv(c.lideres), ...niv(c.adicionales)].join("\n") };
   }
-  function coincide() { const n = norm($("puestoActual").value); return n ? CAT.find(x => norm(x.titulo) === n) || null : null; }
+  // Qué descriptivo corresponde según el movimiento: el del puesto al que va (promoción, encargatura, movimiento interno) o, si no, el del puesto actual / el que queda vacante.
+  const OBJ = { "Promoción": ["puestoPropuesto", "Puesto propuesto"], "Movimiento interno": ["puestoDestino", "Puesto destino"], "Encargatura": ["puestoEncargado", "Posición a cubrir"] };
+  const objetivo = () => { const o = OBJ[$("movimiento").value], el = o && $(o[0]); return el && el.value.trim() ? [el.value, o[1]] : null; };
+  function coincide() {
+    const cand = [objetivo(), [$("puestoActual").value, $("movimiento").value === "Reemplazo" ? "Puesto a cubrir" : "Puesto actual"]].filter(Boolean);
+    for (const [t, origen] of cand) { const n = norm(t); if (!n) continue; const x = CAT.find(c => norm(c.titulo) === n) || (origen !== "Puesto actual" && origen !== "Puesto a cubrir" ? CAT.find(c => n.includes(norm(c.titulo))) : null); if (x) return { ...x, origen }; }
+    return null;
+  }
   const esNuevo = () => $("movimiento").value === "Puesto nuevo";
 
   // ---------- Ventana ampliada ----------
@@ -101,7 +108,7 @@
       if (!ver) return;
       const p = esNuevo() ? null : coincide();
       if (ajuste && cargado && (!p || p.id !== ajuste)) { ajuste = null; nuevo = { base: "" }; }   // cambió el colaborador: el ajuste era de otro puesto
-      const k = [mov, puesto, p && p.id, CAT.length, esNuevo() ? nuevo.base : "", ajuste].join("|");
+      const ob = objetivo(), k = [mov, puesto, ob && ob[0], p && p.id, CAT.length, esNuevo() ? nuevo.base : "", ajuste].join("|");
       if (k === llave) return;   // no se redibuja mientras escribe
       llave = k;
       const skel = '<div class="dpSkel" style="width:70%"></div><div class="dpSkel"></div><div class="dpSkel" style="width:85%"></div><div class="dpSkel" style="width:60%"></div>';
@@ -109,8 +116,8 @@
       box.innerHTML = `<div class="dpHead"><span>Descriptivo de puesto</span>${(esNuevo() || p) ? ampliar : ""}</div><div class="dpBody">` + (esNuevo()
           ? `<span class="dpBadge nuevo">Puesto nuevo</span><h4>Descriptivo del puesto nuevo</h4><p class="dpm">Arma el descriptivo de la posición. Puedes partir de uno existente.</p>${editor(true)}`
         : !cargado && puesto ? skel
-        : p ? `<span class="dpBadge ${ajuste ? "nuevo" : "ok"}">${ajuste ? "Ajustes propuestos" : "✓ Descriptivo encontrado"}</span><div class="dpClick" data-dpaccion="abrir" title="Ampliar">${tarjeta(p.datos || p)}</div><p class="dpm">Fuente: catálogo de descriptivos (${esc(p.id)}).</p>`
-        : puesto && puesto !== "No aplica" ? `<span class="dpBadge no">Sin descriptivo cargado</span><p class="dpm">Aún no hay descriptivo cargado para «${esc(puesto)}».</p>` : `<p class="dpm">Elige al colaborador para ver el descriptivo de su puesto.</p>`) + `</div>`;
+        : p ? `<span class="dpBadge ${ajuste ? "nuevo" : "ok"}">${ajuste ? "Ajustes propuestos" : "✓ Descriptivo encontrado"}</span><p class="dpm">Mostrando: ${esc(p.origen)}</p><div class="dpClick" data-dpaccion="abrir" title="Ampliar">${tarjeta(p.datos || p)}</div><p class="dpm">Fuente: catálogo de descriptivos (${esc(p.id)}).</p>`
+        : (ob || (puesto && puesto !== "No aplica")) ? `<span class="dpBadge no">Sin descriptivo cargado</span><p class="dpm">Aún no hay descriptivo cargado para «${esc(ob ? ob[0] : puesto)}».</p>` : `<p class="dpm">Elige al colaborador para ver el descriptivo de su puesto.</p>`) + `</div>`;
       if (esNuevo()) { medidor(); if (recienBase) document.querySelectorAll("[data-dp]").forEach(el => { if (el.value) el.classList.add("flash"); }); }
       recienBase = false;
     }

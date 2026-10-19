@@ -660,6 +660,20 @@ function renderSpecific(){
 }
 // Las palabras de las preguntas comunes se ajustan a la casuística elegida (la promoción, el reemplazo, la creación del puesto…).
 const COSA={"Promoción":["la promoción","esta promoción"],"Encargatura":["la encargatura","esta encargatura"],"Reemplazo":["el reemplazo","este reemplazo"],"Puesto nuevo":["la creación del puesto","la creación de este puesto"],"Incremento salarial":["el incremento salarial","este incremento"],"Movimiento interno":["el movimiento interno","este movimiento"],"Otro":["la solicitud","esta solicitud"]};
+const COLAB_TIT={"Promoción":"Colaborador a promover","Encargatura":"Colaborador que asumirá la encargatura","Reemplazo":"Colaborador que deja la posición","Puesto nuevo":"Posición solicitada","Incremento salarial":"Colaborador","Movimiento interno":"Colaborador que se mueve","Otro":"Colaborador"};
+// Reemplazo: la persona buscada en el paso 1 es quien deja la posición, así que la pregunta 1 («¿A quién reemplaza…?») se precarga con ella (editable).
+let autoReemplazo="";
+function precargaReemplazo(){
+  const f=$("personaOVacanteReemplazo");if(!f||$("movimiento").value!=="Reemplazo") return;
+  const n=$("colaborador").value.trim(),p=$("puestoActual").value.trim(),v=n?[n,p].filter(Boolean).join(" — "):"";
+  if(!f.value.trim()||f.value===autoReemplazo){f.value=v;autoReemplazo=v}
+}
+// Reemplazo ya pregunta por el presupuesto de la posición (pregunta 5): el bloque común de presupuesto se oculta y toma esa respuesta.
+function presupuestoComun(){
+  const rep=$("movimiento").value==="Reemplazo",card=$("presupuesto").closest(".qcard");
+  card.classList.toggle("hidden",rep);
+  if(rep){const m=$("presupuestoSeMantiene");$("presupuesto").value=m&&["Sí","No"].includes(m.value)?m.value:"";presUI()}
+}
 function palabras(){
   const [de,esta]=COSA[$("movimiento").value]||["el movimiento","este movimiento"];
   const L=(id,t)=>{const q=$(id)&&$(id).closest(".q"),l=q&&q.querySelector("label");if(l) l.textContent=t};
@@ -668,7 +682,7 @@ function palabras(){
   L("impacto",`Nivel de impacto si no se ejecuta ${de}`);
   L("consecuencia",`Principal consecuencia de no aprobar ${de}`);
   const h=$("impactoDetalle").closest(".q").querySelector(".help");if(h) h.textContent=`¿Qué pasaría si ${esta} no se ejecuta?`;
-  $("hColab").textContent=NOCODE.includes($("movimiento").value)?"Posición solicitada":"Colaborador";
+  $("hColab").textContent=COLAB_TIT[$("movimiento").value]||"Colaborador";
 }
 function applyWhen(){
   document.querySelectorAll("[data-when]").forEach(s=>{
@@ -856,12 +870,7 @@ function evaluateCase(d){
     if(!conf) alerts.push(d.validaPresupuesto?"Indica presupuesto, pero nadie lo ha confirmado aún.":"Falta indicar quién confirmó el presupuesto.");
   }else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
   else alerts.push("No se ha definido el estado del presupuesto.");
-  b.impacto+={"Inmediato":20,"Dentro de 30 días":20,"Dentro de 60 días":16,"Más adelante":12}[d.urgencia]||0;   // el impacto ya va dentro de las preguntas de cada movimiento: aquí solo cuenta la urgencia
-  b.impacto+={"Crítico":6,"Alto":5,"Medio":3,"Bajo":1}[d.impacto]||0;
-  if(d.consecuencia) b.impacto+=d.consecuencia==="Sin impacto relevante"?0:3;
-  if(nonempty(d.impactoDetalle)){const q=Q(String(d.impactoDetalle).trim());b.impacto+=Math.round(5*(String(d.impactoDetalle).trim().length<20?1:q.p));if(q.nivel==="invalido") alerts.push("El detalle del impacto no parece texto con sentido.")}
-  score+=b.impacto;
-  b.impacto=Math.min(20,b.impacto);if(d.urgencia) strengths.push("Urgencia del negocio identificada."); else alerts.push("Falta indicar para cuándo se necesita.");
+  // urgencia e impacto ya no se preguntan (no están en el banco de preguntas): el puntaje se calcula sobre los 80 puntos restantes
   if(d.impacto==="Bajo"&&d.urgencia==="Inmediato") alerts.push("Urgencia inmediata con impacto bajo: revisa que sean coherentes.");
   if((d.impacto==="Alto"||d.impacto==="Crítico")&&d.consecuencia==="Sin impacto relevante") alerts.push("Indicas impacto alto pero «sin impacto relevante» como consecuencia: revisa que sean coherentes.");
   if(!nonempty(d.solicitudConcreta)) alerts.push("Falta generar o completar el sustento ejecutivo para Comité.");
@@ -873,7 +882,7 @@ function evaluateCase(d){
     else if(t.length>=250) strengths.push("Sustento ejecutivo claro y suficientemente desarrollado.");
     if(t.length<150) alerts.push("El sustento ejecutivo es muy breve para un Comité.");
   }
-  score=Math.min(100,Math.max(0,score));
+  score=Math.min(100,Math.max(0,Math.round(score*100/80)));
   let label,recommendation;
   if(score>=85){label="Caso bien preparado";recommendation="El caso presenta un nivel alto de preparación. Puede pasar a revisión de Compensaciones, sujeto a las validaciones técnicas correspondientes."}
   else if(score>=60){label="Caso viable con observaciones";recommendation="El caso puede avanzar, pero conviene resolver las alertas señaladas antes de elevarlo a Compensaciones."}
@@ -899,7 +908,7 @@ function presUI(){
 }
 function ocultarPreguntas(){["fechaSolicitud","impacto","consecuencia","impactoDetalle"].forEach(id=>$(id).closest(".q").classList.add("hidden"));   // la fecha es automática; el impacto ya se pregunta dentro de cada movimiento
   if(CONFIG.sinPreguntas) document.querySelectorAll("#form .q").forEach(q=>{if(!q.querySelector("#movimiento,#departamento,#confirmo")) q.classList.add("hidden")})}
-function refresh(){ocultarPreguntas();syncMov();syncChips();window.DPF&&DPF.render();presUI();
+function refresh(){ocultarPreguntas();syncMov();precargaReemplazo();presupuestoComun();syncChips();window.DPF&&DPF.render();presUI();
   let tot=0,okc=0;
   $("form").querySelectorAll("input,select,textarea").forEach(el=>{
     if(el.id==="confirmo"||el.type==="button") return;
