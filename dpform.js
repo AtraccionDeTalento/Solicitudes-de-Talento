@@ -105,7 +105,7 @@
       if (k === llave) return;   // no se redibuja mientras escribe
       llave = k;
       const skel = '<div class="dpSkel" style="width:70%"></div><div class="dpSkel"></div><div class="dpSkel" style="width:85%"></div><div class="dpSkel" style="width:60%"></div>';
-      const ampliar = `<button type="button" class="dpExpand" data-dpaccion="abrir">Ampliar ⤢</button>`;
+      const ampliar = `<button type="button" class="dpExpand" data-dpaccion="abrir">Ampliar vista del descriptivo de puesto ⤢</button>`;
       box.innerHTML = `<div class="dpHead"><span>Descriptivo de puesto</span>${(esNuevo() || p) ? ampliar : ""}</div><div class="dpBody">` + (esNuevo()
           ? `<span class="dpBadge nuevo">Puesto nuevo</span><h4>Descriptivo del puesto nuevo</h4><p class="dpm">Arma el descriptivo de la posición. Puedes partir de uno existente.</p>${editor(true)}`
         : !cargado && puesto ? skel
@@ -117,6 +117,13 @@
   };
 
   document.addEventListener("click", e => { const a = e.target.closest("#dpPanel [data-dpaccion=abrir]"); if (a && !e.target.closest("summary")) abrir(); });
+  // Apenas el jefe toca un campo del panel, el descriptivo se amplía y sigue escribiendo en la ventana grande, en el mismo campo.
+  document.addEventListener("focusin", e => {
+    const el = e.target.closest("#dpPanel [data-dp], #dpPanel #dpBase"); if (!el) return;
+    el.blur(); abrir();
+    const d = $("dpDialog"), dest = el.id === "dpBase" ? d.querySelector("#dpBase") : d.querySelector(`[data-dp="${el.dataset.dp}"]`);
+    if (dest) setTimeout(() => dest.focus(), 60);
+  });
   document.addEventListener("input", e => {
     const k = e.target.dataset && e.target.dataset.dp; if (!k) return;
     nuevo[k] = e.target.value; medidor();
