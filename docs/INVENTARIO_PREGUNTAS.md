@@ -49,7 +49,7 @@ En pantalla, las preguntas de Cambio de encargatura (13 a 16 aquí) se numeran 7
 | 1 | ¿Qué colaborador se reemplaza? | text (se precarga del paso 1) |  | app.js:63 |
 | 2 | ¿Cuál es el motivo del reemplazo? | Renuncia · Cese · Promoción · Traslado · Cambio interno · Otro |  | app.js:64 |
 | 3 | ¿Desde cuándo se requiere cubrir la posición? | date |  | app.js:65 |
-| 4 | ¿La posición está aprobada dentro de la estructura vigente? | Sí · No · Por confirmar |  | app.js:66 |
+| 4 | ¿La posición está aprobada dentro de la estructura vigente? | Sí · No |  | app.js:66 |
 | 5 | ¿La posición se mantiene igual respecto al puesto que quedó vacante? | Sí, se mantiene igual · No, presenta cambios |  | app.js:67 |
 | ↳ | ¿Qué cambia? | Puesto · Responsabilidades · Nivel · Alcance · Condiciones · Otro | si cambioPosicionRep = No, presenta cambios | app.js:68 |
 | 6 | ¿Qué impacto tendría no cubrir esta posición? | textarea |  | app.js:69 |

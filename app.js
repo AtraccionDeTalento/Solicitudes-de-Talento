@@ -23,7 +23,7 @@ const MOVS=["Promoción","Encargatura","Reemplazo","Puesto nuevo","Incremento sa
 const DEPARTAMENTOS=["DIRECCION GENERAL DE SEDES DESCENTRALIZADAS", "DIRECCION GENERAL DEL CSIR", "ESCUELA DE POSGRADO", "GERENCIA DE ADMINISTRACION Y SEGURIDAD", "GERENCIA DE PROYECTOS - SEDE PERU", "GERENCIA DE TALENTO Y CULTURA", "GERENCIA GENERAL", "GERENCIA LEGAL", "GERENCIA SENIOR DE FINANZAS", "PRESIDENCIA EJECUTIVA", "RECTORADO", "VICEPRESIDENCIA DE ASUNTOS CORPORATIVOS", "VICEPRESIDENCIA DE COMUNICACIONES E INNOVACION DIG", "VICEPRESIDENCIA SENIOR", "VICERRECTORADO ACADEMICO", "VICERRECTORADO DE INVESTIGACION"];   // Maestro 05-10-2026; define el BP que recibe la solicitud
 const NOCODE=["Puesto nuevo"];   // sin matrícula individual
 const PERSONAS=["Ninguna","1","2","3","4","5","6 a 10","11 a 20","Más de 20"];   // personas a cargo: se elige, no se escribe
-const SNP=["Sí","No","Parcialmente"], SNC=["Sí","No","Por confirmar"];   // Encargatura (funciones) y Reemplazo (estructura, presupuesto) las usan por indicación de Talento
+const SNP=["Sí","No","Parcialmente"];   // Encargatura: «¿Mantendrá sus funciones actuales?» (banco de Amador)
 const SN=["Sí","No"];   // las preguntas de opción se responden Sí o No: no hay «Parcialmente», «Por confirmar», «No se sabe» ni «Por definir»
 
 // Banco de preguntas de Amador, TAL CUAL: cada bloque es una pregunta numerada (su título es el texto de la pregunta).
@@ -63,7 +63,7 @@ const SETS = {
  {t:"¿Qué colaborador se reemplaza?",q:[["personaOVacanteReemplazo","¿Qué colaborador se reemplaza?","text","Se precarga con el colaborador del paso 1 (maestro). Si la posición no tuvo titular, escribe «Sin titular»."]]},
  {t:"¿Cuál es el motivo del reemplazo?",q:[["motivoVacanteReemplazo","¿Cuál es el motivo del reemplazo?","select",["Renuncia","Cese","Promoción","Traslado","Cambio interno","Otro"]]]},
  {t:"¿Desde cuándo se requiere cubrir la posición?",q:[["fechaInicioReemplazo","¿Desde cuándo se requiere cubrir la posición?","date"]]},
- {t:"¿La posición está aprobada dentro de la estructura vigente?",q:[["posicionAprobadaRep","¿La posición está aprobada dentro de la estructura vigente?","select",SNC]]},
+ {t:"¿La posición está aprobada dentro de la estructura vigente?",q:[["posicionAprobadaRep","¿La posición está aprobada dentro de la estructura vigente?","select",SN]]},
  {t:"¿La posición se mantiene igual respecto al puesto que quedó vacante?",q:[["cambioPosicionRep","¿La posición se mantiene igual respecto al puesto que quedó vacante?","select",["Sí, se mantiene igual","No, presenta cambios"]]]},
  {t:"Cambios en la posición",sub:true,when:["cambioPosicionRep","No, presenta cambios"],q:[["queCambiaRep","¿Qué cambia?","select",["Puesto","Responsabilidades","Nivel","Alcance","Condiciones","Otro"],"Revisa o ajusta el descriptivo de puesto precargado en el panel de la derecha («Ampliar vista»). Este caso podría requerir una revisión adicional de estructura o valorización del puesto."]]},
  {t:"¿Qué impacto tendría no cubrir esta posición?",q:[["impactoNoReemplazo","¿Qué impacto tendría no cubrir esta posición?","textarea"]]}],
@@ -408,7 +408,6 @@ function buildExecutiveSummary(){
     if(start) add(`Se requiere cubrir la posición a partir del ${start}`);
 
     if(aprob==="No") add("La posición no está aprobada dentro de la estructura vigente");
-    else if(aprob==="Por confirmar") add("La aprobación de la posición dentro de la estructura vigente está por confirmar");
     if(direct("cambioPosicionRep")==="No, presenta cambios") add(`La posición presenta cambios respecto al puesto que quedó vacante${direct("queCambiaRep")?` (${lowerLead(direct("queCambiaRep"))})`:""}; podría requerir una revisión adicional de estructura o valorización del puesto`);
     if(direct("impactoNoReemplazo")) add(`Si la posición no se cubre: ${stripEnd(direct("impactoNoReemplazo"))}`);
 
