@@ -113,6 +113,17 @@ header p{margin:2px 0 8px;color:#C9D6F5;font-size:13px}
 .dpExpand{background:#EAF0FF;color:#0036DC;padding:6px 10px;font-size:12px;line-height:1.25;border-radius:8px;text-transform:none;letter-spacing:0;max-width:190px;text-align:right}.dpExpand:hover{background:#0036DC;color:#fff}
 .dpClick{cursor:zoom-in;border-radius:10px;margin:0 -8px;padding:0 8px;transition:background .2s}.dpClick:hover{background:#F5F8FF}
 @media(max-width:720px){#dpDialog .dpCampos{grid-template-columns:1fr}#dpDialog .dpLectura{columns:1}#specificQuestions .qnum>div{padding-left:0}}
+/* ---- Diálogos propios del sistema ---- */
+#sysDlg{border:0;border-radius:18px;padding:26px 28px 22px;width:min(420px,92vw);text-align:center;box-shadow:0 30px 80px #0B1D4466;color:var(--ink,#14213D)}
+#sysDlg[open]{animation:dpZoom .32s cubic-bezier(.2,.8,.2,1)}#sysDlg.saliendo{animation:dpZoomOut .17s forwards}
+#sysDlg::backdrop{background:rgba(11,29,68,.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:dpFade .25s}
+#sysDlg .sysIco{width:48px;height:48px;margin:0 auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;background:#EAF0FF;color:#0036DC;animation:dpPop .45s .08s both}
+#sysDlg .sysIco.peligro{background:#FDE8E8;color:#a83838}
+#sysDlg h3{margin:0 0 6px;font-size:18px;text-transform:none;letter-spacing:0;color:var(--navy);border:0;padding:0}
+#sysDlg p{margin:0 0 18px;color:var(--muted);font-size:14.5px;line-height:1.5}
+#sysDlg .sysBtns{display:flex;gap:10px;justify-content:center}#sysDlg .sysBtns button{min-width:120px}
+/* El panel del descriptivo solo acompaña al formulario (no en «Mis solicitudes» ni en la pantalla de envío) */
+#dpCols:has(#form.hidden){display:block}#dpCols:has(#form.hidden) #dpPanel{display:none!important}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 #stepper{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 #stepper button{background:#fff;color:var(--muted);border:1px solid var(--border);padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center}

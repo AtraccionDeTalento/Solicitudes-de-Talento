@@ -157,7 +157,7 @@ function findHeaderIndex(headers, aliases){
 
 async function loadMasterFile(){
   const f=$("masterFile").files[0];
-  if(!f){alert("Selecciona primero el archivo Maestro BPs.");return}
+  if(!f){avisar("Selecciona primero el archivo Maestro BPs.");return}
   if(!await needXLSX()) return;
   $("masterStatus").value="Leyendo base...";
   $("masterDetail").textContent="Validando estructura del archivo.";
@@ -249,7 +249,7 @@ async function loadMasterFile(){
     masterMeta=null;
     $("masterStatus").value="Error al cargar";
     $("masterDetail").textContent=e.message;
-    alert("No se pudo cargar el Maestro BPs: "+e.message);
+    avisar("No se pudo cargar el Maestro BPs: "+e.message,{titulo:"No se pudo cargar"});
   }
 }
 
@@ -475,6 +475,21 @@ function buildExecutiveSummary(){
   const ps=paragraphs.length>8?paragraphs.slice(0,7).concat(paragraphs[paragraphs.length-1]):paragraphs;
   return ps.join(" ").replace(/(?<![\p{L}\d])(\p{L}{2,})(\s+\1)+(?![\p{L}\d])/giu,"$1").replace(/\s+([,.;:])/g,"$1").replace(/\.{2,}/g,".");
 }
+
+// ---------- Diálogos propios (reemplazan confirm/alert del navegador): ventana central animada con fondo difuminado ----------
+function dialogo({titulo="",texto="",ok="Aceptar",cancelar="",peligro=false}={}){
+  let d=$("sysDlg");
+  if(!d){d=document.createElement("dialog");d.id="sysDlg";document.body.appendChild(d)}
+  d.innerHTML=`<div class="sysIco${peligro?" peligro":""}" aria-hidden="true">${peligro?"!":"i"}</div>${titulo?`<h3>${esc(titulo)}</h3>`:""}<p>${esc(texto).replace(/\n/g,"<br>")}</p><div class="sysBtns">${cancelar?`<button type="button" class="secondary" data-r="0">${esc(cancelar)}</button>`:""}<button type="button" class="${peligro?"danger":""}" data-r="1">${esc(ok)}</button></div>`;
+  return new Promise(res=>{
+    const fin=v=>{d.classList.add("saliendo");setTimeout(()=>{d.classList.remove("saliendo");if(d.open)d.close();res(v)},170)};
+    d.onclick=e=>{const b=e.target.closest("[data-r]");if(b) fin(b.dataset.r==="1");else if(e.target===d&&cancelar) fin(false)};
+    d.oncancel=e=>{e.preventDefault();fin(!cancelar)};
+    d.showModal();d.querySelector('[data-r="1"]').focus();
+  });
+}
+const confirmar=(texto,o={})=>dialogo({cancelar:"Cancelar",...o,texto});
+const avisar=(texto,o={})=>dialogo({...o,texto});
 
 // ---------- Búsqueda de colaborador ----------
 function lockNew(reset){
@@ -1020,7 +1035,7 @@ function loadXLSX(){
     document.head.appendChild(s);
   });
 }
-async function needXLSX(){try{await loadXLSX();return true}catch(e){alert(e.message);return false}}
+async function needXLSX(){try{await loadXLSX();return true}catch(e){avisar(e.message);return false}}
 // ---------- Excel individual con diseño (ExcelJS) ----------
 const EXCELJS_SRC={url:"https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js",sri:"sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz"};
 function loadExcelJS(){
@@ -1032,7 +1047,7 @@ function loadExcelJS(){
     document.head.appendChild(s);
   });
 }
-async function needExcelJS(){try{await loadExcelJS();return true}catch(e){alert(e.message);return false}}
+async function needExcelJS(){try{await loadExcelJS();return true}catch(e){avisar(e.message);return false}}
 
 function construirExcelCaso(ExcelJS,rec){
   const d=rec.data,ev=rec.evaluation||{},bp=rec.bpAsignado||"";
@@ -1105,7 +1120,7 @@ const txt0=v=>v==null?"":String(v);
 async function exportAllPeriod(){
   if(!await needXLSX()) return;
   const p=$("histPeriod").value||today().slice(0,7),hist=load(HISTORY_KEY,[]).filter(r=>r.periodo===p);
-  if(!hist.length) return alert("No hay casos guardados en este periodo.");
+  if(!hist.length) return avisar("No hay casos guardados en este periodo.");
   const wb=XLSX.utils.book_new(),A=XLSX.utils.aoa_to_sheet.bind(XLSX.utils);
   XLSX.utils.book_append_sheet(wb,A([["ID caso","Periodo","Fecha solicitud","BP","Cliente","Departamento","Área","Sección","Código","Nombre","Puesto","Tipo movimiento","Tiene aprobación","N° aprobaciones","Score","Clasificación","Recomendación","Sustento ejecutivo"],...hist.map(r=>{const d=r.data,ev=r.evaluation||{};return [r.id,r.periodoLabel,d.fechaSolicitud,r.bpAsignado||"",d.cliente,d.departamento,d.area,d.seccion,d.codigo,d.colaborador,d.puestoActual,d.movimiento,d.tieneAprobacion,(d.approvals||[]).length,ev.score,ev.label,ev.recommendation,d.solicitudConcreta]})]),"Casos del periodo");
   const ap=[["ID caso","Periodo","Código","Nombre","Nivel","Aprobador","Cargo","Fecha","Evidencia","Tipo evidencia"]];
@@ -1116,8 +1131,8 @@ async function exportAllPeriod(){
   XLSX.utils.book_append_sheet(wb,A(det),"Detalle casos");
   XLSX.writeFile(wb,`Casos_BP_${p}.xlsx`);
 }
-function resetWholeSystem(){
-  if(!confirm("¿Reiniciar TODO el sistema?\n\nSe eliminarán la base maestra guardada, todos los casos y el borrador actual.\n\nEsta acción no se puede deshacer.")) return;
+async function resetWholeSystem(){
+  if(!await confirmar("Se eliminarán la base maestra guardada, todos los casos y el borrador actual. Esta acción no se puede deshacer.",{titulo:"¿Reiniciar todo el sistema?",ok:"Reiniciar",peligro:true})) return;
   [MASTER_KEY,MASTER_META_KEY,HISTORY_KEY,draftKey()].forEach(k=>store(k));
   masterEmployees=new Map();masterMeta=null;
   $("masterFile").value="";$("masterStatus").value="Sin base cargada";$("masterDetail").textContent="No hay base maestra cargada.";
@@ -1189,14 +1204,14 @@ async function demoFill(enviar,dep,mov0){
 }
 // Un registro real por departamento (16): cada BP recibe los de sus departamentos.
 async function demoLote(){
-  if(!confirm("Se enviarán "+DEPARTAMENTOS.length+" solicitudes de ejemplo REALES (una por departamento) a los Socio de negocio. ¿Continuar?")) return;
+  if(!await confirmar("Se enviarán "+DEPARTAMENTOS.length+" solicitudes de ejemplo REALES (una por departamento) a los Socios de negocio.",{titulo:"¿Generar registros de ejemplo?",ok:"Enviar"})) return;
   const por={};let ok=0,fallo=0;
   for(let i=0;i<DEPARTAMENTOS.length;i++){
     $("demoBatch").textContent=`Enviando ${i+1}/${DEPARTAMENTOS.length}…`;
     try{const rec=await demoFill(true,DEPARTAMENTOS[i],MOVS[i%MOVS.length]);const bp=rec&&rec.id&&!rec.sinBP?"Con Socio de negocio":"Sin asignar";por[bp]=(por[bp]||0)+1;rec&&rec.id?ok++:fallo++}catch(e){fallo++}
   }
   $("demoBatch").textContent=$("demoBatch").dataset.t;
-  alert(`Listo: ${ok} enviadas, ${fallo} con problema. Resultado: `+Object.entries(por).map(([k,v])=>`${k}: ${v}`).join(" · "));
+  avisar(`Listo: ${ok} enviadas, ${fallo} con problema. Resultado: `+Object.entries(por).map(([k,v])=>`${k}: ${v}`).join(" · "));
 }
 
 // ---------- Arranque ----------
@@ -1205,7 +1220,11 @@ function onAny(e){
   const el=e.target,isChange=e.type==="change";
   if(el.id==="movimiento"&&isChange){
     const had=[...document.querySelectorAll("[data-dynamic='1']")].some(x=>nonempty(x.value));
-    if(had&&!confirm("Cambiar el tipo de movimiento borrará las respuestas del levantamiento. ¿Continuar?")){el.value=prevMov;return}
+    if(had){
+      const nuevo=el.value;el.value=prevMov;refresh();
+      confirmar("Se borrarán las respuestas que ya escribiste para "+prevMov+".",{titulo:"¿Cambiar el tipo de movimiento?",ok:"Sí, cambiar"}).then(si=>{if(!si) return;el.value=nuevo;renderSpecific();lockNew(true);refresh();store(draftKey(),JSON.stringify({data:gather(),cur,reached}))});
+      return;
+    }
     renderSpecific();lockNew(true);
   }
   if(el.id==="tieneAprobacion"){
@@ -1246,12 +1265,12 @@ function init(){
     $("histPeriod").value=today().slice(0,7);
     $("histPeriod").onchange=renderHistory;
     $("loadMaster").onclick=loadMasterFile;$("exportAll").onclick=exportAllPeriod;$("resetSystem").onclick=resetWholeSystem;
-    $("historyRows").addEventListener("click",e=>{
+    $("historyRows").addEventListener("click",async e=>{
       const b=e.target.closest("[data-act]");if(!b) return;
       const hist=load(HISTORY_KEY,[]),rec=hist.find(r=>r.id===b.dataset.id);if(!rec) return;
       if(b.dataset.act==="xls") return exportCase(rec);
       if(b.dataset.act==="del"){
-        if(!confirm(`¿Borrar completamente este caso de ${rec.periodoLabel}?`)) return;
+        if(!await confirmar(`Se borrará completamente este caso de ${rec.periodoLabel}.`,{titulo:"¿Borrar el caso?",ok:"Borrar",peligro:true})) return;
         store(HISTORY_KEY,JSON.stringify(hist.filter(r=>r.id!==rec.id)));
         if(editingCaseId===rec.id) editingCaseId=null;
         return renderHistory();
@@ -1332,8 +1351,8 @@ function enter(){
   if(dr&&dr.data){reached=Math.min(dr.reached||0,STEPS.length-1);go(Math.min(dr.cur||0,reached,STEPS.length-1));toast("Borrador recuperado")}
   else{lockNew(false);go(0)}
 }
-function logout(explicit){
-  if(explicit&&!confirm("Se cerrará la sesión y se eliminará el borrador sin enviar de este equipo. ¿Continuar?")) return;
+async function logout(explicit){
+  if(explicit&&!await confirmar("Se eliminará el borrador sin enviar de este equipo.",{titulo:"¿Cerrar sesión?",ok:"Cerrar sesión"})) return;
   const key=draftKey(),snap=JSON.stringify({data:gather(),cur,reached});
   try{sessionStorage.removeItem(SESSION_KEY);sessionStorage.removeItem(HISTORY_KEY)}catch(e){}
   FBp.then(F=>F.salir());
