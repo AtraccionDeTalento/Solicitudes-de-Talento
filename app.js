@@ -585,7 +585,7 @@ function qHTML([id,label,type,opts,help]){
   let c;
   if(type==="textarea") c=`<textarea id="${id}" maxlength="${max}" placeholder="${ph}"></textarea><div class="cnt">0/${max} · mín. ${lmin}</div>`;
   else if(type==="select") c=`<select id="${id}"${opts.length<=6?' class="chipsel"':""}><option value="">Seleccionar</option>${opts.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`+(opts.length<=6?`<div class="chips" data-for="${id}" role="group">${opts.map(o=>`<button type="button" class="chip" data-v="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join("")}</div>`:"");
-  else c=`<input id="${id}" type="${type}"${type==="number"?' min="0" step="0.01"':' maxlength="'+max+'"'} placeholder="${ph}">`;
+  else c=`<input id="${id}" type="${type}"${["puestoPropuesto","puestoEncargado","puestoEncargaturaNueva"].includes(id)?' list="dpTitulos" autocomplete="off"':""}${type==="number"?' min="0" step="0.01"':' maxlength="'+max+'"'} placeholder="${ph}">`;
   if(type==="date"&&!help) help="Indica la fecha tentativa.";
   if(id==="propuestaNegocio") help="Selecciona primero si la propuesta está en soles o porcentaje.";
   if(INGRESO_IDS.includes(id)){help=AVISO_INGRESO;if(FECHAS_INGRESO.length) c=`<select id="${id}"><option value="">Seleccionar</option>${FECHAS_INGRESO.map(o=>`<option value="${esc(o)}">${esc(fechaLarga(o))}</option>`).join("")}</select>`}
@@ -627,6 +627,13 @@ function syncColab(){
   $("colabManualWrap").classList.toggle("hidden",nuevo||colabManual||hay);
 }
 function syncChips(){document.querySelectorAll(".chips").forEach(c=>{const v=$(c.dataset.for).value;c.querySelectorAll(".chip").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===v)))})}
+const tituloDep=t=>String(t||"").toLowerCase().replace(/(^|\s)(\S)/g,(m,a,c)=>a+c.toUpperCase()).replace(/\s(De|Del|La|Las|Los|Y|E)(?=\s)/g,m=>m.toLowerCase());
+function etiquetaAprob(){
+  const l=$("tieneAprobacion")&&$("tieneAprobacion").closest(".q").querySelector("label");if(!l) return;
+  const dep=$("departamento").value.trim(),t=tituloDep(dep);
+  const txt=!dep?"¿La solicitud cuenta con aprobación de la gerencia?":/^gerencia/i.test(dep)?`¿La solicitud cuenta con aprobación de la ${t}?`:`¿La solicitud cuenta con aprobación de la gerencia (${t})?`;
+  if(l.firstChild&&l.firstChild.nodeType===3) l.firstChild.textContent=txt; else l.textContent=txt;
+}
 function syncMov(){
   const m=$("movimiento").value;
   document.querySelectorAll(".movcard").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mov===m)));
@@ -866,7 +873,7 @@ function renderStepper(){
 }
 function ocultarPreguntas(){$("fechaSolicitud").closest(".q").classList.add("hidden");   // la fecha es automática
   if(CONFIG.sinPreguntas) document.querySelectorAll("#form .q").forEach(q=>{if(!q.querySelector("#movimiento,#departamento,#confirmo")) q.classList.add("hidden")})}
-function refresh(){ocultarPreguntas();syncMov();precargaReemplazo();syncChips();window.DPF&&DPF.render();
+function refresh(){ocultarPreguntas();syncMov();etiquetaAprob();precargaReemplazo();syncChips();window.DPF&&DPF.render();
   let tot=0,okc=0;
   $("form").querySelectorAll("input,select,textarea").forEach(el=>{
     if(el.id==="confirmo"||el.type==="button") return;
@@ -911,7 +918,9 @@ function renderReview(){
   const d=gather(),ev=evaluateCase(d),cls=ev.score>=85?"ok":ev.score>=60?"warn":"bad";
   const li=a=>(a.length?a:["—"]).map(x=>`<li>${esc(x)}</li>`).join("");
   const rows=[["Movimiento",d.movimiento],["Colaborador",`${d.colaborador} (${d.codigo})`],["Puesto",d.puestoActual],["Departamento / Área / Sección",[d.departamento,d.area,d.seccion].filter(Boolean).join(" · ")],["Líder solicitante",`${d.cliente} · ${d.cargoCliente} · ${d.emailCliente}`],["Se envía a",socioTxt(d.departamento)],["Aprobaciones",d.tieneAprobacion==="Sí"?`${d.approvals.length} registrada(s)`:"Sin aprobación previa"],["Sustento ejecutivo",d.solicitudConcreta]];
-  $("reviewBox").innerHTML=`<div class="scorebox"><div><div class="scorecircle"><strong>${ev.score}</strong><span>de 100</span></div><p class="scorenota">Mientras mejor armada esté tu solicitud, mayor es la probabilidad de que sea aprobada. Recuerda: este puntaje no significa que tu solicitud será aprobada; es solo un indicador de probabilidad.</p></div><div><span class="badge ${cls}">${esc(ev.label)}</span><div class="grid2" style="margin-top:12px"><div class="result-block"><h4>Fortalezas</h4><ul class="list">${li(ev.strengths)}</ul></div><div class="result-block"><h4>Alertas</h4>${ev.alerts.length?`<ul class="list">${li(ev.alerts)}</ul>`:`<p class="muted" style="margin:6px 0 0">Sin alertas.</p>`}</div></div><div class="notice">${esc(ev.recommendation)}</div></div></div><h3>Resumen de la solicitud</h3><dl class="sum">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+  let dpm="";try{dpm=(JSON.parse(d.dp||"{}").modo)||""}catch(e){}
+  const avisoDp=dpm==="nuevo"||dpm==="ajuste"?`<div class="notice" style="margin-bottom:14px"><b>Descriptivo de puesto ${dpm==="nuevo"?"nuevo":"con ajustes"}:</b> además de esta solicitud, tu propuesta de descriptivo sigue su propio flujo: Jefe → Socio de negocio (HRBP) → Compensaciones → Publicación.</div>`:"";
+  $("reviewBox").innerHTML=avisoDp+`<div class="scorebox solo"><div><span class="badge ${cls}">${esc(ev.label)}</span><div class="grid2" style="margin-top:12px"><div class="result-block"><h4>Fortalezas</h4><ul class="list">${li(ev.strengths)}</ul></div><div class="result-block"><h4>Alertas</h4>${ev.alerts.length?`<ul class="list">${li(ev.alerts)}</ul>`:`<p class="muted" style="margin:6px 0 0">Sin alertas.</p>`}</div></div><div class="notice">${esc(ev.recommendation)}</div></div></div><h3>Resumen de la solicitud</h3><dl class="sum">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
 }
 
 // ---------- Envío ----------

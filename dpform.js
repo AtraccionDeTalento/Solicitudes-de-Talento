@@ -12,7 +12,9 @@
 
   async function cargar() {
     if (cargado || cargando) return; cargando = true;
-    try { const fb = await FBp; CAT = await fb.dps(); cargado = true; } catch (e) { CAT = []; }   // sin sesión aún: se reintenta en el siguiente render
+    try { const fb = await FBp; CAT = await fb.dps(); cargado = true; } catch (e) { CAT = []; }
+    let dl = $("dpTitulos"); if (!dl) { dl = document.createElement("datalist"); dl.id = "dpTitulos"; document.body.appendChild(dl); }   // sugerencias de puesto en las preguntas (promoción, encargatura)
+    dl.innerHTML = CAT.map(x => `<option value="${esc(x.titulo)}">`).join("");   // sin sesión aún: se reintenta en el siguiente render
     cargando = false; llave = ""; DPF.render();
   }
   function medidor() {   // cuánto del descriptivo está completo (barra animada)
@@ -77,8 +79,8 @@
   }
   function pintarDlg() {
     const p = esNuevo() ? null : coincide(), body = dlg().querySelector(".dpDlgBody");
-    body.innerHTML = `<div class="dpBody">` + (esNuevo() ? `<span class="dpBadge nuevo">Puesto nuevo</span><h4>Descriptivo del puesto nuevo</h4>${editor(true)}`
-      : ajuste && p ? `<span class="dpBadge nuevo">Ajustes propuestos</span><h4>${esc(p.titulo)}</h4><p class="dpm">Cambia lo que corresponda: tu Socio de negocio y Compensaciones lo revisan.</p>${editor(false)}`
+    body.innerHTML = `<div class="dpBody">` + (esNuevo() ? `<span class="dpBadge nuevo">Puesto nuevo</span><h4>Descriptivo del puesto nuevo</h4><p class="dpm">Flujo del descriptivo: Jefe → Socio de negocio (HRBP) → Compensaciones → Publicación.</p>${editor(true)}`
+      : ajuste && p ? `<span class="dpBadge nuevo">Ajustes propuestos</span><h4>${esc(p.titulo)}</h4><p class="dpm">Cambia lo que corresponda. Este cambio sigue su propio flujo: Jefe → Socio de negocio (HRBP) → Compensaciones → Publicación.</p>${editor(false)}`
       : p ? `<span class="dpBadge ok">✓ Descriptivo encontrado</span><div class="dpLectura">${tarjeta(p.datos || p)}</div><div class="dpAcciones"><button type="button" class="secondary" data-dpaccion="ajustar">Proponer ajustes a este descriptivo</button></div>`
       : `<p class="dpm">Aún no hay descriptivo para este puesto.</p>`) + `</div>`;
     medidor();

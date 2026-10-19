@@ -73,7 +73,7 @@ const API={
       FB.getDoc(FB.doc(FB.db,"solicitudes",id,"interno","presupuesto")).then(x=>x.exists()?x.data():null).catch(()=>null),
       FB.getDocs(FB.query(FB.collection(FB.db,"eventos"),FB.where("solicitudId","==",id))).then(r=>r.docs.map(x=>x.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)))).catch(()=>[])]);
     const comentarios=await FB.getDocs(FB.query(FB.collection(FB.db,"comentarios"),FB.where("solicitudId","==",id))).then(r=>r.docs.map(x=>x.data()).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)))).catch(()=>[]);
-    return {presupuestoInterno,traza,comentarios,puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
+    return {presupuestoInterno,traza,comentarios,puntaje:d.puntaje,clasificacion:d.clasificacion,fortalezas:d.fortalezas,alertas:d.alertas,recomendacion:d.recomendacion,registro:plano(d,true),dp:d.dp||"",sustento:d.solicitudConcreta,impacto:d.impactoDetalle,editUrl:"",levantamiento:pares(d),aprobaciones:d.aprobaciones||[]};
   },
   async panelTraza(id){
     await sesion();const orden=(a,b)=>String(a.fecha).localeCompare(String(b.fecha));
@@ -669,7 +669,10 @@ function detalle(id){
         ${fila("Líder solicitante",f.cliente+" · "+f.cargoCliente)}${fila("Departamento",f.departamento)}${fila("Área",f.area)}${fila("Sección",f.seccion)}
         ${fila("Matrícula",f.codigo)}${fila("Puesto actual",f.puestoActual)}${fila("Socio de negocio",f.bp)}${fila("Derivada por",f.derivadoPor)}${fila("Urgencia",f.urgencia)}
         ${fila("Impacto si no se ejecuta",f.impacto)}${fila("Consecuencia",f.consecuencia)}</div></section>`;
-    const secResto=`<section class="sec"><h4>Presupuesto</h4><div class="grid">${fila("¿Cuenta con presupuesto?",f.presupuesto)}${fila("Fuente",f.fuentePresupuesto)}${fila("Quién valida",f.validaPresupuesto)}${fila("Monto",f.montoPresupuesto!==""?"S/ "+f.montoPresupuesto:"")}</div></section>
+    let dpo=null;try{dpo=JSON.parse(d.dp||"null")}catch(e){}
+    const secDp=!dpo?"":dpo.modo==="existente"?`<section class="sec"><h4>Descriptivo de puesto</h4><p class="txt">Vigente: ${esc(dpo.titulo)} (${esc(dpo.codigo)})</p></section>`
+      :`<section class="sec"><h4>Descriptivo de puesto · ${dpo.modo==="nuevo"?"propuesta de puesto nuevo":"propuesta de ajuste ("+esc(dpo.codigo)+")"}</h4><p class="muted">Flujo propio del descriptivo: Jefe → Socio de negocio (HRBP) → Compensaciones → Publicación.</p>${[["Nombre del puesto","titulo"],["Reporta a","reportaA"],["Supervisa a","supervisaA"],["Misión","mision"],["Funciones","funciones"],["Grado académico","grado"],["Profesiones afines","profesion"],["Experiencia mínima","experiencia"],["Idiomas","idiomas"],["Ofimática","ofimatica"],["Competencias","competencias"]].filter(([,k])=>dpo[k]).map(([t,k])=>`<div class="qa"><span>${esc(t)}</span><p>${esc(dpo[k])}</p></div>`).join("")}</section>`;
+    const secResto=secDp+`<section class="sec"><h4>Presupuesto</h4><div class="grid">${fila("¿Cuenta con presupuesto?",f.presupuesto)}${fila("Fuente",f.fuentePresupuesto)}${fila("Quién valida",f.validaPresupuesto)}${fila("Monto",f.montoPresupuesto!==""?"S/ "+f.montoPresupuesto:"")}</div></section>
       ${d.puntaje?`<section class="sec"><h4>Evaluación automática</h4>
         <div class="score"><div class="ring ${nivel}">${esc(d.puntaje)}</div><div><b>${esc(d.clasificacion)}</b><p class="muted">${esc(d.recomendacion)}</p></div></div>
         <div class="two">${d.fortalezas?`<div class="good"><h5>Fortalezas</h5><ul>${lis(d.fortalezas)}</ul></div>`:""}${d.alertas?`<div class="warnb"><h5>Alertas</h5><ul>${lis(d.alertas)}</ul></div>`:""}</div></section>`:""}
