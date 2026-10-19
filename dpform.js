@@ -7,7 +7,12 @@
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
   const CAMPOS = ["titulo", "mision", "funciones", "reportaA", "supervisaA", "grado", "profesion", "experiencia", "idiomas", "ofimatica", "competencias"];
-  let CAT = [], cargado = false, cargando = false, nuevo = { base: "" }, llave = "";
+  let CAT = [], cargado = false, cargando = false, nuevo = { base: "" }, llave = "", recienBase = false;
+  function medidor() {   // cuánto del descriptivo nuevo está completo (barra animada)
+    const b = $("dpMeterBar"); if (!b) return;
+    const n = CAMPOS.filter(k => String(nuevo[k] || "").trim()).length;
+    b.style.width = Math.round(n / CAMPOS.length * 100) + "%"; $("dpMeterTxt").textContent = `${n} de ${CAMPOS.length} secciones completas`;
+  }
 
   async function cargar() {
     if (cargado || cargando) return; cargando = true;
@@ -21,7 +26,7 @@
   function tarjeta(d) {
     const e = d.educacion || {}, c = d.competencias || {};
     const comp = [...niv(c.transversales), ...niv(c.lideres), ...niv(c.adicionales)];
-    return `<h4>${esc(d.titulo)}</h4><p class="dpm">${esc([d.departamento, d.area, d.seccion].filter(Boolean).join(" · "))}</p>
+    return `<span class="dpBadge ok">✓ Descriptivo encontrado</span><h4>${esc(d.titulo)}</h4><p class="dpm">${esc([d.departamento, d.area, d.seccion].filter(Boolean).join(" · "))}</p>
       <p class="dpm"><b>Reporta a:</b> ${esc(d.reportaA || "—")} · <b>Supervisa a:</b> ${esc(d.supervisaA || "—")}</p>
       ${sec("Misión", d.mision ? `<p>${esc(d.mision)}</p>` : "")}${sec("Funciones", d.funciones && d.funciones.length ? `<ul>${lis(d.funciones)}</ul>` : "")}
       ${sec("Formación y experiencia", `<ul>${lis([e.grado && "Grado: " + e.grado, e.profesion && "Profesión: " + e.profesion, e.especializaciones && "Especialización: " + e.especializaciones, e.experienciaMinPuesto && "Experiencia mínima: " + e.experienciaMinPuesto])}</ul>`)}
@@ -32,7 +37,8 @@
     const o = CAT.map(x => `<option value="${esc(x.id)}"${nuevo.base === x.id ? " selected" : ""}>${esc(x.titulo)}</option>`).join("");
     const t = (k, l, ph = "") => `<label>${l}<input data-dp="${k}" value="${esc(nuevo[k] || "")}" placeholder="${esc(ph)}" maxlength="150"></label>`;
     const a = (k, l, ph = "") => `<label>${l}<textarea data-dp="${k}" rows="4" maxlength="2500" placeholder="${esc(ph)}">${esc(nuevo[k] || "")}</textarea></label>`;
-    return `<h4>Descriptivo del puesto nuevo</h4><p class="dpm">Arma el descriptivo de la posición que solicitas. Puedes partir de uno existente y ajustarlo.</p>
+    return `<span class="dpBadge nuevo">Puesto nuevo</span><h4>Descriptivo del puesto nuevo</h4><p class="dpm">Arma el descriptivo de la posición que solicitas. Puedes partir de uno existente y ajustarlo.</p>
+      <div class="dpMeter" aria-hidden="true"><i id="dpMeterBar"></i></div><p class="dpm" id="dpMeterTxt"></p>
       <label>Partir de un descriptivo existente<select id="dpBase"><option value="">— Empezar en blanco —</option>${o}</select></label>
       ${t("titulo", "Nombre del puesto")}${a("mision", "Misión del puesto", "¿Para qué existe el puesto?")}${a("funciones", "Funciones principales (una por línea)")}
       ${t("reportaA", "Reporta a")}${t("supervisaA", "Supervisa a", "Ej.: Ninguno")}${t("grado", "Grado académico mínimo", "Ej.: Bachiller")}${t("profesion", "Profesiones afines")}${t("experiencia", "Experiencia mínima", "Ej.: 2 años")}
@@ -69,17 +75,21 @@
       const k = [mov, puesto, p && p.id, CAT.length, mov === "Puesto nuevo" ? nuevo.base : ""].join("|");
       if (k === llave) return;   // no se redibuja mientras escribe en el constructor
       llave = k;
-      box.innerHTML = `<div class="dpHead">Descriptivo de puesto</div>` + (mov === "Puesto nuevo" ? constructor()
+      const skel = '<div class="dpSkel" style="width:70%"></div><div class="dpSkel"></div><div class="dpSkel" style="width:85%"></div><div class="dpSkel" style="width:60%"></div>';
+      box.innerHTML = `<div class="dpHead">Descriptivo de puesto</div><div class="dpBody">` + (mov === "Puesto nuevo" ? constructor()
+        : !cargado && puesto ? skel
         : p ? tarjeta(p.datos || p) + `<p class="dpm">Fuente: catálogo de descriptivos (${esc(p.id)}).</p>`
-        : puesto && puesto !== "No aplica" ? `<p class="dpm">Aún no hay descriptivo cargado para «${esc(puesto)}».</p>` : `<p class="dpm">Elige al colaborador para ver el descriptivo de su puesto.</p>`);
+        : puesto && puesto !== "No aplica" ? `<span class="dpBadge no">Sin descriptivo cargado</span><p class="dpm">Aún no hay descriptivo cargado para «${esc(puesto)}».</p>` : `<p class="dpm">Elige al colaborador para ver el descriptivo de su puesto.</p>`) + `</div>`;
+      if (mov === "Puesto nuevo") { medidor(); if (recienBase) box.querySelectorAll("[data-dp]").forEach(el => { if (el.value) el.classList.add("flash"); }); }
+      recienBase = false;
     }
   };
   function coincide() { const n = norm($("puestoActual").value); return n ? CAT.find(x => norm(x.titulo) === n) || null : null; }
 
-  document.addEventListener("input", e => { const k = e.target.dataset && e.target.dataset.dp; if (k) { nuevo[k] = e.target.value; document.getElementById("form").dispatchEvent(new Event("input")); } });
+  document.addEventListener("input", e => { const k = e.target.dataset && e.target.dataset.dp; if (k) { nuevo[k] = e.target.value; medidor(); document.getElementById("form").dispatchEvent(new Event("input")); } });
   document.addEventListener("change", e => {
     if (e.target.id !== "dpBase") return;
     const x = CAT.find(c => c.id === e.target.value); nuevo = x ? { base: x.id, ...desde(x.datos || x) } : { base: "" };
-    llave = ""; DPF.render(); document.getElementById("form").dispatchEvent(new Event("input"));
+    llave = ""; recienBase = !!x; DPF.render(); document.getElementById("form").dispatchEvent(new Event("input"));
   });
 })();

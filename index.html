@@ -51,6 +51,35 @@ header p{margin:2px 0 8px;color:#C9D6F5;font-size:13px}
 #dpPanel .dpHead{font-weight:800;color:var(--green);text-transform:uppercase;font-size:12px;letter-spacing:.05em;border-bottom:2px solid #E2E8F8;padding-bottom:6px;margin-bottom:10px}
 #dpPanel h4{margin:0 0 4px;font-size:16px}#dpPanel .dpm{color:var(--muted);font-size:13px;margin:4px 0}#dpPanel ul{margin:6px 0 8px;padding-left:18px}#dpPanel details{border-top:1px solid #E8EDFB;padding:6px 0}#dpPanel summary{cursor:pointer;font-weight:700}
 #dpPanel label{display:block;font-weight:600;font-size:13px;margin-top:10px}#dpPanel input,#dpPanel select,#dpPanel textarea{width:100%;margin-top:4px}
+/* ---- Movimiento: el panel de descriptivo entra deslizándose y su contenido aparece en cascada ---- */
+@keyframes dpIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes dpUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes dpPop{0%{opacity:0;transform:scale(.85)}60%{transform:scale(1.04)}100%{opacity:1;transform:none}}
+@keyframes dpFlash{0%{background:#DCE7FF}100%{background:#fff}}
+@keyframes dpShine{from{background-position:-200px 0}to{background-position:200px 0}}
+#dpPanel:not(.hidden){animation:dpIn .45s cubic-bezier(.2,.8,.2,1)}
+#dpPanel .dpBody>*{animation:dpUp .4s cubic-bezier(.2,.8,.2,1) both}
+#dpPanel .dpBody>*:nth-child(2){animation-delay:.05s}#dpPanel .dpBody>*:nth-child(3){animation-delay:.1s}#dpPanel .dpBody>*:nth-child(4){animation-delay:.15s}
+#dpPanel .dpBody>*:nth-child(5){animation-delay:.2s}#dpPanel .dpBody>*:nth-child(6){animation-delay:.25s}#dpPanel .dpBody>*:nth-child(7){animation-delay:.3s}#dpPanel .dpBody>*:nth-child(n+8){animation-delay:.35s}
+#dpPanel li{animation:dpUp .35s both}#dpPanel li:nth-child(2){animation-delay:.04s}#dpPanel li:nth-child(3){animation-delay:.08s}#dpPanel li:nth-child(4){animation-delay:.12s}#dpPanel li:nth-child(n+5){animation-delay:.16s}
+#dpPanel .dpBadge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;margin:2px 0 8px;animation:dpPop .45s .15s both}
+#dpPanel .dpBadge.ok{background:#E3F6ED;color:#116445}#dpPanel .dpBadge.no{background:#FFF3D9;color:#815A00}#dpPanel .dpBadge.nuevo{background:#EAF0FF;color:#0036DC}
+#dpPanel details summary{list-style:none;display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+#dpPanel details summary::-webkit-details-marker{display:none}
+#dpPanel details summary::after{content:"›";font-size:18px;color:var(--muted);transition:transform .25s;transform:rotate(90deg)}
+#dpPanel details:not([open]) summary::after{transform:none}
+#dpPanel details[open]>:not(summary){animation:dpUp .25s both}
+#dpPanel details summary:hover{color:#0036DC}
+#dpPanel .dpSkel{height:12px;border-radius:6px;margin:10px 0;background:linear-gradient(90deg,#EEF2FB 0,#F8FAFF 50%,#EEF2FB 100%) #EEF2FB;background-size:400px 100%;animation:dpShine 1.1s linear infinite}
+#dpPanel .dpMeter{height:6px;background:#EEF2FB;border-radius:99px;overflow:hidden;margin:6px 0 2px}#dpPanel .dpMeter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0036DC,#2F6FED);border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+#dpPanel .flash{animation:dpFlash 1.2s ease-out}
+#dpPanel input,#dpPanel textarea,#dpPanel select{transition:border-color .2s,box-shadow .2s}
+.movcard,.chip{transition:transform .18s,box-shadow .18s,background .18s,border-color .18s,color .18s}
+.movcard:hover{transform:translateY(-2px);box-shadow:0 6px 16px #00195A14}
+.movcard{position:relative}.movcard[aria-pressed="true"]::after{content:"✓";position:absolute;top:8px;right:10px;width:20px;height:20px;border-radius:50%;background:#0036DC;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;animation:dpPop .35s both}
+.chip:active,.movcard:active{transform:scale(.97)}
+.colabcard{animation:dpUp .35s both}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 #stepper{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 #stepper button{background:#fff;color:var(--muted);border:1px solid var(--border);padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center}
 #stepper button b{display:inline-flex;width:22px;height:22px;border-radius:50%;background:#E8EDFB;align-items:center;justify-content:center;font-size:12px}
