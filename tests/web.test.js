@@ -67,7 +67,7 @@ ok('las reglas: el jefe (sesión anónima) solo crea y lee lo suyo; el Maestro s
   assert.ok(/function anonimo\(\)[^}]*== 'anonymous'/.test(rules) && /function prueba\(\)[^}]*modoPrueba == true/.test(rules));
   assert.ok(/allow get: if staff\(\) \|\| \(\(personal\(\) \|\| anonimoOk\(\)\) && prueba\(\)\)/.test(rules), 'el Maestro solo lo lee el personal con rol; un jefe anónimo solo en modo prueba');
   assert.ok(/function anonimoOk\(\)[^}]*accesoAnonimo/.test(rules), 'el acceso anónimo debe depender de config/app.accesoAnonimo');
-  assert.ok(/allow create: if \(\(personal\(\) && request\.resource\.data\.enviadoPor == yo\(\) && puedePedir\(\)\)/.test(rules), 'el jefe con clave solo crea a su nombre y las socias de negocio no piden');
+  assert.ok(/allow create: if \(\(personal\(\) && request\.resource\.data\.enviadoPor == yo\(\)\)/.test(rules), 'quien pide con clave solo crea a su nombre (también Socio de negocio y Gerencia desde el acceso de jefe)');
   assert.ok(/match \/bps\/\{id\}\s+\{ allow get, list: if staff\(\)/.test(rules), 'los nombres de socios de negocio no son para jefes');
   assert.ok(/function personal\(\)[^}]*email_verified|function usil\(\)[^}]*email_verified == true/.test(rules), 'HRBP y Gerencia exigen correo verificado');
 });

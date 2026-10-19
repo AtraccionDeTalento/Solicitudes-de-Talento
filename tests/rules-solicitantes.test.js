@@ -1,4 +1,4 @@
-// Quién puede pedir: los jefes de área sí; las socias de negocio no (ni con su cuenta del panel ni con el alias +jefe). Contra el emulador: npm run test:rules (o node tests/rules-solicitantes.test.js con el emulador abierto).
+// Quién puede pedir: los jefes de área y también Socio de negocio y Gerencia, que entran por el acceso de jefe con su misma cuenta. Contra el emulador: npm run test:rules (o node tests/rules-solicitantes.test.js con el emulador abierto).
 const fs = require('fs');
 const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@firebase/rules-unit-testing');
 const { doc, setDoc, getDoc, updateDoc } = require('firebase/firestore');
@@ -24,9 +24,9 @@ const nueva = (id, uid, enviadoPor) => ({ id, uid, estado: 'Nuevo', bpId: 'bpid-
   const crea = (db, id, uid, mail) => setDoc(doc(db, 'solicitudes', id), nueva(id, uid, mail));
 
   await t('un jefe de área (sin rol de panel) crea su solicitud', async () => { await S(crea(ctx(JEFE, 'u1'), 'J1', 'u1', JEFE)); });
-  await t('una socia de negocio NO puede pedir con su cuenta del panel', async () => { await F(crea(ctx(SOCIA, 'u2'), 'S1', 'u2', SOCIA)); });
-  await t('una socia de negocio NO puede pedir con el alias «usuario+jefe@» (aunque cree la cuenta ella misma)', async () => {
-    await F(crea(ctx('hrbp1+jefe@usil.edu.pe', 'u3'), 'S2', 'u3', 'hrbp1+jefe@usil.edu.pe'));
+  await t('una socia de negocio pide como jefe con su misma cuenta', async () => { await S(crea(ctx(SOCIA, 'u2'), 'S1', 'u2', SOCIA)); });
+  await t('una socia de negocio también puede pedir con el alias «usuario+jefe@»', async () => {
+    await S(crea(ctx('hrbp1+jefe@usil.edu.pe', 'u3'), 'S2', 'u3', 'hrbp1+jefe@usil.edu.pe'));
   });
   await t('el Subgerente de Talento (rol de socio pero jefatura) sí pide, con su alias de jefe y con su cuenta', async () => {
     await S(crea(ctx('bp2+jefe@usil.edu.pe', 'u4'), 'C1', 'u4', 'bp2+jefe@usil.edu.pe')); await S(crea(ctx(SUBGERENTE, 'u5'), 'C2', 'u5', SUBGERENTE));

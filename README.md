@@ -35,7 +35,7 @@ Quien es socio de negocio o Gerencia **y también pide como jefe de área** (por
 `node tools/cargar-datos.js --jefes=tools/jefes-dni.csv` crea las cuentas `+jefe` del personal del panel.
 
 ## Quién puede pedir
-Piden los **jefes de área** (y jefaturas). Las **socias de negocio no crean solicitudes**: en `tools/usuarios.json` su entrada lleva `"pideComoJefe": false`, que `cargar-datos.js` copia a su rol y las **reglas** hacen cumplir en el servidor (ni con la cuenta del panel ni con el alias `usuario+jefe@`). Además no se les crea cuenta de formulario. Quien no tenga la marca (por ejemplo el Subgerente de Talento, que es jefatura) pide con su acceso `+jefe`.
+Hay **dos accesos con la misma cuenta**. En `index.html` (acceso de jefe de área) cualquier persona con correo institucional verificado pide como jefe, **también el Socio de negocio (HRBP) y Gerencia**: entran con su correo y clave y se quedan en el formulario. Su bandeja sigue en «Acceso Socio de negocio y Gerencia» (`panel.html`). La marca `pideComoJefe` de `tools/usuarios.json` ya no limita quién pide.
 
 ## Cuestionario y relleno de pruebas
 - Las preguntas de opción se responden **Sí / No**: ya no existen «Parcialmente», «Por confirmar», «No se sabe» ni «Por definir». Las preguntas se redactaron para que cuadren con cada movimiento (por ejemplo, el plazo ya no habla de «incorporar» en una promoción, y el reemplazo pregunta por el puesto a cubrir, no por «su nueva posición»).

@@ -1307,7 +1307,8 @@ const TXT_LG="Entra con tu correo de USIL. Primera vez: tu clave es tu DNI.";
 const nombreDeCorreo=m=>String(m).split("@")[0].replace(/[._-]+/g," ").replace(/(^|\s)\S/g,c=>c.toUpperCase());
 const titulo=n=>String(n||"").toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
 function setupLogin(){
-  // Jefe de área: correo institucional verificado y clave (su DNI la primera vez). Socio de negocio y Gerencia entran por su botón, que lleva al panel.
+  // Acceso de jefe de área: correo institucional y clave (DNI la primera vez). Un Socio de negocio o Gerencia que entra por aquí también pide como jefe;
+  // su bandeja está en el otro acceso («Acceso Socio de negocio y Gerencia»), con la misma cuenta.
   $("lgStaff").onclick=async()=>{
     const err=$("lgErr2"),ok=$("lgOk"),b=$("lgStaff"),mail=$("lgMail").value.trim().toLowerCase(),clave=$("lgPass").value;
     err.textContent="";ok.textContent="";
@@ -1317,7 +1318,6 @@ function setupLogin(){
     try{
       const F=await FBp;
       await F.entrarJefe(mail,clave);$("lgPass").value="";
-      if(await F.personal()) return void location.replace(CONFIG.panelUrl);   // Socio de negocio o Gerencia: a su panel
       SESSION={name:nombreDeCorreo(mail),email:mail,role:"jefe",last:Date.now()};saveSession();enter();
     }catch(e){err.textContent=e.message||"No se pudo iniciar sesión."}
     b.disabled=false;
@@ -1336,7 +1336,6 @@ function setupLogin(){
 async function boot(){
   try{
     const F=await Promise.race([FBp,new Promise((_,no)=>setTimeout(()=>no(new Error("sin Firebase")),10000))]),u=await F.sesion(),s=readSession();
-    if(u&&await F.personal()) return location.replace(CONFIG.panelUrl);   // Socio de negocio o Gerencia ya con sesión: directo a su panel
     if(s&&u&&s.email===u.email.toLowerCase().replace(/\+jefe(?=@)/,"")){SESSION=s;return enter()}
     if(u) await F.salir();   // sesión de Firebase sin sesión de pantalla vigente (venció por inactividad)
   }catch(e){}
