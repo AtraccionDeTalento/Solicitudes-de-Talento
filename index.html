@@ -197,6 +197,16 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
 #login .pitch h2{font-weight:800;font-size:30px;line-height:1.28;max-width:420px;margin:0}
 }
 @media print{header,.actions,#stepper,#login,#toast{display:none!important}.step{display:block!important}}
+@media(max-width:720px){
+.hwrap{padding:10px 14px 8px}.userchip{position:static;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+#userName{flex:1 1 100%;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.userchip button{padding:5px 9px;font-size:11.5px}
+header h1{font-size:17px}.hlogo{height:28px}.htop{gap:10px}header .hwrap>p{display:none}
+#stepper{flex-wrap:nowrap}#stepper button{padding:7px 10px}#stepper button.on span{display:inline}
+.chips{display:flex}.chip{min-width:0;flex:1 1 auto;padding:10px 12px}
+.movcards{grid-template-columns:1fr 1fr}.movcard{padding:13px 14px;font-size:14px}
+.step input[type=date]{max-width:none}
+}
 @media(max-width:720px){.wrap{padding:12px 12px 84px}.panel{padding:16px}.scorebox{grid-template-columns:1fr}dl.sum{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}#stepper button span{display:none}}
 .lok{color:#17663A;background:#EAF7EF;border-radius:10px;padding:0;font-size:13.5px;margin:0 0 8px}.lok:not(:empty){padding:9px 12px}.llinks{display:flex;justify-content:space-between;gap:10px;margin:10px 0 0}.link{background:none!important;border:0!important;color:#0036DC!important;padding:4px 0!important;font:inherit;font-size:14px;cursor:pointer;text-decoration:underline;width:auto!important;box-shadow:none!important}
 .orto{margin-top:6px;font-size:13px}.orto.ok{color:#1B7F4B}.orto.aviso{background:#FFF8E6;border:1px solid #F2D58A;border-radius:10px;padding:8px 10px}
