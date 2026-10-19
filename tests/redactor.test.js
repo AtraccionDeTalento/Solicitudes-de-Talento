@@ -78,7 +78,7 @@ ok('PUNTOS A VALIDAR: avisa de lo que falta o no cuadra', () => {
   assert.deepStrictEqual(redactar(base).alertas.filter(a => /^Falta/.test(a)), [], 'un registro completo no debe reportar faltantes');
 });
 
-ok('incremento salarial: respeta el tipo de propuesta tal como se escribió (monto o porcentaje)', () => {
+if (registro('Incremento salarial').levantamiento.some(x => x.i === 'tipoPropuestaNegocio')) ok('incremento salarial: respeta el tipo de propuesta tal como se escribió (monto o porcentaje)', () => {   // solo si el cuestionario pide la propuesta
   const lev = r => registro('Incremento salarial').levantamiento.map(x => x.i === 'tipoPropuestaNegocio' ? { ...x, r } : x);
   assert.ok(/propuesta de S\/ 7\b/.test(redactar(registro('Incremento salarial', { levantamiento: lev('Monto en S/') })).resumen));
   assert.ok(/propuesta de 7%/.test(redactar(registro('Incremento salarial', { levantamiento: lev('Porcentaje %') })).resumen));

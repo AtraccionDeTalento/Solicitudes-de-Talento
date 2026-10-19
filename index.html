@@ -31,10 +31,18 @@ header p{margin:2px 0 8px;color:#C9D6F5;font-size:13px}
 #barTxt{color:#C9D6F5;font-size:12px;margin-top:4px}
 .wrap{max-width:1100px;margin:auto;padding:18px 20px 84px}
 .movcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:4px}
-.movcard{display:flex;gap:10px;align-items:center;text-align:left;background:#fff;color:var(--navy);border:1.5px solid var(--border);border-radius:12px;padding:14px;font-weight:700;font-size:15px}
-.movcard i{font-style:normal;font-size:22px;line-height:1}.movcard:hover{border-color:#0036DC;background:#F5F8FF}
+.movcard{text-align:left;background:#fff;color:var(--navy);border:1.5px solid var(--border);border-radius:10px;padding:16px 18px;font-weight:700;font-size:15px}
+.movcard:hover{border-color:#0036DC;background:#F5F8FF}
 .movcard[aria-pressed="true"]{border-color:#0036DC;background:#EAF0FF;box-shadow:0 0 0 3px #0036DC22}
 .q.cardmode>label,.q.cardmode>select{display:none}
+#specificQuestions{counter-reset:q}#specificQuestions .qnum{counter-increment:q;margin-bottom:20px}
+#specificQuestions h3.qtit{text-transform:none;letter-spacing:0;font-size:15px;color:var(--navy);border:0;padding:0;margin:0 0 8px}
+#specificQuestions h3.qtit::before{content:counter(q) ". ";color:var(--green)}
+.solo .q>label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.qsub{margin:-10px 0 20px 18px;padding-left:14px;border-left:3px solid #DCE5FB}
+.chipsel{display:none}.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#fff;color:var(--navy);border:1.5px solid var(--border);border-radius:999px;padding:8px 14px;font-weight:600;font-size:14px}
+.chip:hover{border-color:#0036DC}.chip[aria-pressed="true"]{background:#0036DC;border-color:#0036DC;color:#fff}
 .colabcard{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border:1.5px solid #0036DC;background:#F5F8FF;border-radius:12px;padding:14px 16px;margin:4px 0 12px}
 .colabcard div{display:flex;flex-direction:column;gap:3px}.colabcard b{font-size:16px;color:var(--navy)}.colabcard span{font-size:14px}
 #colabManualWrap{margin:-4px 0 12px}#colabCard,#colabManualWrap{grid-column:1/-1}
@@ -174,7 +182,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
   <div>
   <form id="form" novalidate>
     <section class="panel step" data-step="0">
-      <h2>¿Qué necesitas?</h2>
+      <h2>Datos de la solicitud</h2>
       <div class="grid" id="g0a"></div>
       <p class="muted" id="registraComo"></p><div class="grid hidden" id="g0b"></div>   <!-- el líder se completa solo con quien inició sesión -->
       <div id="bloqueColab" class="hidden">
@@ -184,10 +192,10 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
     </section>
 
     <section class="panel step" data-step="1">
-      <h2>Cuéntanos</h2>
+      <h2>Preguntas del movimiento</h2>
       <p class="muted" id="specificIntro"></p>
-      <div id="specificQuestions" class="numbered"></div>
-      <h3 style="margin-top:22px">Aprobación de tu gerencia</h3>
+      <div id="specificQuestions"></div>
+      <h3 style="margin-top:22px">Aprobación previa</h3>
       <div class="grid" id="g2"></div>
       <div id="approvalsWrap" class="hidden" style="margin-top:12px">
         <div id="approvals"></div>
@@ -201,7 +209,7 @@ dl.sum dt{font-weight:700;color:var(--muted)}dl.sum dd{margin:0}
     </section>
 
     <section class="panel step" data-step="2">
-      <h2>Revisa y envía</h2>
+      <h2>Revisión y envío</h2>
       <div id="reviewBox"></div>
       <details id="sustentoBox" style="margin-top:14px"><summary><b>Ver o editar el resumen para el Comité</b> <span class="muted">(se arma solo con tus respuestas)</span></summary><div id="g5" style="margin-top:10px"></div></details>
       <div class="q"><label class="check"><input type="checkbox" id="confirmo"> Confirmo que la información es veraz y que cuenta con el respaldo indicado.</label><div class="err"></div></div>
