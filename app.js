@@ -1380,7 +1380,6 @@ function enter(){
   $("bpPanel").classList.toggle("hidden",!BP_MODE||!!CONFIG.panelUrl);$("modeTag").textContent=(BP_MODE?"· Modo BP":"")+(CONFIG.modoPrueba?" · Modo prueba":"");
   // Relleno de pruebas oculto: 7 clics seguidos en el logo (solo con CONFIG.demoClics). Poner demoClics en false (o quitar este bloque y #demoBar) al pasar a producción.
   {let n=0,t=0;$("logoUsil").onclick=()=>{if(!CONFIG.demoClics)return;const ahora=Date.now();n=ahora-t<1500?n+1:1;t=ahora;if(n>=7){n=0;demoFill()}}}
-  if(CONFIG.panelUrl){$("panelLink").href=CONFIG.panelUrl;$("panelLink").classList.remove("hidden")}
   if(BP_MODE) renderHistory();
   const dr=load(draftKey(),null);
   editingCaseId=null;reached=0;showShell();
