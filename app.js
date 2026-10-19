@@ -60,15 +60,13 @@ const SETS = {
  {t:"¿Por qué se requiere cambiar la encargatura?",when:["tipoEncargatura","Cambio de encargatura"],q:[["motivoCambioEnc","¿Por qué se requiere cambiar la encargatura?","textarea"]]},
  {t:"¿Cambia la asignación económica?",when:["tipoEncargatura","Cambio de encargatura"],q:[["cambiaAsignacionEnc","¿Cambia la asignación económica?","select",SN]]}],
 "Reemplazo":[
- {t:"¿A quién reemplaza el colaborador?",q:[["personaOVacanteReemplazo","¿A quién reemplaza el colaborador?","text","Nombre y/o posición de la persona que deja la vacante."]]},
- {t:"¿Cuál es el motivo del reemplazo?",q:[["motivoVacanteReemplazo","¿Cuál es el motivo del reemplazo?","select",["Renuncia","Cese","Promoción","Movimiento interno","Otro"]]]},
- {t:"¿Desde cuándo se requiere cubrir la posición?",q:[["fechaInicioReemplazo","¿Desde cuándo se requiere cubrir la posición?","date","Fecha prevista de ingreso o movimiento."]]},
- {t:"¿La posición ya está aprobada dentro de la estructura vigente?",q:[["posicionAprobadaRep","¿La posición ya está aprobada dentro de la estructura vigente?","select",SNC]]},
- {t:"Posición no aprobada: tipo",sub:true,when:["posicionAprobadaRep","No"],q:[["tipoPosicionRep","Indica si corresponde a una posición adicional o a una modificación de estructura","select",["Posición adicional","Modificación de estructura"]]]},
- {t:"¿Se mantiene el presupuesto de la posición reemplazada?",q:[["presupuestoSeMantiene","¿Se mantiene el presupuesto de la posición reemplazada?","select",SNC]]},
- {t:"Presupuesto: qué cambia",sub:true,when:["presupuestoSeMantiene","No"],q:[["cambioPresupuestoRep","Si cambia, indica brevemente qué cambia","textarea"]]},
- {t:"¿Existe algún cambio respecto a la posición que se está reemplazando?",q:[["cambioPosicionRep","¿Existe algún cambio respecto a la posición que se está reemplazando?","select",["No, se mantiene igual","Sí, cambia puesto, responsabilidades, nivel o condiciones"]]]},
- {t:"Cambio en la posición: detalle",sub:true,when:["cambioPosicionRep","Sí, cambia puesto, responsabilidades, nivel o condiciones"],q:[["cambioPosicionDetalle","Explica brevemente","textarea"]]}],
+ {t:"¿Qué colaborador se reemplaza?",q:[["personaOVacanteReemplazo","¿Qué colaborador se reemplaza?","text","Se precarga con el colaborador del paso 1 (maestro). Si la posición no tuvo titular, escribe «Sin titular»."]]},
+ {t:"¿Cuál es el motivo del reemplazo?",q:[["motivoVacanteReemplazo","¿Cuál es el motivo del reemplazo?","select",["Renuncia","Cese","Promoción","Traslado","Cambio interno","Otro"]]]},
+ {t:"¿Desde cuándo se requiere cubrir la posición?",q:[["fechaInicioReemplazo","¿Desde cuándo se requiere cubrir la posición?","date"]]},
+ {t:"¿La posición está aprobada dentro de la estructura vigente?",q:[["posicionAprobadaRep","¿La posición está aprobada dentro de la estructura vigente?","select",SNC]]},
+ {t:"¿La posición se mantiene igual respecto al puesto que quedó vacante?",q:[["cambioPosicionRep","¿La posición se mantiene igual respecto al puesto que quedó vacante?","select",["Sí, se mantiene igual","No, presenta cambios"]]]},
+ {t:"Cambios en la posición",sub:true,when:["cambioPosicionRep","No, presenta cambios"],q:[["queCambiaRep","¿Qué cambia?","select",["Puesto","Responsabilidades","Nivel","Alcance","Condiciones","Otro"],"Revisa o ajusta el descriptivo de puesto precargado en el panel de la derecha («Ampliar vista»). Este caso podría requerir una revisión adicional de estructura o valorización del puesto."]]},
+ {t:"¿Qué impacto tendría no cubrir esta posición?",q:[["impactoNoReemplazo","¿Qué impacto tendría no cubrir esta posición?","textarea"]]}],
 "Puesto nuevo":[
  {t:"¿Qué puesto se solicita crear?",q:[["puestoNuevo","¿Qué puesto se solicita crear?","text"]]},
  {t:"¿Qué necesidad del negocio origina la creación del puesto?",q:[["necesidadPuesto","¿Qué necesidad del negocio origina la creación del puesto?","textarea","Crecimiento, reestructuración, proyecto nuevo, nueva función o necesidad operativa."]]},
@@ -111,7 +109,7 @@ const SETS = {
 // Límites [mínimo, máximo] de caracteres por pregunta. Texto corto: 2-100. Párrafos por nivel: L 60-600, M 40-500, S 30-300.
 const TA_TIER={L:[60,600],M:[40,500],S:[30,300]};
 const TIER_L=["queCambioPromo","porQueColabPromo","motivoMovimiento","necesidadPuesto","porQueNoAbsorbe","situacionOrigen","queCambioRev","sustentoSubvaloracion","objetivoCaso","sustentoCaso","descripcionOtro","sustentoOtro","motivoHorizontal","motivoReestructura","objetivoReestructura","responsabilidadesPuesto"];
-const TIER_S=["cambioPresupuestoRev","cambioPresupuestoRep","cambioPosicionDetalle","cambioDecisionRev","funcionesOtroPuesto","funcionesActualesHorizontal","cambiosReporteRest","resultadosRen","motivoCambioEnc"];
+const TIER_S=["cambioPresupuestoRev","cambioDecisionRev","funcionesOtroPuesto","funcionesActualesHorizontal","cambiosReporteRest","resultadosRen","motivoCambioEnc"];
 const LIM_OV={personasCargo:[1,60],personasCargoPN:[1,60],personasCargoReemplazo:[1,60],equipoAdicional:[1,60],cambioPersonasRev:[1,60],periodoRenovacion:[2,40],vigenciaCaso:[2,60],
   puestoEncargado:[3,160],personaOVacanteReemplazo:[3,120],areaApoyoHorizontal:[3,120],tipoCasoEspecial:[3,100],
   detalleMovimientosRest:[60,1500],solicitudConcreta:[50,3000]};
@@ -418,17 +416,16 @@ function buildExecutiveSummary(){
     const replaced=direct("personaOVacanteReemplazo");
     const reason=direct("motivoVacanteReemplazo");
     const start=direct("fechaInicioReemplazo");
-    const aprob=direct("posicionAprobadaRep"), pres=direct("presupuestoSeMantiene");
+    const aprob=direct("posicionAprobadaRep");
 
     add(`Se solicita el reemplazo${replaced?` de ${replaced}`:""}`);
     if(reason) add(`Motivo del reemplazo: ${stripEnd(reason)}`);
     if(start) add(`Se requiere cubrir la posición a partir del ${start}`);
 
-    if(aprob==="No") add(`La posición no está aprobada en la estructura vigente${direct("tipoPosicionRep")?` y corresponde a una ${lowerLead(direct("tipoPosicionRep"))}`:""}`);
+    if(aprob==="No") add("La posición no está aprobada dentro de la estructura vigente");
     else if(aprob==="Por confirmar") add("La aprobación de la posición dentro de la estructura vigente está por confirmar");
-    if(pres==="No") add(`El presupuesto de la posición reemplazada cambia${direct("cambioPresupuestoRep")?`: ${stripEnd(direct("cambioPresupuestoRep"))}`:""}`);
-    else if(pres==="Por confirmar") add("El presupuesto de la posición reemplazada está por confirmar");
-    if(/^Sí/.test(direct("cambioPosicionRep"))) add(`La posición presenta cambios respecto a la que se reemplaza${direct("cambioPosicionDetalle")?`: ${stripEnd(direct("cambioPosicionDetalle"))}`:""}`);
+    if(direct("cambioPosicionRep")==="No, presenta cambios") add(`La posición presenta cambios respecto al puesto que quedó vacante${direct("queCambiaRep")?` (${lowerLead(direct("queCambiaRep"))})`:""}; podría requerir una revisión adicional de estructura o valorización del puesto`);
+    if(direct("impactoNoReemplazo")) add(`Si la posición no se cubre: ${stripEnd(direct("impactoNoReemplazo"))}`);
 
     add("Se solicita la evaluación del reemplazo y, de corresponder, la revisión de las condiciones asociadas al movimiento");
   }
@@ -658,12 +655,6 @@ function precargaReemplazo(){
   const n=$("colaborador").value.trim(),p=$("puestoActual").value.trim(),v=n?[n,p].filter(Boolean).join(" — "):"";
   if(!f.value.trim()||f.value===autoReemplazo){f.value=v;autoReemplazo=v}
 }
-// Reemplazo ya pregunta por el presupuesto de la posición (pregunta 5): el bloque común de presupuesto se oculta y toma esa respuesta.
-function presupuestoComun(){
-  const rep=$("movimiento").value==="Reemplazo",card=$("presupuesto").closest(".qcard");
-  card.classList.toggle("hidden",rep);
-  if(rep){const m=$("presupuestoSeMantiene");$("presupuesto").value=m&&["Sí","No"].includes(m.value)?m.value:""}
-}
 function palabras(){
   const [de,esta]=COSA[$("movimiento").value]||["el movimiento","este movimiento"];
   const L=(id,t)=>{const q=$(id)&&$(id).closest(".q"),l=q&&q.querySelector("label");if(l) l.textContent=t};
@@ -854,6 +845,7 @@ function evaluateCase(d){
     b.presupuesto=15;score+=b.presupuesto;strengths.push("Presupuesto confirmado por el Socio de negocio.");
   }else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
   else alerts.push("No se ha definido el estado del presupuesto.");
+  if(d.movimiento==="Reemplazo"&&(d.dynamic||{}).cambioPosicionRep==="No, presenta cambios") alerts.push("La posición cambia respecto a la vacante: podría requerir una revisión adicional de estructura o valorización del puesto.");
   if(!nonempty(d.solicitudConcreta)) alerts.push("Falta generar o completar el sustento ejecutivo para Comité.");
   else{
     const t=String(d.solicitudConcreta).trim(),q=Q(t),largo=Math.min(1,t.length/250);
@@ -884,7 +876,7 @@ function renderStepper(){
 // Los datos del presupuesto (fuente, quién valida, monto) solo se piden si hay presupuesto; con «No» se ocultan y se limpian.
 function ocultarPreguntas(){$("fechaSolicitud").closest(".q").classList.add("hidden");   // la fecha es automática
   if(CONFIG.sinPreguntas) document.querySelectorAll("#form .q").forEach(q=>{if(!q.querySelector("#movimiento,#departamento,#confirmo")) q.classList.add("hidden")})}
-function refresh(){ocultarPreguntas();syncMov();precargaReemplazo();presupuestoComun();syncChips();window.DPF&&DPF.render();
+function refresh(){ocultarPreguntas();syncMov();precargaReemplazo();syncChips();window.DPF&&DPF.render();
   let tot=0,okc=0;
   $("form").querySelectorAll("input,select,textarea").forEach(el=>{
     if(el.id==="confirmo"||el.type==="button") return;

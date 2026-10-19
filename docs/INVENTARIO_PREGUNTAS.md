@@ -42,19 +42,17 @@ En pantalla, las preguntas de Cambio de encargatura (13 a 16 aquí) se numeran 7
 | 15 | ¿Por qué se requiere cambiar la encargatura? | textarea | si tipoEncargatura = Cambio de encargatura | app.js:60 |
 | 16 | ¿Cambia la asignación económica? | Sí · No | si tipoEncargatura = Cambio de encargatura | app.js:61 |
 
-### Reemplazo
+### Reemplazo (B3 de Amador)
 
 | # | Pregunta | Respuesta | Condición | Dónde |
 |---|---|---|---|---|
-| 1 | ¿A quién reemplaza el colaborador? | text |  | app.js:63 |
-| 2 | ¿Cuál es el motivo del reemplazo? | Renuncia · Cese · Promoción · Movimiento interno · Otro |  | app.js:64 |
+| 1 | ¿Qué colaborador se reemplaza? | text (se precarga del paso 1) |  | app.js:63 |
+| 2 | ¿Cuál es el motivo del reemplazo? | Renuncia · Cese · Promoción · Traslado · Cambio interno · Otro |  | app.js:64 |
 | 3 | ¿Desde cuándo se requiere cubrir la posición? | date |  | app.js:65 |
-| 4 | ¿La posición ya está aprobada dentro de la estructura vigente? | Sí · No · Por confirmar |  | app.js:66 |
-| ↳ | Indica si corresponde a una posición adicional o a una modificación de estructura | Posición adicional · Modificación de estructura | si posicionAprobadaRep = No | app.js:67 |
-| 5 | ¿Se mantiene el presupuesto de la posición reemplazada? | Sí · No · Por confirmar |  | app.js:68 |
-| ↳ | Si cambia, indica brevemente qué cambia | textarea | si presupuestoSeMantiene = No | app.js:69 |
-| 6 | ¿Existe algún cambio respecto a la posición que se está reemplazando? | No, se mantiene igual · Sí, cambia puesto, responsabilidades, nivel o condiciones |  | app.js:70 |
-| ↳ | Explica brevemente | textarea | si cambioPosicionRep = Sí, cambia puesto, responsabilidades, nivel o condiciones | app.js:71 |
+| 4 | ¿La posición está aprobada dentro de la estructura vigente? | Sí · No · Por confirmar |  | app.js:66 |
+| 5 | ¿La posición se mantiene igual respecto al puesto que quedó vacante? | Sí, se mantiene igual · No, presenta cambios |  | app.js:67 |
+| ↳ | ¿Qué cambia? | Puesto · Responsabilidades · Nivel · Alcance · Condiciones · Otro | si cambioPosicionRep = No, presenta cambios | app.js:68 |
+| 6 | ¿Qué impacto tendría no cubrir esta posición? | textarea |  | app.js:69 |
 
 ### Puesto nuevo
 
@@ -123,12 +121,7 @@ En pantalla, las preguntas de Cambio de encargatura (13 a 16 aquí) se numeran 7
 | Paso 1 | Área | Puesto nuevo / «Corregir datos» | app.js:615 |
 | Paso 1 | Sección | Puesto nuevo / «Corregir datos» | app.js:615 |
 | Paso 2 | ¿La solicitud cuenta con aprobación de la gerencia? | Sí | app.js:1291 |
-| Paso 2 | ¿Presupuesto confirmado por tu Socio de negocio? | Sí (no en Reemplazo) | app.js:617 |
-| Paso 2 | ¿Quién te confirmó que hay presupuesto? | No (se llena solo) | app.js:617 |
-| Paso 2 | ¿Para cuándo se necesita implementar este movimiento? | No (oculta) | app.js:618 |
-| Paso 2 | Nivel de impacto si no se ejecuta | No (oculta) | app.js:618 |
-| Paso 2 | Principal consecuencia de no aprobar | No (oculta) | app.js:618 |
-| Paso 2 | Explique brevemente el impacto | No (oculta) | app.js:1295 |
+| Paso 2 | ¿Presupuesto confirmado por tu Socio de negocio? | Sí | app.js:617 |
 | Paso 3 | Sustento ejecutivo (se arma solo) | Plegado en Revisión | app.js:1297 |
 | Paso 1 | Buscar por correo institucional (colaborador) | Sí | app.js:616 |
 | Paso 2 | Aprobación: ¿Quién aprobó? · Fecha de aprobación · Evidencia de aprobación · Adjuntar evidencia | Si hay aprobación | app.js:737 |
