@@ -574,6 +574,7 @@ async function lookupRemote(code){
 }
 // Búsqueda del colaborador por su correo institucional: completa nombre, puesto, departamento, área, sección y matrícula.
 async function lookupEmployeeByEmail(){
+  colabManual=false;
   if(NOCODE.includes($("movimiento").value)) return;
   const help=$("codigoHelp"),mail=$("correoColab").value.trim().toLowerCase();
   if(!mail){help.textContent="Escribe el correo institucional del colaborador.";return}
@@ -640,7 +641,7 @@ const AVISO_INGRESO="Los ingresos son los lunes de inicio de mes y de quincena (
 const fechaLarga=iso=>{const [y,m,d]=iso.split("-");return `lunes ${d}/${m}/${y}`};
 const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
 const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS],["area","Área","text"],["seccion","Sección","text"]];
-const CODE_HTML=`<div class="q"><label for="correoColab">Correo del colaborador</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
+const CODE_HTML=`<div class="q"><label for="correoColab">¿De quién se trata?</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div id="colabCard" class="colabcard hidden"></div><div id="colabManualWrap" class="hidden"><button type="button" class="linkbtn" data-colab="manual">¿No lo encuentras? Completar a mano</button></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
 const G3=[["presupuesto","¿Cuenta con presupuesto?","select",SN,"Solo indica si hay o no: tu Socio de negocio lo confirma."],["validaPresupuesto","¿Quién te confirmó que hay presupuesto?","select",["Mi Socio de negocio (HRBP)","Alguien de Talento (Compensaciones, Selección…)","Mi gerencia o dirección"],"No necesitas conocer fuente ni monto: solo quién te dijo que hay presupuesto."]];   // fuente y monto ya no se piden al jefe (siguen como campos vacíos en el registro)
 const G4=[["urgencia","¿Para cuándo se necesita implementar este movimiento?","select",["Dentro de 30 días","Dentro de 60 días","Más adelante"]],["impacto","Nivel de impacto si no se ejecuta","select",["Bajo","Medio","Alto","Crítico"]],["consecuencia","Principal consecuencia de no aprobar","select",["Sin impacto relevante","Retraso operativo","Sobrecarga del equipo","Riesgo de pérdida de talento","Impacto en clientes","Impacto financiero","Riesgo de cumplimiento","Otro"]]];
 const EVID_AP=["Correo","Acta","Documento","Reunión registrada","Otro"];
@@ -653,10 +654,27 @@ function tarjetasMov(){
   q.insertAdjacentHTML("afterbegin",`<div class="movcards" role="group" aria-label="Tipo de movimiento">${MOVS.map(m=>`<button type="button" class="movcard" data-mov="${esc(m)}" aria-pressed="false"><i aria-hidden="true">${MOV_UI[m][0]}</i><span>${esc(MOV_UI[m][1])}</span></button>`).join("")}</div>`);
   q.addEventListener("click",e=>{const b=e.target.closest(".movcard");if(!b) return;const sel=$("movimiento");if(sel.value===b.dataset.mov) return;sel.value=b.dataset.mov;sel.dispatchEvent(new Event("change",{bubbles:true}))});
 }
+// Colaborador: un solo buscador. Encontrado → tarjeta de resumen; sin encontrar → «Completar a mano» muestra los campos.
+let colabManual=false;
+const COLAB_DATOS=["codigo","colaborador","puestoActual","departamento","area","seccion"];
+function syncColab(){
+  const nuevo=NOCODE.includes($("movimiento").value),v=id=>$(id).value.trim();
+  const hay=!nuevo&&!!v("colaborador")&&v("codigo")!=="No aplica";
+  const resumen=!nuevo&&!colabManual;
+  $("correoColab").closest(".q").classList.toggle("hidden",nuevo);
+  COLAB_DATOS.forEach(id=>{
+    const ver=nuevo?["departamento","area","seccion"].includes(id):colabManual||(id==="departamento"&&hay&&!v("departamento"));   // si la base no trae el departamento, se pide (define el socio de negocio)
+    $(id).closest(".q").classList.toggle("hidden",!ver);
+  });
+  $("colabCard").classList.toggle("hidden",!(resumen&&hay));
+  if(resumen&&hay) $("colabCard").innerHTML=`<div><b>${esc(v("colaborador"))}</b><span>${esc(v("puestoActual")||"Puesto sin registrar")}</span><span>${esc([v("departamento"),v("area"),v("seccion")].filter(Boolean).join(" · "))}</span><span class="muted">Matrícula ${esc(v("codigo")||"—")}</span></div><button type="button" class="linkbtn" data-colab="manual">Corregir datos</button>`;
+  $("colabManualWrap").classList.toggle("hidden",nuevo||colabManual||hay);
+}
 function syncMov(){
   const m=$("movimiento").value;
   document.querySelectorAll(".movcard").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mov===m)));
   $("bloqueColab").classList.toggle("hidden",!m);
+  syncColab();
 }
 function renderSpecific(){
   const mov=$("movimiento").value, sets=SETS[mov];
@@ -783,7 +801,8 @@ function counters(){document.querySelectorAll("textarea").forEach(t=>{t.style.he
 
 // ---------- Validación ----------
 function required(el){
-  if(el.id==="area"||el.id==="seccion") return false;   // practicantes, aprendices y otros puestos sin área o sección en la base
+  if(el.id==="area"||el.id==="seccion") return false;
+  if(el.id==="correoColab"&&colabManual) return false;   // a mano el correo es opcional   // practicantes, aprendices y otros puestos sin área o sección en la base
   if(el.closest(".hidden")||el.type==="button"||el.disabled) return false;
   if(el.classList.contains("ap-file")) return true;   // la captura siempre: las reglas del servidor también la exigen
   if(!CONFIG.camposObligatorios) return el.id==="movimiento"||el.id==="departamento";
@@ -1042,6 +1061,7 @@ function showShell(){
   $("done").classList.add("hidden");
 }
 function resetForm(){
+  colabManual=false;
   editingCaseId=null;reached=0;
   fill(baseData());lockLeader();
   $("confirmo").checked=false;store(draftKey());
@@ -1298,6 +1318,8 @@ function init(){
   $("stepper").addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b&&!b.disabled) go(+b.dataset.go)});
   $("prevBtn").onclick=()=>go(cur-1);$("nextBtn").onclick=next;
   $("lookupEmployee").onclick=lookupEmployeeByEmail;
+  $("g0c").addEventListener("click",e=>{if(e.target.dataset.colab==="manual"){colabManual=true;refresh()}});
+  $("correoColab").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupEmployeeByEmail()}});
   $("correoColab").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupEmployeeByEmail()}});
   $("codigo").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();lookupEmployeeByCode()}});
   $("addApproval").onclick=()=>addApproval();
