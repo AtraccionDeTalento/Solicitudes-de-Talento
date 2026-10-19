@@ -84,22 +84,7 @@ const SETS = {
  {t:"¿El colaborador comunicó intención de renuncia?",when:["motivoIncremento","Retención"],q:[["intencionRenuncia","¿El colaborador comunicó intención de renuncia?","select",SN]]},
  {t:"¿Existe una oferta externa?",when:["motivoIncremento","Retención"],q:[["ofertaExterna","¿Existe una oferta externa?","select",SN]]},
  {t:"Oferta externa: evidencia",sub:true,when:["ofertaExterna","Sí"],q:[["evidenciaOferta","Adjuntar evidencia","select",["Correo","Carta oferta","Mensaje","Otro"]]]}],
-"Movimiento interno":[
- {t:"Necesidad",q:[
-  ["motivoMovimiento","¿Qué necesidad origina el movimiento interno?","textarea"],
-  ["problemaResuelveML","¿Qué problema organizacional busca resolver?","textarea"]]},
- {t:"Destino",q:[
-  ["puestoDestino","Puesto destino","text"],
-  ["areaDestino","Área destino","text"],
-  ["cambioUbicacion","¿Existe cambio de ubicación?","select",SN],
-  ["cambioJornada","¿Existe cambio de jornada?","select",SN]]},
- {t:"Cambios en el rol",q:[
-  ["cambiaResponsabilidad","¿Cambia el nivel de responsabilidad?","select",SN],
-  ["cambiaAlcance","¿Cómo cambia el alcance?","textarea"],
-  ["nuevasFuncionesML","¿Qué funciones nuevas asumirá?","textarea"]]},
- {t:"Resultado esperado e impacto",q:[
-  ["resultadoEsperadoML","¿Qué se espera lograr con el movimiento?","textarea"],
-  ["solicitaIncrementoML","¿Se solicita un incremento salarial con este movimiento?","select",SN]]}],
+"Movimiento interno":[],   // Amador no envió preguntas para este movimiento
 "Otro":[
  {t:"¿Qué movimiento o cambio se solicita?",q:[["descripcionOtro","¿Qué movimiento o cambio se solicita?","textarea"]]},
  {t:"¿Por qué se solicita este movimiento?",q:[["sustentoOtro","¿Por qué se solicita este movimiento?","textarea"]]},
@@ -602,7 +587,6 @@ const fechaLarga=iso=>{const [y,m,d]=iso.split("-");return `lunes ${d}/${m}/${y}
 const G0B=[["cliente","Nombre del líder solicitante","text","Nombre y apellido"],["cargoCliente","Cargo del líder","text"],["emailCliente","Correo del líder","email","nombre@usil.edu.pe"]];
 const G0C=[["colaborador","Nombre y apellido","text","Se completa al buscar el correo"],["puestoActual","Puesto","text"],["departamento","Departamento","select",DEPARTAMENTOS],["area","Área","text"],["seccion","Sección","text"]];
 const CODE_HTML=`<div class="q"><label for="correoColab">Buscar por correo institucional</label><div class="inline" style="flex-wrap:nowrap"><input id="correoColab" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nombre@usil.edu.pe"><button id="lookupEmployee" type="button" class="secondary">Buscar</button></div><div class="help" id="codigoHelp"></div><div class="err"></div></div><div id="colabCard" class="colabcard hidden"></div><div id="colabManualWrap" class="hidden"><button type="button" class="linkbtn" data-colab="manual">¿No lo encuentras? Completar a mano</button></div><div class="q"><label for="codigo">Matrícula del colaborador</label><input id="codigo" inputmode="numeric" placeholder="Se completa sola al buscar por correo"><div class="err"></div></div>`;
-const G3=[["presupuesto","¿Presupuesto confirmado por tu Socio de negocio?","select",SN,"Responde Sí solo si tu Socio de negocio ya te lo confirmó."]];
 const EVID_AP=["Correo","Acta","Documento","Reunión registrada","Otro"];
 const LEVELS=["Presidencia","Gerencia General","Líder de Unidad","Líder de Área","Líder inmediato","Otro"], EVID=["Correo","Acta","Reunión","Documento","Otro"];
 
@@ -658,7 +642,6 @@ function precargaReemplazo(){
 function palabras(){
   const [de,esta]=COSA[$("movimiento").value]||["el movimiento","este movimiento"];
   const L=(id,t)=>{const q=$(id)&&$(id).closest(".q"),l=q&&q.querySelector("label");if(l) l.textContent=t};
-  L("presupuesto","¿Presupuesto confirmado por tu Socio de negocio?");
   $("hColab").textContent=COLAB_TIT[$("movimiento").value]||"Colaborador";
 }
 function applyWhen(){
@@ -730,7 +713,7 @@ function addApproval(p={}){
 }
 
 // ---------- Datos del caso ----------
-const FIXED=["fechaSolicitud","cliente","cargoCliente","emailCliente","departamento","area","seccion","codigo","colaborador","puestoActual","movimiento","tieneAprobacion","presupuesto","fuentePresupuesto","montoPresupuesto","solicitudConcreta"];
+const FIXED=["fechaSolicitud","cliente","cargoCliente","emailCliente","departamento","area","seccion","codigo","colaborador","puestoActual","movimiento","tieneAprobacion","solicitudConcreta"];
 function gather(){
   const per=($("fechaSolicitud").value||today()).slice(0,7);
   const obj={periodo:per,periodoLabel:monthLabel(per)};
@@ -768,7 +751,6 @@ function required(el){
   if(el.closest(".hidden")||el.type==="button"||el.disabled) return false;
   if(el.classList.contains("ap-file")) return true;   // la captura siempre: las reglas del servidor también la exigen
   if(!CONFIG.camposObligatorios) return el.id==="movimiento"||el.id==="departamento";
-  if(el.id==="montoPresupuesto"||el.id==="fuentePresupuesto") return false;   // el jefe no conoce fuente ni monto
   if(el.classList.contains("ap-role")) return false;   // el cargo ya no se pide
   return true;
 }
@@ -808,7 +790,7 @@ function showErrors(errs){
 // ---------- Evaluación (misma lógica y pesos que la versión de Amador) ----------
 function evaluateCase(d){
   let score=0,strengths=[],alerts=[];
-  const b={general:0,sustento:0,aprobaciones:0,presupuesto:0,ejecutivo:0};
+  const b={general:0,sustento:0,aprobaciones:0,ejecutivo:0};
   const Q=t=>window.Calidad?Calidad.evaluar(t):{p:1,nivel:"ok",motivos:[]};
   const etiqueta=id=>{const l=document.getElementById(id)&&document.getElementById(id).closest(".q");const x=l&&l.querySelector("label");return x?x.textContent.replace(/\(opcional\)|\*/g,"").trim():id};
   const general=[d.fechaSolicitud,d.cliente,d.departamento,d.movimiento];   // el BP ya no se digita: se asigna por departamento
@@ -841,10 +823,6 @@ function evaluateCase(d){
     if(complete<ap.length) alerts.push("Hay aprobaciones sin nivel o nombre del aprobador.");
   }else if(d.tieneAprobacion==="No") alerts.push("El caso no cuenta con aprobación previa.");
   else alerts.push("No se ha definido si el caso cuenta con aprobación previa.");
-  if(d.presupuesto==="Sí"){
-    b.presupuesto=15;score+=b.presupuesto;strengths.push("Presupuesto confirmado por el Socio de negocio.");
-  }else if(d.presupuesto==="No") alerts.push("El caso no cuenta con presupuesto identificado.");
-  else alerts.push("No se ha definido el estado del presupuesto.");
   if(d.movimiento==="Reemplazo"&&(d.dynamic||{}).cambioPosicionRep==="No, presenta cambios") alerts.push("La posición cambia respecto a la vacante: podría requerir una revisión adicional de estructura o valorización del puesto.");
   if(!nonempty(d.solicitudConcreta)) alerts.push("Falta generar o completar el sustento ejecutivo para Comité.");
   else{
@@ -855,12 +833,11 @@ function evaluateCase(d){
     else if(t.length>=250) strengths.push("Sustento ejecutivo claro y suficientemente desarrollado.");
     if(t.length<150) alerts.push("El sustento ejecutivo es muy breve para un Comité.");
   }
-  score=Math.min(100,Math.max(0,Math.round(score*100/80)));   // 80 puntos posibles (general, sustento, aprobaciones, presupuesto y ejecutivo)
+  score=Math.min(100,Math.max(0,Math.round(score*100/65)));   // 65 puntos posibles (general, sustento, aprobaciones y ejecutivo)
   let label,recommendation;
   if(score>=85){label="Caso bien preparado";recommendation="El caso presenta un nivel alto de preparación. Puede pasar a revisión de Compensaciones, sujeto a las validaciones técnicas correspondientes."}
   else if(score>=60){label="Caso viable con observaciones";recommendation="El caso puede avanzar, pero conviene resolver las alertas señaladas antes de elevarlo a Compensaciones."}
   else{label="Requiere gestión previa";recommendation="El caso aún necesita información, validaciones o sustentos adicionales antes de ser enviado a Compensaciones."}
-  if(d.presupuesto==="No") recommendation+=" Prioridad: identificar una fuente de presupuesto o sustentar formalmente la excepción.";
   if(d.tieneAprobacion==="No") recommendation+=" También se recomienda obtener una aprobación previa del nivel correspondiente.";
   if(!nonempty(d.solicitudConcreta)) recommendation+=" Antes de guardar o exportar, genera o completa el sustento ejecutivo para Comité.";
   return {score,label,strengths,alerts,recommendation,breakdown:b};
@@ -873,7 +850,6 @@ let cur=0,reached=0,editingCaseId=null,prevMov="",sustentoTouched=false,lastRec=
 function renderStepper(){
   $("stepper").innerHTML=STEPS.map((s,i)=>`<button type="button" data-go="${i}" class="${i===cur?"on":(i<reached&&i!==cur&&!validate(i).length?"ok":"")}"${i>reached?" disabled":""}${i===cur?' aria-current="step"':""}><b>${i+1}</b><span>${s}</span></button>`).join("");
 }
-// Los datos del presupuesto (fuente, quién valida, monto) solo se piden si hay presupuesto; con «No» se ocultan y se limpian.
 function ocultarPreguntas(){$("fechaSolicitud").closest(".q").classList.add("hidden");   // la fecha es automática
   if(CONFIG.sinPreguntas) document.querySelectorAll("#form .q").forEach(q=>{if(!q.querySelector("#movimiento,#departamento,#confirmo")) q.classList.add("hidden")})}
 function refresh(){ocultarPreguntas();syncMov();precargaReemplazo();syncChips();window.DPF&&DPF.render();
@@ -920,7 +896,7 @@ function socioTxt(dep){
 function renderReview(){
   const d=gather(),ev=evaluateCase(d),cls=ev.score>=85?"ok":ev.score>=60?"warn":"bad";
   const li=a=>(a.length?a:["—"]).map(x=>`<li>${esc(x)}</li>`).join("");
-  const rows=[["Movimiento",d.movimiento],["Colaborador",`${d.colaborador} (${d.codigo})`],["Puesto",d.puestoActual],["Departamento / Área / Sección",[d.departamento,d.area,d.seccion].filter(Boolean).join(" · ")],["Líder solicitante",`${d.cliente} · ${d.cargoCliente} · ${d.emailCliente}`],["Se envía a",socioTxt(d.departamento)],["Aprobaciones",d.tieneAprobacion==="Sí"?`${d.approvals.length} registrada(s)`:"Sin aprobación previa"],["Presupuesto confirmado por el Socio de negocio",d.presupuesto||"—"],["Sustento ejecutivo",d.solicitudConcreta]];
+  const rows=[["Movimiento",d.movimiento],["Colaborador",`${d.colaborador} (${d.codigo})`],["Puesto",d.puestoActual],["Departamento / Área / Sección",[d.departamento,d.area,d.seccion].filter(Boolean).join(" · ")],["Líder solicitante",`${d.cliente} · ${d.cargoCliente} · ${d.emailCliente}`],["Se envía a",socioTxt(d.departamento)],["Aprobaciones",d.tieneAprobacion==="Sí"?`${d.approvals.length} registrada(s)`:"Sin aprobación previa"],["Sustento ejecutivo",d.solicitudConcreta]];
   $("reviewBox").innerHTML=`<div class="scorebox"><div><div class="scorecircle"><strong>${ev.score}</strong><span>de 100</span></div><p class="scorenota">Mientras mejor armada esté tu solicitud, mayor es la probabilidad de que sea aprobada. Recuerda: este puntaje no significa que tu solicitud será aprobada; es solo un indicador de probabilidad.</p></div><div><span class="badge ${cls}">${esc(ev.label)}</span><div class="grid2" style="margin-top:12px"><div class="result-block"><h4>Fortalezas</h4><ul class="list">${li(ev.strengths)}</ul></div><div class="result-block"><h4>Alertas</h4>${ev.alerts.length?`<ul class="list">${li(ev.alerts)}</ul>`:`<p class="muted" style="margin:6px 0 0">Sin alertas.</p>`}</div></div><div class="notice">${esc(ev.recommendation)}</div></div></div><h3>Resumen de la solicitud</h3><dl class="sum">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
 }
 
@@ -1033,7 +1009,7 @@ function detailRows(d,ev,bp=""){
     const raw=Number(dyn.propuestaNegocio||0),t=dyn.tipoPropuestaNegocio;
     rows.push(["propuestaNegocioFormateada","Propuesta del negocio formateada",t==="Monto en S/"?"S/ "+raw.toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2}):t==="Porcentaje %"?raw.toLocaleString("es-PE",{maximumFractionDigits:2})+"%":String(dyn.propuestaNegocio)]);
   }
-  rows.push(["tieneAprobacion","¿Cuenta con la aprobación de la gerencia?",d.tieneAprobacion],["presupuesto","¿Cuenta con presupuesto?",d.presupuesto],["fuentePresupuesto","Fuente de presupuesto",d.fuentePresupuesto],["montoPresupuesto","Monto disponible",d.montoPresupuesto],["solicitudConcreta","Sustento ejecutivo para Comité",d.solicitudConcreta],["score","Índice de preparación",ev.score],["clasificacion","Clasificación",ev.label],["recomendacion","Recomendación del sistema",ev.recommendation]);
+  rows.push(["tieneAprobacion","¿Cuenta con la aprobación de la gerencia?",d.tieneAprobacion],["solicitudConcreta","Sustento ejecutivo para Comité",d.solicitudConcreta],["score","Índice de preparación",ev.score],["clasificacion","Clasificación",ev.label],["recomendacion","Recomendación del sistema",ev.recommendation]);
   return rows;
 }
 function loadXLSX(){
@@ -1090,7 +1066,6 @@ function construirExcelCaso(ExcelJS,rec){
   seccion("DATOS DE LA SOLICITUD");fila("Periodo",d.periodoLabel);fila("Fecha de solicitud",d.fechaSolicitud);fila("Tipo de movimiento",d.movimiento);fila("Socio de negocio asignado",bp||"Pendiente de asignar");sp();
   seccion("LÍDER SOLICITANTE");fila("Nombre",d.cliente);fila("Cargo",d.cargoCliente);fila("Correo",d.emailCliente);sp();
   seccion("COLABORADOR");fila("Nombre",d.colaborador);fila("Código (matrícula)",d.codigo);fila("Puesto actual",d.puestoActual);fila("Departamento",d.departamento);fila("Área",d.area);fila("Sección",d.seccion);sp();
-  seccion("PRESUPUESTO");fila("¿Cuenta con presupuesto?",d.presupuesto);fila("Fuente",d.fuentePresupuesto);fila("Monto disponible (S/)",d.montoPresupuesto);sp();
   seccion("EVALUACIÓN AUTOMÁTICA");fila("Fortalezas",(ev.strengths||[]).map(x=>"• "+x).join("\n"));fila("Alertas",(ev.alerts||[]).map(x=>"• "+x).join("\n"));sp();
   seccion("SUSTENTO EJECUTIVO PARA EL COMITÉ");fila("Sustento",d.solicitudConcreta);
 
@@ -1113,7 +1088,7 @@ function construirExcelCaso(ExcelJS,rec){
 
   // ---- Hoja 4: Datos para Compensaciones (una fila)
   const wc=wb.addWorksheet("Datos para Compensaciones",{views:[{state:"frozen",ySplit:1,xSplit:1}],properties:{tabColor:{argb:"FFF3BE00"}}});
-  const COLS=[["Periodo",d.periodoLabel,16],["Fecha de solicitud",d.fechaSolicitud,14],["BP",bp,22],["Líder",d.cliente,26],["Departamento",d.departamento,34],["Área",d.area,28],["Sección",d.seccion,26],["Código",d.codigo,13],["Nombre",d.colaborador,32],["Puesto",d.puestoActual,28],["Tipo de movimiento",d.movimiento,22],["¿Aprobación previa?",d.tieneAprobacion,13],["N.º de aprobaciones",aps.length,13],["Presupuesto",d.presupuesto,14],["Fuente de presupuesto",d.fuentePresupuesto,24],["Puntaje (0-100)",score,11],["Clasificación",ev.label,26],["Sustento ejecutivo",d.solicitudConcreta,90]];
+  const COLS=[["Periodo",d.periodoLabel,16],["Fecha de solicitud",d.fechaSolicitud,14],["BP",bp,22],["Líder",d.cliente,26],["Departamento",d.departamento,34],["Área",d.area,28],["Sección",d.seccion,26],["Código",d.codigo,13],["Nombre",d.colaborador,32],["Puesto",d.puestoActual,28],["Tipo de movimiento",d.movimiento,22],["¿Aprobación previa?",d.tieneAprobacion,13],["N.º de aprobaciones",aps.length,13],["Puntaje (0-100)",score,11],["Clasificación",ev.label,26],["Sustento ejecutivo",d.solicitudConcreta,90]];
   wc.columns=COLS.map(c=>({header:c[0],width:c[2]}));cab(wc,COLS.length);
   const r=wc.addRow(COLS.map(c=>typeof c[1]==="number"?c[1]:txt(c[1])));r.height=Math.max(30,lineas(d.solicitudConcreta,95)*15+6);
   r.eachCell(c=>{c.alignment={vertical:"top",wrapText:true};c.border=borde});
@@ -1133,7 +1108,7 @@ async function exportAllPeriod(){
   const p=$("histPeriod").value||today().slice(0,7),hist=load(HISTORY_KEY,[]).filter(r=>r.periodo===p);
   if(!hist.length) return alert("No hay casos guardados en este periodo.");
   const wb=XLSX.utils.book_new(),A=XLSX.utils.aoa_to_sheet.bind(XLSX.utils);
-  XLSX.utils.book_append_sheet(wb,A([["ID caso","Periodo","Fecha solicitud","BP","Cliente","Departamento","Área","Sección","Código","Nombre","Puesto","Tipo movimiento","Tiene aprobación","N° aprobaciones","Presupuesto","Fuente presupuesto","Score","Clasificación","Recomendación","Sustento ejecutivo"],...hist.map(r=>{const d=r.data,ev=r.evaluation||{};return [r.id,r.periodoLabel,d.fechaSolicitud,r.bpAsignado||"",d.cliente,d.departamento,d.area,d.seccion,d.codigo,d.colaborador,d.puestoActual,d.movimiento,d.tieneAprobacion,(d.approvals||[]).length,d.presupuesto,d.fuentePresupuesto,ev.score,ev.label,ev.recommendation,d.solicitudConcreta]})]),"Casos del periodo");
+  XLSX.utils.book_append_sheet(wb,A([["ID caso","Periodo","Fecha solicitud","BP","Cliente","Departamento","Área","Sección","Código","Nombre","Puesto","Tipo movimiento","Tiene aprobación","N° aprobaciones","Score","Clasificación","Recomendación","Sustento ejecutivo"],...hist.map(r=>{const d=r.data,ev=r.evaluation||{};return [r.id,r.periodoLabel,d.fechaSolicitud,r.bpAsignado||"",d.cliente,d.departamento,d.area,d.seccion,d.codigo,d.colaborador,d.puestoActual,d.movimiento,d.tieneAprobacion,(d.approvals||[]).length,ev.score,ev.label,ev.recommendation,d.solicitudConcreta]})]),"Casos del periodo");
   const ap=[["ID caso","Periodo","Código","Nombre","Nivel","Aprobador","Cargo","Fecha","Evidencia","Tipo evidencia"]];
   hist.forEach(r=>(r.data.approvals||[]).forEach(a=>ap.push([r.id,r.periodoLabel,r.data.codigo,r.data.colaborador,a.level,a.name,a.role,a.date,a.evidence,a.type])));
   XLSX.utils.book_append_sheet(wb,A(ap),"Aprobaciones");
@@ -1152,8 +1127,8 @@ function resetWholeSystem(){
 
 // ---------- Modo demo (7 clics en el logo, solo con CONFIG.demoClics) ----------
 // Rellena los 7 pasos con una persona al azar de la base (solo si Firestore config/app.modoPrueba es true); solo falta pulsar «Enviar solicitud».
-const DEMO_PICK={tieneAprobacion:"Sí",presupuesto:"Sí",personasCargo:"3",personasCargoPN:"2",personasCargoReemplazo:"2",equipoAdicional:"2",fuentePresupuesto:"Presupuesto aprobado",tipoPropuestaNegocio:"Porcentaje %"};
-const DEMO_TEXT={montoPresupuesto:"4500",propuestaNegocio:"8",personasCargo:"3 personas",personasCargoPN:"2 personas",personasCargoReemplazo:"2 personas",equipoAdicional:"2 personas",cambioPersonasRev:"Sí, de 2 a 4 personas",periodoRenovacion:"3 meses",reportaA:"Subgerente de Talento y Cultura",puestoPropuesto:"Analista Senior",puestoEncargado:"Jefe de Área",aQuienReemplaza:"Jefe saliente (vacancia)",puestoReemplazo:"Analista Senior",personaOVacanteReemplazo:"Vacante por renuncia",puestoNuevo:"Analista de Datos de Talento",puestoDestino:"Analista Senior",areaDestino:"Selección y Desarrollo",tipoCasoEspecial:"Convenio de colaboración",vigenciaCaso:"6 meses",areaReestructura:"Área de Talento",areaApoyoHorizontal:"Gerencia de Talento y Cultura",puestoEncargaturaAnterior:"Coordinador de Área","ap-name":"Aprobador de ejemplo","ap-role":"Gerente General"};
+const DEMO_PICK={tieneAprobacion:"Sí",personasCargo:"3",personasCargoPN:"2",personasCargoReemplazo:"2",equipoAdicional:"2",tipoPropuestaNegocio:"Porcentaje %"};
+const DEMO_TEXT={propuestaNegocio:"8",personasCargo:"3 personas",personasCargoPN:"2 personas",personasCargoReemplazo:"2 personas",equipoAdicional:"2 personas",cambioPersonasRev:"Sí, de 2 a 4 personas",periodoRenovacion:"3 meses",reportaA:"Subgerente de Talento y Cultura",puestoPropuesto:"Analista Senior",puestoEncargado:"Jefe de Área",aQuienReemplaza:"Jefe saliente (vacancia)",puestoReemplazo:"Analista Senior",personaOVacanteReemplazo:"Vacante por renuncia",puestoNuevo:"Analista de Datos de Talento",puestoDestino:"Analista Senior",areaDestino:"Selección y Desarrollo",tipoCasoEspecial:"Convenio de colaboración",vigenciaCaso:"6 meses",areaReestructura:"Área de Talento",areaApoyoHorizontal:"Gerencia de Talento y Cultura",puestoEncargaturaAnterior:"Coordinador de Área","ap-name":"Aprobador de ejemplo","ap-role":"Gerente General"};
 const DEMO_FRASES=["El colaborador asumió funciones de mayor alcance y responsabilidad en los últimos meses, con resultados verificables y reconocimiento del equipo.","La necesidad surge por el crecimiento de la operación, que hoy supera la capacidad de la estructura actual y afecta los plazos comprometidos.","Con esta decisión se asegura la continuidad del servicio, se reduce el riesgo de perder talento clave y se ordena la carga de trabajo del área."];
 function demoTexto(min,max){let t="",i=0;while(t.length<Math.max(min,60)+10&&i<12) t+=(t?" ":"")+DEMO_FRASES[i++%3];return t.slice(0,Math.max(1,max-1))}
 const demoTick=ms=>new Promise(r=>setTimeout(r,ms));
@@ -1255,7 +1230,6 @@ function init(){
   $("g0b").innerHTML=G0B.map(qHTML).join("");
   $("g0c").innerHTML=CODE_HTML+G0C.map(qHTML).join("");
   $("g2").innerHTML=qHTML(["tieneAprobacion","¿La solicitud cuenta con aprobación de la gerencia?","select",SN,"La gerencia es el primer filtro. Una conversación en reunión no cuenta como aprobación: debe haber evidencia."]);
-  $("g3").innerHTML=G3.map(qHTML).join("")+'<input type="hidden" id="fuentePresupuesto"><input type="hidden" id="montoPresupuesto">';
   palabras();
   $("g5").innerHTML=qHTML(["solicitudConcreta","Sustento ejecutivo","textarea","Se genera a partir de tus respuestas; puedes editarlo."]);
   $("form").addEventListener("input",onAny);$("form").addEventListener("change",onAny);

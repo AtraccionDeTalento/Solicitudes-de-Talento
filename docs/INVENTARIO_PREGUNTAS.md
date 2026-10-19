@@ -58,70 +58,57 @@ En pantalla, las preguntas de Cambio de encargatura (13 a 16 aquí) se numeran 7
 
 | # | Pregunta | Respuesta | Condición | Dónde |
 |---|---|---|---|---|
-| 1 | ¿Qué puesto se solicita crear? | text |  | app.js:73 |
-| 2 | ¿Qué necesidad del negocio origina la creación del puesto? | textarea |  | app.js:74 |
-| 3 | ¿Por qué la estructura actual no puede cubrir esta necesidad? | textarea |  | app.js:75 |
-| 4 | **¿Cuántas posiciones se requieren y desde cuándo?** — Cantidad | 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8 · 9 · 10 · Más de 10 |  | app.js:76 |
-|  | Fecha tentativa | date |  | app.js:76 |
-| 5 | **¿Cómo será la posición?** — Permanente / Temporal | Permanente · Temporal |  | app.js:77 |
-|  | Reporta a | text |  | app.js:77 |
-|  | Tendrá personas a cargo | Sí · No |  | app.js:77 |
-| ↳ | Cantidad de personas | 1 · 2 · 3 · 4 · 5 · 6 a 10 · 11 a 20 · Más de 20 | si tienePersonasPN = Sí | app.js:78 |
-| 6 | ¿Qué responsabilidades y resultados principales tendrá el puesto? | textarea |  | app.js:79 |
-| 7 | ¿Qué impacto tendría no crear esta posición? | textarea |  | app.js:80 |
+| 1 | ¿Qué puesto se solicita crear? | text |  | app.js:71 |
+| 2 | ¿Qué necesidad del negocio origina la creación del puesto? | textarea |  | app.js:72 |
+| 3 | ¿Por qué la estructura actual no puede cubrir esta necesidad? | textarea |  | app.js:73 |
+| 4 | **¿Cuántas posiciones se requieren y desde cuándo?** — Cantidad | 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8 · 9 · 10 · Más de 10 |  | app.js:74 |
+|  | Fecha tentativa | date |  | app.js:74 |
+| 5 | **¿Cómo será la posición?** — Permanente / Temporal | Permanente · Temporal |  | app.js:75 |
+|  | Reporta a | text |  | app.js:75 |
+|  | Tendrá personas a cargo | Sí · No |  | app.js:75 |
+| ↳ | Cantidad de personas | 1 · 2 · 3 · 4 · 5 · 6 a 10 · 11 a 20 · Más de 20 | si tienePersonasPN = Sí | app.js:76 |
+| 6 | ¿Qué responsabilidades y resultados principales tendrá el puesto? | textarea |  | app.js:77 |
+| 7 | ¿Qué impacto tendría no crear esta posición? | textarea |  | app.js:78 |
 
 ### Incremento salarial
 
 | # | Pregunta | Respuesta | Condición | Dónde |
 |---|---|---|---|---|
-| 1 | ¿Cuál es el motivo principal del incremento? | Retención · Ampliación de responsabilidades · Mérito · Regularización · Obtención de Grado Académico · Otro |  | app.js:82 |
-| 2 | ¿Detallar el motivo seleccionado? | textarea |  | app.js:83 |
-| 3 | ¿Qué ocurriría si el incremento no se realiza? | textarea |  | app.js:84 |
-| 4 | ¿Existe riesgo de salida? | Sí · No | si motivoIncremento = Retención | app.js:85 |
-| 5 | ¿El colaborador comunicó intención de renuncia? | Sí · No | si motivoIncremento = Retención | app.js:86 |
-| 6 | ¿Existe una oferta externa? | Sí · No | si motivoIncremento = Retención | app.js:87 |
-| ↳ | Adjuntar evidencia | Correo · Carta oferta · Mensaje · Otro | si ofertaExterna = Sí | app.js:88 |
+| 1 | ¿Cuál es el motivo principal del incremento? | Retención · Ampliación de responsabilidades · Mérito · Regularización · Obtención de Grado Académico · Otro |  | app.js:80 |
+| 2 | ¿Detallar el motivo seleccionado? | textarea |  | app.js:81 |
+| 3 | ¿Qué ocurriría si el incremento no se realiza? | textarea |  | app.js:82 |
+| 4 | ¿Existe riesgo de salida? | Sí · No | si motivoIncremento = Retención | app.js:83 |
+| 5 | ¿El colaborador comunicó intención de renuncia? | Sí · No | si motivoIncremento = Retención | app.js:84 |
+| 6 | ¿Existe una oferta externa? | Sí · No | si motivoIncremento = Retención | app.js:85 |
+| ↳ | Adjuntar evidencia | Correo · Carta oferta · Mensaje · Otro | si ofertaExterna = Sí | app.js:86 |
 
-### Movimiento interno (preguntas antiguas: Amador no envió las suyas)
+### Movimiento interno
 
-| # | Pregunta | Respuesta | Condición | Dónde |
-|---|---|---|---|---|
-| 1 | **Necesidad** — ¿Qué necesidad origina el movimiento interno? | textarea |  | app.js:91 |
-|  | ¿Qué problema organizacional busca resolver? | textarea |  | app.js:92 |
-| 2 | **Destino** — Puesto destino | text |  | app.js:94 |
-|  | Área destino | text |  | app.js:95 |
-|  | ¿Existe cambio de ubicación? | Sí · No |  | app.js:96 |
-|  | ¿Existe cambio de jornada? | Sí · No |  | app.js:97 |
-| 3 | **Cambios en el rol** — ¿Cambia el nivel de responsabilidad? | Sí · No |  | app.js:99 |
-|  | ¿Cómo cambia el alcance? | textarea |  | app.js:100 |
-|  | ¿Qué funciones nuevas asumirá? | textarea |  | app.js:101 |
-| 4 | **Resultado esperado e impacto** — ¿Qué se espera lograr con el movimiento? | textarea |  | app.js:103 |
-|  | ¿Se solicita un incremento salarial con este movimiento? | Sí · No |  | app.js:104 |
+Sin preguntas propias: Amador no envió preguntas para este movimiento (solo pasa por la aprobación previa).
 
 ### Otro
 
 | # | Pregunta | Respuesta | Condición | Dónde |
 |---|---|---|---|---|
-| 1 | ¿Qué movimiento o cambio se solicita? | textarea |  | app.js:106 |
-| 2 | ¿Por qué se solicita este movimiento? | textarea |  | app.js:107 |
-| 3 | ¿Qué ocurriría si no se realiza? | textarea |  | app.js:108 |
+| 1 | ¿Qué movimiento o cambio se solicita? | textarea |  | app.js:89 |
+| 2 | ¿Por qué se solicita este movimiento? | textarea |  | app.js:90 |
+| 3 | ¿Qué ocurriría si no se realiza? | textarea |  | app.js:91 |
 
 ## Preguntas comunes (app.js)
 
 | Paso | Pregunta | Se ve | Dónde |
 |---|---|---|---|
 | Paso 1 | Tipo de movimiento (tarjetas) | Sí | app.js:607 |
-| Paso 1 | Fecha de solicitud | No (automática) | app.js:607 |
+| Paso 1 | Fecha de solicitud | No (automática) | app.js:580 |
 | Paso 1 | Nombre del líder | No (del inicio de sesión) | app.js:614 |
-| Paso 1 | Cargo del líder | No (del inicio de sesión) | app.js:614 |
-| Paso 1 | Correo del líder | No (del inicio de sesión) | app.js:614 |
+| Paso 1 | Cargo del líder | No (del inicio de sesión) | app.js:587 |
+| Paso 1 | Correo del líder | No (del inicio de sesión) | app.js:587 |
 | Paso 1 | Nombre y apellido del colaborador | Solo en «Corregir datos» | app.js:615 |
-| Paso 1 | Puesto | Solo en «Corregir datos» | app.js:615 |
-| Paso 1 | Departamento | Puesto nuevo / «Corregir datos» | app.js:615 |
-| Paso 1 | Área | Puesto nuevo / «Corregir datos» | app.js:615 |
-| Paso 1 | Sección | Puesto nuevo / «Corregir datos» | app.js:615 |
-| Paso 2 | ¿La solicitud cuenta con aprobación de la gerencia? | Sí | app.js:1291 |
-| Paso 2 | ¿Presupuesto confirmado por tu Socio de negocio? | Sí | app.js:617 |
+| Paso 1 | Puesto | Solo en «Corregir datos» | app.js:588 |
+| Paso 1 | Departamento | Puesto nuevo / «Corregir datos» | app.js:588 |
+| Paso 1 | Área | Puesto nuevo / «Corregir datos» | app.js:588 |
+| Paso 1 | Sección | Puesto nuevo / «Corregir datos» | app.js:588 |
+| Paso 2 | ¿La solicitud cuenta con aprobación de la gerencia? | Sí | app.js:1232 |
 | Paso 3 | Sustento ejecutivo (se arma solo) | Plegado en Revisión | app.js:1297 |
 | Paso 1 | Buscar por correo institucional (colaborador) | Sí | app.js:616 |
 | Paso 2 | Aprobación: ¿Quién aprobó? · Fecha de aprobación · Evidencia de aprobación · Adjuntar evidencia | Si hay aprobación | app.js:737 |

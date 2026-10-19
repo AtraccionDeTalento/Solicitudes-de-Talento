@@ -77,7 +77,6 @@ export const REQUERIDOS = {
   'Puesto nuevo': { puestoNuevo: 'nombre del puesto', necesidadPuesto: 'necesidad del negocio', fechaRequerida: 'fecha requerida' },
   'Incremento salarial': { motivoIncremento: 'motivo del incremento', situacionOrigen: 'detalle del motivo' },
   'Movimiento lateral': { puestoDestino: 'puesto destino', motivoMovimiento: 'necesidad que origina el movimiento' },   // tipo anterior: se conserva para leer casos viejos
-  'Movimiento interno': { puestoDestino: 'puesto destino', motivoMovimiento: 'necesidad que origina el movimiento' },
   'Movimiento horizontal': { tipoHorizontal: 'tipo de movimiento', motivoHorizontal: 'necesidad que origina el movimiento', funcionesNuevasHorizontal: 'funciones nuevas' },
   'Reestructuración de área': { areaReestructura: 'área que se reestructura', nPersonasAfectadas: 'colaboradores afectados', fechaVigenciaReestructura: 'fecha de vigencia' },
   'Revalorización de puesto': { queCambioRev: 'situación que origina la revisión', sustentoSubvaloracion: 'sustento de la revalorización' },
