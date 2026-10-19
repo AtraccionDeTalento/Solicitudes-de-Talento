@@ -115,7 +115,7 @@ const TIER_S=["cambioPresupuestoRev","cambioPresupuestoRep","cambioPosicionDetal
 const LIM_OV={personasCargo:[1,60],personasCargoPN:[1,60],personasCargoReemplazo:[1,60],equipoAdicional:[1,60],cambioPersonasRev:[1,60],periodoRenovacion:[2,40],vigenciaCaso:[2,60],
   puestoEncargado:[3,160],personaOVacanteReemplazo:[3,120],validaPresupuesto:[3,120],areaApoyoHorizontal:[3,120],tipoCasoEspecial:[3,100],
   detalleMovimientosRest:[60,1500],solicitudConcreta:[50,3000]};
-function limits(id,type){const [mn,mx]=limitsBase(id,type);return CONFIG.modoPrueba&&mn>3?[3,mx]:[mn,mx]}
+function limits(id,type){const [mn,mx]=limitsBase(id,type);return type==="textarea"?[1,mx]:CONFIG.modoPrueba&&mn>3?[3,mx]:[mn,mx]}   // sin mínimo de palabras en los párrafos: solo un tope
 function limitsBase(id,type){
   if(LIM_OV[id]) return LIM_OV[id];
   if(type==="textarea") return TA_TIER[TIER_L.includes(id)?"L":TIER_S.includes(id)?"S":"M"];
@@ -599,6 +599,7 @@ function qHTML([id,label,type,opts,help]){
   if(type==="textarea") c=`<textarea id="${id}" maxlength="${max}" placeholder="${ph}"></textarea><div class="cnt">0/${max} · mín. ${lmin}</div>`;
   else if(type==="select") c=`<select id="${id}"${opts.length<=6?' class="chipsel"':""}><option value="">Seleccionar</option>${opts.map(o=>`<option>${esc(o)}</option>`).join("")}</select>`+(opts.length<=6?`<div class="chips" data-for="${id}" role="group">${opts.map(o=>`<button type="button" class="chip" data-v="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join("")}</div>`:"");
   else c=`<input id="${id}" type="${type}"${type==="number"?' min="0" step="0.01"':' maxlength="'+max+'"'} placeholder="${ph}">`;
+  if(type==="date"&&!help) help="Indica la fecha tentativa.";
   if(id==="propuestaNegocio") help="Selecciona primero si la propuesta está en soles o porcentaje.";
   if(INGRESO_IDS.includes(id)){help=AVISO_INGRESO;if(FECHAS_INGRESO.length) c=`<select id="${id}"><option value="">Seleccionar</option>${FECHAS_INGRESO.map(o=>`<option value="${esc(o)}">${esc(fechaLarga(o))}</option>`).join("")}</select>`}
   return `<div class="q"><label for="${id}">${esc(label)}</label>${c}${help?`<div class="help"${id==="propuestaNegocio"?' id="propuestaNegocioHelp"':""}>${esc(help)}</div>`:""}<div class="err"></div></div>`;
